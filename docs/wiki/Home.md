@@ -2,8 +2,11 @@
 
 *Coucou!* is French for "peekaboo", or a cheeky "hi there". That is the entire product.
 
-coucou is a Discord bot that pops into a busy voice channel, plays one short sound and leaves.
-Every 5 minutes it rolls the dice for each server that has given it a chance. When it wins, it
+coucou is the application behind Discord bots that pop into a busy voice channel, play one short
+sound and leave. It is not a character itself: the bot people meet has its own name, Discord app and
+sounds, and coucou is what runs it.
+
+Every 5 minutes a bot rolls the dice for each server that has given it a chance. When it wins, it
 slips into the busiest voice channel with a human in it, maybe sits there in suspicious silence for
 a few seconds, plays one short sound, and leaves before anyone can react. Then everybody blames
 each other.

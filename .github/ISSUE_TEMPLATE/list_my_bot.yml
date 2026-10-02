@@ -1,12 +1,12 @@
-name: List my coucou
-description: Add your own coucou bot to the Community coucous table in the README
+name: List my bot
+description: Add your own bot running on coucou to the Community bots table in the README
 labels: ["community"]
 body:
   - type: markdown
     attributes:
       value: |
-        Running your own coucou with your own sounds? Tell us about it and it goes in the README's
-        **Community coucous** table.
+        Running your own bot on coucou, with your own sounds? Tell us about it and it goes in the
+        README's **Community bots** table.
 
   - type: input
     id: name

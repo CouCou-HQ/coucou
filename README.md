@@ -11,8 +11,11 @@
 
 *Coucou!* is French for "peekaboo", or a cheeky "hi there". That is the entire product.
 
-coucou is a Discord bot that pops into a busy voice channel, plays one short sound and leaves.
-Every 5 minutes it rolls the dice for each server that has given it a chance. When it wins, it
+coucou is the application behind Discord bots that pop into a busy voice channel, play one short
+sound and leave. It is not a character itself: the bot people meet has its own name, Discord app and
+sounds, and coucou is what runs it.
+
+Every 5 minutes a bot rolls the dice for each server that has given it a chance. When it wins, it
 slips into the busiest voice channel with a human in it, maybe sits there in suspicious silence for
 a few seconds, plays one short sound, and leaves before anyone can react. Then everybody blames
 each other.
@@ -22,11 +25,11 @@ Once it is in your server: `/chance` sets how often it visits, `/optout` hides y
 is in [Commands](#commands).
 
 Some sounds are **rare**: they turn up a tenth as often, can't be asked for with `/play`, and count
-towards your collection in `/stats` once coucou catches you with one.
+towards your collection in `/stats` once a bot catches you with one.
 
-## Bring your own coucou
+## Bring your own bot
 
-coucou doesn't care what's in its sounds folder. Point one at a directory of your own clips and you
+coucou doesn't care what's in its sounds folder. Point it at a directory of your own clips and you
 have a new bot: one binary, your sounds, your Discord app, your database. Nothing in the code knows
 which bot it is.
 
@@ -34,9 +37,9 @@ which bot it is.
    and names them in snake_case (`Wet Fart 3.mp3` becomes `wet_fart_3.ogg`, shown as
    **Wet Fart 3**). Add `--rare` for the special ones. See [Sounds](#sounds).
 2. **Run it.** A [release binary](#install), the [container image](#container) or the
-   [Helm chart](deployment), with `SOUNDS_DIR` pointing at your clips and a token from your own
+   [Helm chart](deployment), with `sounds.dir` pointing at your clips and a token from your own
    Discord application.
-3. **Get it listed.** Open a [**List my coucou**](https://github.com/be-sandaa/coucou/issues/new?template=list_my_coucou.yml)
+3. **Get it listed.** Open a [**List my bot**](https://github.com/be-sandaa/coucou/issues/new?template=list_my_bot.yml)
    issue, and it joins the table below.
 
 To be listed, a bot has to:
@@ -49,7 +52,7 @@ To be listed, a bot has to:
 > The repository, the image and the release binaries are private for now, so this is the plan for
 > when they open up rather than something you can do today.
 
-### Community coucous
+### Community bots
 
 | Bot | What it does | Maintainer | |
 |---|---|---|---|
@@ -57,7 +60,7 @@ To be listed, a bot has to:
 
 ---
 
-Everything from here down is for running coucou yourself, or hacking on it.
+Everything from here down is for running a bot on coucou yourself, or hacking on coucou.
 
 ## Install
 
