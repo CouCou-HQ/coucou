@@ -169,10 +169,18 @@ func boardRow(i int, frac float64, n, countWidth int, label string) string {
 
 // The two places DESIGN.md allows decoration: a wordmark on the command that explains the bot, and
 // a speaker on the one that makes the noise.
-const mascotHelp = "```\n" +
-	"  C O U C O U\n" +
-	"  -----------\n" +
-	"```"
+
+// wordmark letter-spaces the bot's name in capitals over an underline of the same width. The name
+// is a nickname any server admin can set, so backticks go (one would close the fence) and the
+// spaced-out letters are clipped to the budget after the two-column indent.
+func wordmark(name string) string {
+	letters := strings.Join(strings.Split(strings.ToUpper(strings.ReplaceAll(name, "`", "")), ""), " ")
+	letters = truncate(letters, blockWidth-3) // -2 for the indent, -1 for the ellipsis truncate adds
+	return "```\n" +
+		"  " + letters + "\n" +
+		"  " + strings.Repeat("-", cols(letters)) + "\n" +
+		"```"
+}
 
 // nowPlaying strips backticks from the name — it is a filename off disk, and one containing a
 // backtick would close the fence and spill the rest of the embed as markdown — then clips it to

@@ -67,7 +67,7 @@ type Commands struct {
 	plays        cooldown
 }
 
-// Sibling is another coucou bot that /help points people to: a different sound set run by the same
+// Sibling is another bot running on coucou that /help points people to: a different sound set run by the same
 // people. The binary does not know which bot it is, so the list comes from config and includes this
 // one; /help leaves out whichever entry is itself.
 type Sibling struct {
@@ -678,7 +678,8 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 	if next, ok := c.plays.take(guild, e.User().ID); !ok {
 		return e.CreateMessage(say(bad("Slow down", fmt.Sprintf("The next play is allowed <t:%d:R>.", next.Unix()))))
 	}
-	body := nowPlaying(sounds.Display(sound)) + playAd(c.siblings, c.client.ApplicationID, rand.IntN)
+	name, _ := c.self(guild)
+	body := nowPlaying(sounds.Display(sound)) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
 	if err := e.CreateMessage(say(info("Playing", body))); err != nil {
 		return err
 	}
@@ -730,10 +731,28 @@ const helpLimits = "**Keeping the bot out**\n" +
 	"**Browsing sounds**\n" +
 	"Run `/play` and leave the sound blank — the autocomplete lists everything loaded."
 
-func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, _ snowflake.ID, _ discord.SlashCommandInteractionData) error {
-	return e.CreateMessage(say(info("Coucou", mascotHelp+"\n**Commands**\n"+commandList()+"\n"+helpLimits+
-		siblingsHelp(c.siblings, c.client.ApplicationID))))
+func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
+	name, avatar := c.self(guild)
+	body := wordmark(name) + "\n**Commands**\n" + commandList() + "\n" + helpLimits +
+		siblingsHelp(c.siblings, c.client.ApplicationID, name)
+	return e.CreateMessage(say(info(name, body).WithThumbnail(avatar)))
 }
+
+// self is the bot as people in guild see it: its nickname there, else its own name, and the avatar
+// that goes with it. coucou is the application, never the character, so nothing here names it.
+func (c *Commands) self(guild snowflake.ID) (name, avatar string) {
+	if m, ok := c.client.Caches.SelfMember(guild); ok {
+		return m.EffectiveName(), m.EffectiveAvatarURL()
+	}
+	if u, ok := c.client.Caches.SelfUser(); ok {
+		return u.EffectiveName(), u.EffectiveAvatarURL()
+	}
+	return "the bot", ""
+}
+
+// markdown escapes what would restyle or break a name dropped into bold or a link label: a
+// nickname is set by the server's admins, not by whoever runs the bot.
+var markdown = strings.NewReplacer(`\`, `\\`, "*", `\*`, "_", `\_`, "~", `\~`, "`", "\\`", "|", `\|`, "[", `\[`, "]", `\]`)
 
 // playAdOdds is 1 in how many /play replies plug a sibling: rare enough to read as a wink rather
 // than an ad, and only on a reply someone asked for, never on a visit nobody did.
@@ -741,7 +760,7 @@ const playAdOdds = 100
 
 // playAd is the occasional line under a /play reply pointing at one random sibling. It is empty on
 // every other roll, and whenever there is nobody but this bot to point at.
-func playAd(siblings []Sibling, self snowflake.ID, intN func(int) int) string {
+func playAd(siblings []Sibling, self snowflake.ID, name string, intN func(int) int) string {
 	if intN(playAdOdds) != 0 {
 		return ""
 	}
@@ -755,12 +774,12 @@ func playAd(siblings []Sibling, self snowflake.ID, intN func(int) int) string {
 		return ""
 	}
 	s := others[intN(len(others))]
-	return "\n*Psst... coucou has friends. Try [" + s.Name + "](" + inviteURL(s.App) + ").*"
+	return "\n*Psst... " + markdown.Replace(name) + " has friends. Try [" + s.Name + "](" + inviteURL(s.App) + ").*"
 }
 
-// siblingsHelp is the "More from coucou" part of /help: an invite link for every sibling but this
+// siblingsHelp is the "Friends of <name>" part of /help: an invite link for every sibling but this
 // bot itself, or nothing at all when there are none.
-func siblingsHelp(siblings []Sibling, self snowflake.ID) string {
+func siblingsHelp(siblings []Sibling, self snowflake.ID, name string) string {
 	var b strings.Builder
 	for _, s := range siblings {
 		if s.App != self {
@@ -770,7 +789,7 @@ func siblingsHelp(siblings []Sibling, self snowflake.ID) string {
 	if b.Len() == 0 {
 		return ""
 	}
-	return "\n\n**More from coucou**" + b.String()
+	return "\n\n**Friends of " + markdown.Replace(name) + "**" + b.String()
 }
 
 // inviteURL is the OAuth2 link that adds the bot to a server, asking for voice.Needed and nothing
@@ -796,9 +815,10 @@ const inviteWhy = "**What it asks for**\n" +
 	"• **Speak** — to make the noise. That is the entire point.\n\n" +
 	"Nothing else: it cannot read your messages, and it never joins a channel that denies it any of the three."
 
-func (c *Commands) cmdInvite(_ context.Context, e *events.ApplicationCommandInteractionCreate, _ snowflake.ID, _ discord.SlashCommandInteractionData) error {
-	body := "[**Add Coucou to a server**](" + inviteURL(c.client.ApplicationID) + ")\n\n" + inviteWhy
-	return e.CreateMessage(say(info("Invite", body)))
+func (c *Commands) cmdInvite(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
+	name, avatar := c.self(guild)
+	body := "[**Add " + markdown.Replace(name) + " to a server**](" + inviteURL(c.client.ApplicationID) + ")\n\n" + inviteWhy
+	return e.CreateMessage(say(info("Invite", body).WithThumbnail(avatar)))
 }
 
 // optOutTerms is the half of every opt-out reply that does not change with the subcommand.

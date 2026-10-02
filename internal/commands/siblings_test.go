@@ -17,14 +17,14 @@ var (
 func TestSiblingsHelpLeavesOutItself(t *testing.T) {
 	self, other, siblings := siblingSelf, siblingOther, siblingFixtures
 
-	got := siblingsHelp(siblings, self)
-	if strings.Contains(got, "Moan") || !strings.Contains(got, "[The Narrator]("+inviteURL(other)+")") {
+	got := siblingsHelp(siblings, self, "Moan")
+	if strings.Contains(got, "[Moan](") || !strings.Contains(got, "[The Narrator]("+inviteURL(other)+")") {
 		t.Errorf("siblingsHelp = %q, want only The Narrator's invite", got)
 	}
-	if got := siblingsHelp(siblings[:1], self); got != "" {
+	if got := siblingsHelp(siblings[:1], self, "Moan"); got != "" {
 		t.Errorf("siblingsHelp with only itself = %q, want empty", got)
 	}
-	if got := siblingsHelp(nil, self); got != "" {
+	if got := siblingsHelp(nil, self, "Moan"); got != "" {
 		t.Errorf("siblingsHelp(nil) = %q, want empty", got)
 	}
 }
@@ -48,10 +48,19 @@ func TestPlayAd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := playAd(tt.siblings, self, tt.intN)
+			got := playAd(tt.siblings, self, "Moan", tt.intN)
 			if (tt.want == "") != (got == "") || !strings.Contains(got, tt.want) {
 				t.Errorf("playAd = %q, want one containing %q", got, tt.want)
 			}
 		})
+	}
+}
+
+// The name is a nickname any server admin can set, so it is escaped before it lands in bold or in a
+// link label, where a stray ] or * would break the markdown around it.
+func TestSiblingsHelpEscapesTheName(t *testing.T) {
+	got := siblingsHelp(siblingFixtures, siblingSelf, "*Mo]an_")
+	if !strings.Contains(got, `**Friends of \*Mo\]an\_**`) {
+		t.Errorf("siblingsHelp = %q, want the name escaped inside the heading", got)
 	}
 }

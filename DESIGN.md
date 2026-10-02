@@ -84,7 +84,10 @@ limit for a gimmick.
   are frame enough. Trends are said in words beside them — "up 18% on the week
   before" — never as an arrow, which a screen reader announces as a triangle.
 - **Mascot** — the `/help` wordmark and the `/play` speaker. Decoration, and the
-  only two places decoration is allowed.
+  only two places decoration is allowed. The wordmark is the bot's own name as the
+  server sees it, letter-spaced: coucou is the application, never the character.
+- **Avatar** — the bot's avatar as a thumbnail on `/help` and `/invite`, the two
+  replies that say who the bot is. Identity, not decoration, so nowhere else.
 
 ## Colour inside blocks (ANSI)
 
