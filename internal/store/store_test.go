@@ -118,10 +118,9 @@ func find(t *testing.T, s store.Store, g snowflake.ID) store.Settings {
 func TestSettingsRoundTrip(t *testing.T) {
 	run(t, "settings", func(t *testing.T, s store.Store) {
 		g := guildID(t)
-		from, to := 23, 8
 
 		if err := s.UpsertSettings(context.Background(), store.Settings{
-			Guild: g, Chance: 42, QuietFrom: &from, QuietTo: &to, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20,
+			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20,
 		}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
@@ -130,35 +129,23 @@ func TestSettingsRoundTrip(t *testing.T) {
 		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || !is(got.TZ, tzBrussels) {
 			t.Errorf("got %+v", got)
 		}
-		if !is(got.QuietFrom, 23) {
-			t.Errorf("QuietFrom did not round-trip: %v", got.QuietFrom)
-		}
-		if !is(got.QuietTo, 8) {
-			t.Errorf("QuietTo did not round-trip: %v", got.QuietTo)
-		}
 	})
 }
 
-// Clearing quiet hours must store real NULLs, not zeroes — the loop reads nil as "no quiet hours".
-// The zone likewise: nil is a guild that never chose one, and an empty string would read as chosen.
-func TestUpsertSettingsClearsQuietHours(t *testing.T) {
-	run(t, "clear-quiet", func(t *testing.T, s store.Store) {
+// Clearing the zone must store a real NULL: nil is a guild that never chose one, and an empty
+// string would read as chosen.
+func TestUpsertSettingsClearsTheZone(t *testing.T) {
+	run(t, "clear-zone", func(t *testing.T, s store.Store) {
 		ctx := context.Background()
 		g := guildID(t)
-		from, to := 23, 8
-		if err := s.UpsertSettings(ctx, store.Settings{
-			Guild: g, Chance: 42, QuietFrom: &from, QuietTo: &to, TZ: new(tzBrussels), Suspense: 7,
-		}); err != nil {
+		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
 		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 5}); err != nil {
-			t.Fatalf("upsert nil quiet: %v", err)
+			t.Fatalf("upsert nil zone: %v", err)
 		}
 		got := find(t, s, g)
-		if got.QuietFrom != nil || got.QuietTo != nil {
-			t.Errorf("quiet hours should be nil, got %v %v", got.QuietFrom, got.QuietTo)
-		}
 		if got.Chance != 5 || got.TZ != nil {
 			t.Errorf("upsert did not overwrite: %+v", got)
 		}
@@ -654,20 +641,34 @@ func TestUnknownBoardIsAnError(t *testing.T) {
 	})
 }
 
-// optOut returns the backend's row for user, if it still lists one. Expired rows are filtered by
-// the query rather than swept, so "still lists" is the whole contract a timed opt-out rests on.
-func optOut(t *testing.T, s store.Store, user snowflake.ID) (store.OptOut, bool) {
+// optOut returns the backend's live row for user, if it still lists one. Ended rows are filtered by
+// the query, so "still lists" is the whole contract a timed opt-out rests on. More than one live
+// row means a set failed to close the one before it.
+func optOut(t *testing.T, s store.Store, user snowflake.ID) (store.Silence, bool) {
 	t.Helper()
 	rows, err := s.ListOptOuts(context.Background())
 	if err != nil {
 		t.Fatalf("list opt-outs: %v", err)
 	}
+	return live(t, rows, user)
+}
+
+func live(t *testing.T, rows []store.Silence, id snowflake.ID) (store.Silence, bool) {
+	t.Helper()
+	var got []store.Silence
 	for _, r := range rows {
-		if r.User == user {
-			return r, true
+		if r.ID == id {
+			got = append(got, r)
 		}
 	}
-	return store.OptOut{}, false
+	switch len(got) {
+	case 0:
+		return store.Silence{}, false
+	case 1:
+		return got[0], true
+	}
+	t.Fatalf("%s has %d live rows, want one", id, len(got))
+	return store.Silence{}, false
 }
 
 // has reports whether user is in the backend's opt-out list.
@@ -689,23 +690,23 @@ func TestOptOutRoundTrip(t *testing.T) {
 			t.Fatalf("%s is opted out before anything was written", user)
 		}
 
-		if err := s.SetOptOut(ctx, store.OptOut{User: user}); err != nil {
+		if err := s.SetOptOut(ctx, store.Silence{ID: user}); err != nil {
 			t.Fatalf("set: %v", err)
 		}
 		if !has(t, s, user) {
 			t.Errorf("%s is not opted out after set", user)
 		}
 
-		// Running /optout on twice is an ordinary thing for someone to do, so the second write has
-		// to be a no-op rather than a primary key violation.
-		if err := s.SetOptOut(ctx, store.OptOut{User: user}); err != nil {
+		// Running /optout on twice is an ordinary thing for someone to do: the second row replaces
+		// the first rather than standing beside it.
+		if err := s.SetOptOut(ctx, store.Silence{ID: user}); err != nil {
 			t.Errorf("setting twice: %v", err)
 		}
 		if !has(t, s, user) {
 			t.Errorf("%s stopped being opted out after a second set", user)
 		}
 
-		if err := s.SetOptOut(ctx, store.OptOut{User: other}); err != nil {
+		if err := s.SetOptOut(ctx, store.Silence{ID: other}); err != nil {
 			t.Fatalf("set other: %v", err)
 		}
 		if err := s.ClearOptOut(ctx, user); err != nil {
@@ -729,10 +730,10 @@ func TestTimedOptOut(t *testing.T) {
 		live, done := userID(t), userID(t)
 		until, past := time.Now().UTC().Add(time.Hour), time.Now().UTC().Add(-time.Hour)
 
-		if err := s.SetOptOut(ctx, store.OptOut{User: live, Until: &until}); err != nil {
+		if err := s.SetOptOut(ctx, store.Silence{ID: live, Until: &until}); err != nil {
 			t.Fatalf("set timed: %v", err)
 		}
-		if err := s.SetOptOut(ctx, store.OptOut{User: done, Until: &past}); err != nil {
+		if err := s.SetOptOut(ctx, store.Silence{ID: done, Until: &past}); err != nil {
 			t.Fatalf("set expired: %v", err)
 		}
 
@@ -751,9 +752,8 @@ func TestTimedOptOut(t *testing.T) {
 			t.Errorf("%s is listed although the opt-out ran out an hour ago", done)
 		}
 
-		// Opting out again is how a deadline is dropped. The do-nothing insert this used to be
-		// would have kept the old one and quietly ended an opt-out the user made permanent.
-		if err := s.SetOptOut(ctx, store.OptOut{User: live}); err != nil {
+		// Opting out again is how a deadline is dropped.
+		if err := s.SetOptOut(ctx, store.Silence{ID: live}); err != nil {
 			t.Fatalf("set indefinite: %v", err)
 		}
 		row, ok = optOut(t, s, live)
@@ -775,7 +775,7 @@ func TestRecurringOptOut(t *testing.T) {
 		user := userID(t)
 		const rule = "DTSTART;TZID=Europe/Brussels:20260922T000000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9"
 
-		if err := s.SetOptOut(ctx, store.OptOut{User: user, Rule: rule, Window: 8 * time.Hour}); err != nil {
+		if err := s.SetOptOut(ctx, store.Silence{ID: user, Rule: rule, Window: 8 * time.Hour}); err != nil {
 			t.Fatalf("set recurring: %v", err)
 		}
 		row, ok := optOut(t, s, user)
@@ -792,8 +792,8 @@ func TestRecurringOptOut(t *testing.T) {
 			t.Errorf("until = %v, want none on a recurring row", row.Until)
 		}
 
-		// Switching back to a plain opt-out has to clear the schedule, or the row would carry both.
-		if err := s.SetOptOut(ctx, store.OptOut{User: user}); err != nil {
+		// Switching back to a plain opt-out has to end the schedule rather than keep it alongside.
+		if err := s.SetOptOut(ctx, store.Silence{ID: user}); err != nil {
 			t.Fatalf("set indefinite: %v", err)
 		}
 		row, _ = optOut(t, s, user)
@@ -808,6 +808,58 @@ func TestClearOptOutIsNotAnErrorWhenAbsent(t *testing.T) {
 	run(t, "optouts-absent", func(t *testing.T, s store.Store) {
 		if err := s.ClearOptOut(context.Background(), userID(t)); err != nil {
 			t.Errorf("clearing an absent opt-out: %v", err)
+		}
+	})
+}
+
+func quiet(t *testing.T, s store.Store, g snowflake.ID) (store.Silence, bool) {
+	t.Helper()
+	rows, err := s.ListQuiet(context.Background())
+	if err != nil {
+		t.Fatalf("list quiet: %v", err)
+	}
+	return live(t, rows, g)
+}
+
+// Quiet is the same table shape as the opt-outs, per guild.
+func TestQuietRoundTrip(t *testing.T) {
+	run(t, "quiet", func(t *testing.T, s store.Store) {
+		ctx := context.Background()
+		g := guildID(t)
+		const rule = "DTSTART;TZID=Europe/Brussels:20260922T000000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=22"
+
+		if err := s.SetQuiet(ctx, store.Silence{ID: g, Rule: rule, Window: 9 * time.Hour, By: 42}); err != nil {
+			t.Fatalf("set: %v", err)
+		}
+		if row, ok := quiet(t, s, g); !ok || row.Rule != rule || row.Window != 9*time.Hour {
+			t.Errorf("got %+v, %v", row, ok)
+		}
+		if err := s.SetQuiet(ctx, store.Silence{ID: g, By: 42}); err != nil {
+			t.Fatalf("replace: %v", err)
+		}
+		if row, _ := quiet(t, s, g); row.Rule != "" {
+			t.Errorf("schedule survived a replace: %+v", row)
+		}
+	})
+}
+
+func TestClearQuietLeavesOtherGuilds(t *testing.T) {
+	run(t, "quiet-clear", func(t *testing.T, s store.Store) {
+		ctx := context.Background()
+		g, other := guildID(t), guildID(t)
+		for _, id := range []snowflake.ID{g, other} {
+			if err := s.SetQuiet(ctx, store.Silence{ID: id, By: 42}); err != nil {
+				t.Fatalf("set: %v", err)
+			}
+		}
+		if err := s.ClearQuiet(ctx, g); err != nil {
+			t.Fatalf("clear: %v", err)
+		}
+		if _, ok := quiet(t, s, g); ok {
+			t.Error("still quiet after clear")
+		}
+		if _, ok := quiet(t, s, other); !ok {
+			t.Error("clearing one guild cleared another")
 		}
 	})
 }

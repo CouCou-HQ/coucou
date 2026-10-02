@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/be-sandaa/coucou/internal/schedule"
-	"github.com/be-sandaa/coucou/internal/settings"
 )
 
 func TestChaosRefusesAnythingButABoost(t *testing.T) {
@@ -53,7 +52,7 @@ func TestQuietOverlapWarns(t *testing.T) {
 				t.Fatalf("buildRule: %v", err)
 			}
 			w := schedule.Window{Rule: r, Length: time.Duration(c.hours) * time.Hour}
-			quiet := func(t time.Time) bool { return settings.QuietAt(c.quietFrom, c.quietTo, t.In(loc).Hour()) }
+			quiet := func(t time.Time) bool { return clockHours(c.quietFrom, c.quietTo, t.In(loc).Hour()) }
 			if got := quietOverlap(w, quiet, ruleNow); got != c.want {
 				t.Errorf("overlap = %v, want %v", got, c.want)
 			}

@@ -102,9 +102,12 @@ func (*fakeStore) Cuts(context.Context, string, time.Time, time.Time) ([]float64
 	return nil, nil
 }
 
-func (f *fakeStore) ListOptOuts(context.Context) ([]store.OptOut, error) { return nil, nil }
-func (f *fakeStore) SetOptOut(context.Context, store.OptOut) error       { return nil }
-func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error     { return nil }
+func (f *fakeStore) ListOptOuts(context.Context) ([]store.Silence, error) { return nil, nil }
+func (f *fakeStore) SetOptOut(context.Context, store.Silence) error       { return nil }
+func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error      { return nil }
+func (f *fakeStore) ListQuiet(context.Context) ([]store.Silence, error)   { return nil, nil }
+func (f *fakeStore) SetQuiet(context.Context, store.Silence) error        { return nil }
+func (f *fakeStore) ClearQuiet(context.Context, snowflake.ID) error       { return nil }
 
 // A join writes the guild row, seeds its settings, and fills in a zone from its locale. The
 // defaults are only written when there is something non-zero to write; the zone always is, for a

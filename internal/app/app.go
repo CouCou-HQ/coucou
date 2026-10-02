@@ -23,11 +23,11 @@ import (
 	"github.com/be-sandaa/coucou/internal/logging"
 	"github.com/be-sandaa/coucou/internal/metrics"
 	"github.com/be-sandaa/coucou/internal/ops"
-	"github.com/be-sandaa/coucou/internal/optout"
 	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/ranks"
 	"github.com/be-sandaa/coucou/internal/rollup"
 	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/store"
 	"github.com/be-sandaa/coucou/internal/tracing"
@@ -145,9 +145,10 @@ func serve(cfg config, prof profile.Profile, build Build) error {
 		p.client.Close(ctx)
 		return nil
 	})
-	// Recurring opt-outs and chaos are windows the loop reads from memory; without these tickers
+	// Recurring opt-outs, quiet and chaos are windows the loop reads from memory; without these tickers
 	// they would stay frozen at whichever occurrence was live when the process started.
 	r.Add(p.optouts.Run, nil)
+	r.Add(p.quiet.Run, nil)
 	r.Add(p.chaos.Run, nil)
 	r.Add(p.ranks.Run, nil)
 	r.Add(p.rollup.Run, nil)
@@ -168,7 +169,8 @@ type parts struct {
 	bus      *bus.Bus
 	events   *ev.Log
 	loop     *bot.Loop
-	optouts  *optout.Store
+	optouts  *silence.Store
+	quiet    *silence.Store
 	chaos    *chaos.Store
 	ranks    *ranks.Cuts
 	rollup   *rollup.Refresher
@@ -176,30 +178,32 @@ type parts struct {
 	sounds   *sounds.Registry
 }
 
-// mirrors loads the tables the bot answers from memory.
-func mirrors(ctx context.Context, db store.Store) (*settings.Store, *optout.Store, *chaos.Store, error) {
-	set := settings.New(db)
-	if err := set.Load(ctx); err != nil {
-		return nil, nil, nil, fmt.Errorf("settings: load: %w", err)
-	}
+// mem is the tables the bot answers from memory.
+type mem struct {
+	settings *settings.Store
+	optouts  *silence.Store
+	quiet    *silence.Store
+	chaos    *chaos.Store
+}
 
-	opt := optout.New(db)
-	if err := opt.Load(ctx); err != nil {
-		return nil, nil, nil, fmt.Errorf("optout: load: %w", err)
+func mirrors(ctx context.Context, db store.Store) (mem, error) {
+	m := mem{settings: settings.New(db), optouts: silence.OptOuts(db), quiet: silence.Quiet(db), chaos: chaos.New(db)}
+	for name, load := range map[string]func(context.Context) error{
+		"settings": m.settings.Load, "optouts": m.optouts.Load, "quiet": m.quiet.Load, "chaos": m.chaos.Load,
+	} {
+		if err := load(ctx); err != nil {
+			return mem{}, fmt.Errorf("%s: load: %w", name, err)
+		}
 	}
-
-	cha := chaos.New(db)
-	if err := cha.Load(ctx); err != nil {
-		return nil, nil, nil, fmt.Errorf("chaos: load: %w", err)
-	}
-	return set, opt, cha, nil
+	return m, nil
 }
 
 func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (*parts, error) {
-	set, opt, cha, err := mirrors(r, db)
+	m, err := mirrors(r, db)
 	if err != nil {
 		return nil, err
 	}
+	set, opt, quiet, cha := m.settings, m.optouts, m.quiet, m.chaos
 
 	reg := sounds.New(prof.SoundsDir())
 	log := ev.New(db)
@@ -219,7 +223,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	}
 	// The player is built before the two things that use it — the loop and /play — because it is
 	// the shared cap on simultaneous voice connections, not a per-caller one.
-	player := bot.NewPlayer(client, reg, set, opt, eb)
+	player := bot.NewPlayer(client, reg, quiet, opt, eb)
 	// /play hands off rather than calling straight through: a full pool makes the caller wait, and
 	// the caller here is a gateway handler.
 	//
@@ -238,7 +242,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 		}()
 	}
 	rk := ranks.New(db)
-	cmds := commands.New(client, set, opt, cha, reg, log, rk, eb, play, prof, cfg.OwnerIDs, cfg.Siblings)
+	cmds := commands.New(client, set, opt, quiet, cha, reg, log, rk, eb, play, prof, cfg.OwnerIDs, cfg.Siblings)
 	ready := bot.NewReadyTracker()
 	pulse := bot.NewPulse()
 
@@ -290,8 +294,9 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 		pulse:    pulse,
 		bus:      eb,
 		events:   log,
-		loop:     bot.NewLoop(client, set, reg, player, opt, cha),
+		loop:     bot.NewLoop(client, set, reg, player, opt, quiet, cha),
 		optouts:  opt,
+		quiet:    quiet,
 		chaos:    cha,
 		ranks:    rk,
 		rollup:   rollup.New(db),

@@ -10,15 +10,13 @@ import (
 )
 
 const listSettings = `-- name: ListSettings :many
-select guild_id, join_chance, quiet_from, quiet_to, tz, suspense, fakeout, encore
+select guild_id, join_chance, tz, suspense, fakeout, encore
 from guilds.settings
 `
 
 type ListSettingsRow struct {
 	GuildID    int64
 	JoinChance int16
-	QuietFrom  *int16
-	QuietTo    *int16
 	Tz         *string
 	Suspense   int16
 	Fakeout    int16
@@ -37,8 +35,6 @@ func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
 		if err := rows.Scan(
 			&i.GuildID,
 			&i.JoinChance,
-			&i.QuietFrom,
-			&i.QuietTo,
 			&i.Tz,
 			&i.Suspense,
 			&i.Fakeout,
@@ -55,12 +51,10 @@ func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
 }
 
 const upsertSettings = `-- name: UpsertSettings :exec
-insert into guilds.settings (guild_id, join_chance, quiet_from, quiet_to, tz, suspense, fakeout, encore, updated_by)
-values ($1, $2, $3, $4, $5, $6, $7, $8, nullif($9::bigint, 0))
+insert into guilds.settings (guild_id, join_chance, tz, suspense, fakeout, encore, updated_by)
+values ($1, $2, $3, $4, $5, $6, nullif($7::bigint, 0))
 on conflict (guild_id) do update set
   join_chance = excluded.join_chance,
-  quiet_from  = excluded.quiet_from,
-  quiet_to    = excluded.quiet_to,
   tz          = excluded.tz,
   suspense    = excluded.suspense,
   fakeout     = excluded.fakeout,
@@ -72,8 +66,6 @@ on conflict (guild_id) do update set
 type UpsertSettingsParams struct {
 	GuildID    int64
 	JoinChance int16
-	QuietFrom  *int16
-	QuietTo    *int16
 	Tz         *string
 	Suspense   int16
 	Fakeout    int16
@@ -87,8 +79,6 @@ func (q *Queries) UpsertSettings(ctx context.Context, arg UpsertSettingsParams) 
 	_, err := q.db.Exec(ctx, upsertSettings,
 		arg.GuildID,
 		arg.JoinChance,
-		arg.QuietFrom,
-		arg.QuietTo,
 		arg.Tz,
 		arg.Suspense,
 		arg.Fakeout,

@@ -11,7 +11,7 @@
 //	CommandInvoked ─► stats writer
 //	GuildLeft      ─► stats writer (boot reconcile only)
 //	SoundAdded/Removed             ─► (nobody yet; log only)
-//	SettingsChanged                ─► console line only (the record is a trigger on guild_settings)
+//	SettingsChanged                ─► console line only (the record is the settings trigger, or the quiet row)
 //
 // Each handler is built by its own constructor taking exactly what it acts on, and the result goes
 // to bus.On at the composition root. Names match the event they consume; the two events that have

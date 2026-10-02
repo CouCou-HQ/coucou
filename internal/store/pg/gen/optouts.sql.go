@@ -10,31 +10,52 @@ import (
 	"time"
 )
 
-const clearOptOut = `-- name: ClearOptOut :exec
-delete from users.optouts where user_id = $1
+const closeOptOut = `-- name: CloseOptOut :exec
+update users.optouts set disabled_at = now()
+where user_id = $1 and (disabled_at is null or disabled_at > now())
 `
 
-func (q *Queries) ClearOptOut(ctx context.Context, userID int64) error {
-	_, err := q.db.Exec(ctx, clearOptOut, userID)
+func (q *Queries) CloseOptOut(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, closeOptOut, userID)
+	return err
+}
+
+const insertOptOut = `-- name: InsertOptOut :exec
+insert into users.optouts (user_id, rrule, window_s, disabled_at) values ($1, $2, $3, $4)
+`
+
+type InsertOptOutParams struct {
+	UserID     int64
+	Rrule      *string
+	WindowS    *int32
+	DisabledAt *time.Time
+}
+
+func (q *Queries) InsertOptOut(ctx context.Context, arg InsertOptOutParams) error {
+	_, err := q.db.Exec(ctx, insertOptOut,
+		arg.UserID,
+		arg.Rrule,
+		arg.WindowS,
+		arg.DisabledAt,
+	)
 	return err
 }
 
 const listOptOuts = `-- name: ListOptOuts :many
-select user_id, until, rrule, window_s from users.optouts where until is null or until > now()
+select user_id, rrule, window_s, disabled_at from users.optouts
+where disabled_at is null or disabled_at > now()
+order by id
 `
 
 type ListOptOutsRow struct {
-	UserID  int64
-	Until   *time.Time
-	Rrule   *string
-	WindowS *int32
+	UserID     int64
+	Rrule      *string
+	WindowS    *int32
+	DisabledAt *time.Time
 }
 
-// Read once at boot. The set is small (people who actively asked), and every later change comes
-// through SetOptOut/ClearOptOut, so the loop never reads this table.
-//
-// Expired rows are filtered here rather than swept by a job: they cost one predicate on a query
-// that runs once per process, and a row nobody will read again is not worth a schedule.
+// Each user's live row, read once at boot. Oldest first, so a race that left two live rows ends up
+// mirroring the newer one.
 func (q *Queries) ListOptOuts(ctx context.Context) ([]ListOptOutsRow, error) {
 	rows, err := q.db.Query(ctx, listOptOuts)
 	if err != nil {
@@ -46,9 +67,9 @@ func (q *Queries) ListOptOuts(ctx context.Context) ([]ListOptOutsRow, error) {
 		var i ListOptOutsRow
 		if err := rows.Scan(
 			&i.UserID,
-			&i.Until,
 			&i.Rrule,
 			&i.WindowS,
+			&i.DisabledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -58,31 +79,4 @@ func (q *Queries) ListOptOuts(ctx context.Context) ([]ListOptOutsRow, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const setOptOut = `-- name: SetOptOut :exec
-insert into users.optouts (user_id, until, rrule, window_s) values ($1, $2, $3, $4)
-on conflict (user_id) do update set
-  until    = excluded.until,
-  rrule    = excluded.rrule,
-  window_s = excluded.window_s
-`
-
-type SetOptOutParams struct {
-	UserID  int64
-	Until   *time.Time
-	Rrule   *string
-	WindowS *int32
-}
-
-// An upsert rather than the do-nothing it used to be: opting out again is how a timed opt-out gets
-// extended, shortened, or turned into an indefinite one.
-func (q *Queries) SetOptOut(ctx context.Context, arg SetOptOutParams) error {
-	_, err := q.db.Exec(ctx, setOptOut,
-		arg.UserID,
-		arg.Until,
-		arg.Rrule,
-		arg.WindowS,
-	)
-	return err
 }

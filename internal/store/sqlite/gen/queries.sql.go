@@ -208,12 +208,33 @@ func (q *Queries) BoardTriggered(ctx context.Context, arg BoardTriggeredParams) 
 	return items, nil
 }
 
-const clearOptOut = `-- name: ClearOptOut :exec
-delete from users_optouts where user_id = ?
+const closeOptOut = `-- name: CloseOptOut :exec
+update users_optouts set disabled_at = ?2
+where user_id = ?1 and (disabled_at is null or disabled_at > ?2)
 `
 
-func (q *Queries) ClearOptOut(ctx context.Context, userID int64) error {
-	_, err := q.db.ExecContext(ctx, clearOptOut, userID)
+type CloseOptOutParams struct {
+	UserID     int64   `json:"user_id"`
+	DisabledAt *string `json:"disabled_at"`
+}
+
+func (q *Queries) CloseOptOut(ctx context.Context, arg CloseOptOutParams) error {
+	_, err := q.db.ExecContext(ctx, closeOptOut, arg.UserID, arg.DisabledAt)
+	return err
+}
+
+const closeQuiet = `-- name: CloseQuiet :exec
+update guilds_quiet set disabled_at = ?2
+where guild_id = ?1 and (disabled_at is null or disabled_at > ?2)
+`
+
+type CloseQuietParams struct {
+	GuildID    int64   `json:"guild_id"`
+	DisabledAt *string `json:"disabled_at"`
+}
+
+func (q *Queries) CloseQuiet(ctx context.Context, arg CloseQuietParams) error {
+	_, err := q.db.ExecContext(ctx, closeQuiet, arg.GuildID, arg.DisabledAt)
 	return err
 }
 
@@ -436,26 +457,9 @@ func (q *Queries) CutsTriggered(ctx context.Context, arg CutsTriggeredParams) ([
 	return items, nil
 }
 
-const getOptOut = `-- name: GetOptOut :one
-select user_id, since, until, rrule, window_s from users_optouts where user_id = ?
-`
-
-func (q *Queries) GetOptOut(ctx context.Context, userID int64) (UsersOptout, error) {
-	row := q.db.QueryRowContext(ctx, getOptOut, userID)
-	var i UsersOptout
-	err := row.Scan(
-		&i.UserID,
-		&i.Since,
-		&i.Until,
-		&i.Rrule,
-		&i.WindowS,
-	)
-	return i, err
-}
-
 const getSettings = `-- name: GetSettings :one
 
-select guild_id, join_chance, quiet_from, quiet_to, tz, suspense, updated_at, updated_by, fakeout, encore from guilds_settings where guild_id = ?
+select guild_id, join_chance, tz, suspense, updated_at, updated_by, fakeout, encore from guilds_settings where guild_id = ?
 `
 
 // The audited tables are read back whole, with select *, on purpose: the diff is taken over every
@@ -467,8 +471,6 @@ func (q *Queries) GetSettings(ctx context.Context, guildID int64) (GuildsSetting
 	err := row.Scan(
 		&i.GuildID,
 		&i.JoinChance,
-		&i.QuietFrom,
-		&i.QuietTo,
 		&i.Tz,
 		&i.Suspense,
 		&i.UpdatedAt,
@@ -704,6 +706,27 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) error 
 	return err
 }
 
+const insertOptOut = `-- name: InsertOptOut :exec
+insert into users_optouts (user_id, rrule, window_s, disabled_at) values (?, ?, ?, ?)
+`
+
+type InsertOptOutParams struct {
+	UserID     int64   `json:"user_id"`
+	Rrule      *string `json:"rrule"`
+	WindowS    *int64  `json:"window_s"`
+	DisabledAt *string `json:"disabled_at"`
+}
+
+func (q *Queries) InsertOptOut(ctx context.Context, arg InsertOptOutParams) error {
+	_, err := q.db.ExecContext(ctx, insertOptOut,
+		arg.UserID,
+		arg.Rrule,
+		arg.WindowS,
+		arg.DisabledAt,
+	)
+	return err
+}
+
 const insertPlay = `-- name: InsertPlay :one
 insert into stats_plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms)
 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -756,6 +779,29 @@ func (q *Queries) InsertPlayListener(ctx context.Context, arg InsertPlayListener
 	return err
 }
 
+const insertQuiet = `-- name: InsertQuiet :exec
+insert into guilds_quiet (guild_id, rrule, window_s, disabled_at, created_by) values (?, ?, ?, ?, ?)
+`
+
+type InsertQuietParams struct {
+	GuildID    int64   `json:"guild_id"`
+	Rrule      *string `json:"rrule"`
+	WindowS    *int64  `json:"window_s"`
+	DisabledAt *string `json:"disabled_at"`
+	CreatedBy  int64   `json:"created_by"`
+}
+
+func (q *Queries) InsertQuiet(ctx context.Context, arg InsertQuietParams) error {
+	_, err := q.db.ExecContext(ctx, insertQuiet,
+		arg.GuildID,
+		arg.Rrule,
+		arg.WindowS,
+		arg.DisabledAt,
+		arg.CreatedBy,
+	)
+	return err
+}
+
 const listChaos = `-- name: ListChaos :many
 select c.guild_id, c.rrule, c.hours, c.chance from guilds_chaos c
 where c.rrule is not null and c.id = (select max(l.id) from guilds_chaos l where l.guild_id = c.guild_id)
@@ -797,21 +843,23 @@ func (q *Queries) ListChaos(ctx context.Context) ([]ListChaosRow, error) {
 }
 
 const listOptOuts = `-- name: ListOptOuts :many
-select user_id, until, rrule, window_s from users_optouts where until is null or until > ?1
+select user_id, rrule, window_s, disabled_at from users_optouts
+where disabled_at is null or disabled_at > ?1
+order by id
 `
 
 type ListOptOutsRow struct {
-	UserID  int64   `json:"user_id"`
-	Until   *string `json:"until"`
-	Rrule   *string `json:"rrule"`
-	WindowS *int64  `json:"window_s"`
+	UserID     int64   `json:"user_id"`
+	Rrule      *string `json:"rrule"`
+	WindowS    *int64  `json:"window_s"`
+	DisabledAt *string `json:"disabled_at"`
 }
 
 // The cutoff comes from Go rather than from strftime so both sides of the comparison carry the one
 // format this dialect writes. RFC3339Nano trims trailing zeros, so the string compare can be off by
 // under a second either way; Has re-checks in memory against a real clock, which is what decides.
-func (q *Queries) ListOptOuts(ctx context.Context, until *string) ([]ListOptOutsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOptOuts, until)
+func (q *Queries) ListOptOuts(ctx context.Context, disabledAt *string) ([]ListOptOutsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOptOuts, disabledAt)
 	if err != nil {
 		return nil, err
 	}
@@ -821,9 +869,50 @@ func (q *Queries) ListOptOuts(ctx context.Context, until *string) ([]ListOptOuts
 		var i ListOptOutsRow
 		if err := rows.Scan(
 			&i.UserID,
-			&i.Until,
 			&i.Rrule,
 			&i.WindowS,
+			&i.DisabledAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQuiet = `-- name: ListQuiet :many
+select guild_id, rrule, window_s, disabled_at from guilds_quiet
+where disabled_at is null or disabled_at > ?1
+order by id
+`
+
+type ListQuietRow struct {
+	GuildID    int64   `json:"guild_id"`
+	Rrule      *string `json:"rrule"`
+	WindowS    *int64  `json:"window_s"`
+	DisabledAt *string `json:"disabled_at"`
+}
+
+func (q *Queries) ListQuiet(ctx context.Context, disabledAt *string) ([]ListQuietRow, error) {
+	rows, err := q.db.QueryContext(ctx, listQuiet, disabledAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListQuietRow{}
+	for rows.Next() {
+		var i ListQuietRow
+		if err := rows.Scan(
+			&i.GuildID,
+			&i.Rrule,
+			&i.WindowS,
+			&i.DisabledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -840,14 +929,12 @@ func (q *Queries) ListOptOuts(ctx context.Context, until *string) ([]ListOptOuts
 
 const listSettings = `-- name: ListSettings :many
 
-select guild_id, join_chance, quiet_from, quiet_to, tz, suspense, fakeout, encore from guilds_settings
+select guild_id, join_chance, tz, suspense, fakeout, encore from guilds_settings
 `
 
 type ListSettingsRow struct {
 	GuildID    int64   `json:"guild_id"`
 	JoinChance int64   `json:"join_chance"`
-	QuietFrom  *int64  `json:"quiet_from"`
-	QuietTo    *int64  `json:"quiet_to"`
 	Tz         *string `json:"tz"`
 	Suspense   int64   `json:"suspense"`
 	Fakeout    int64   `json:"fakeout"`
@@ -868,8 +955,6 @@ func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
 		if err := rows.Scan(
 			&i.GuildID,
 			&i.JoinChance,
-			&i.QuietFrom,
-			&i.QuietTo,
 			&i.Tz,
 			&i.Suspense,
 			&i.Fakeout,
@@ -1044,31 +1129,6 @@ func (q *Queries) SeedSettingsForGuilds(ctx context.Context, arg SeedSettingsFor
 	return result.RowsAffected()
 }
 
-const setOptOut = `-- name: SetOptOut :exec
-insert into users_optouts (user_id, until, rrule, window_s) values (?1, ?2, ?3, ?4)
-on conflict (user_id) do update set
-  until    = excluded.until,
-  rrule    = excluded.rrule,
-  window_s = excluded.window_s
-`
-
-type SetOptOutParams struct {
-	UserID  int64   `json:"user_id"`
-	Until   *string `json:"until"`
-	Rrule   *string `json:"rrule"`
-	WindowS *int64  `json:"window_s"`
-}
-
-func (q *Queries) SetOptOut(ctx context.Context, arg SetOptOutParams) error {
-	_, err := q.db.ExecContext(ctx, setOptOut,
-		arg.UserID,
-		arg.Until,
-		arg.Rrule,
-		arg.WindowS,
-	)
-	return err
-}
-
 const topGuilds = `-- name: TopGuilds :many
 select cast(guild_id as text) as "key", count(*) as n
 from stats_plays where ok and (?1 = '' or at > ?1)
@@ -1122,19 +1182,16 @@ func (q *Queries) UpsertGuild(ctx context.Context, arg UpsertGuildParams) error 
 }
 
 const upsertSettings = `-- name: UpsertSettings :exec
-insert into guilds_settings (guild_id, join_chance, quiet_from, quiet_to, tz, suspense, fakeout, encore, updated_by)
-values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+insert into guilds_settings (guild_id, join_chance, tz, suspense, fakeout, encore, updated_by)
+values (?, ?, ?, ?, ?, ?, ?)
 on conflict (guild_id) do update set
-  join_chance = excluded.join_chance, quiet_from = excluded.quiet_from, quiet_to = excluded.quiet_to,
-  tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, updated_by = excluded.updated_by,
+  join_chance = excluded.join_chance, tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, updated_by = excluded.updated_by,
   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
 `
 
 type UpsertSettingsParams struct {
 	GuildID    int64   `json:"guild_id"`
 	JoinChance int64   `json:"join_chance"`
-	QuietFrom  *int64  `json:"quiet_from"`
-	QuietTo    *int64  `json:"quiet_to"`
 	Tz         *string `json:"tz"`
 	Suspense   int64   `json:"suspense"`
 	Fakeout    int64   `json:"fakeout"`
@@ -1150,8 +1207,6 @@ func (q *Queries) UpsertSettings(ctx context.Context, arg UpsertSettingsParams) 
 	_, err := q.db.ExecContext(ctx, upsertSettings,
 		arg.GuildID,
 		arg.JoinChance,
-		arg.QuietFrom,
-		arg.QuietTo,
 		arg.Tz,
 		arg.Suspense,
 		arg.Fakeout,

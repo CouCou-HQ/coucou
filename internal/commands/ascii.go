@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/be-sandaa/coucou/internal/settings"
 	"github.com/be-sandaa/coucou/internal/sounds"
 )
 
@@ -161,11 +160,7 @@ func panel(title string, lines ...string) string {
 
 // hourStrip draws the whole day, one cell an hour, under a ruler. The shape of a quiet window says
 // more than its numbers do: a wrap past midnight is obvious here and arithmetic in "22:00–07:00".
-func hourStrip(from, to int) string {
-	cells := make([]bool, dayHours)
-	for h := range dayHours {
-		cells[h] = settings.QuietAt(from, to, h)
-	}
+func hourStrip(cells []bool) string {
 	return block(" "+ruler(), " "+runs(cells, "█", "░", true))
 }
 

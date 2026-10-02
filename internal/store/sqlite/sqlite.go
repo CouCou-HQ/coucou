@@ -127,7 +127,7 @@ func (s *Store) ListSettings(ctx context.Context) ([]store.Settings, error) {
 	}
 	out := make([]store.Settings, len(rows))
 	for i, r := range rows {
-		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), QuietFrom: i64p(r.QuietFrom), QuietTo: i64p(r.QuietTo), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore)}
+		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore)}
 	}
 	return out, nil
 }
@@ -140,7 +140,7 @@ func (s *Store) UpsertSettings(ctx context.Context, st store.Settings) error {
 		func(q *gen.Queries) (map[string]any, error) { return getRow(q.GetSettings(ctx, id)) },
 		func(q *gen.Queries) error {
 			return q.UpsertSettings(ctx, gen.UpsertSettingsParams{
-				GuildID: id, JoinChance: int64(st.Chance), QuietFrom: pi64(st.QuietFrom), QuietTo: pi64(st.QuietTo), Tz: st.TZ, Suspense: int64(st.Suspense), Fakeout: int64(st.FakeOut), Encore: int64(st.Encore),
+				GuildID: id, JoinChance: int64(st.Chance), Tz: st.TZ, Suspense: int64(st.Suspense), Fakeout: int64(st.FakeOut), Encore: int64(st.Encore),
 				UpdatedBy: nullID(st.UpdatedBy),
 			})
 		})
@@ -265,44 +265,74 @@ func (s *Store) SeedSettingsFor(ctx context.Context, g snowflake.ID, d store.Def
 
 //#endregion
 
-//#region Opt-outs
+//#region Silences
 
-func (s *Store) ListOptOuts(ctx context.Context) ([]store.OptOut, error) {
+// The silence tables are not audited, as chaos is not: append-only, so they are their own history.
+
+func (s *Store) ListOptOuts(ctx context.Context) ([]store.Silence, error) {
 	now := fmtT(time.Now())
 	rows, err := s.q.ListOptOuts(ctx, &now)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]store.OptOut, len(rows))
+	out := make([]store.Silence, len(rows))
 	for i, r := range rows {
-		o := store.OptOut{
-			User:  sid(r.UserID),
-			Until: parseT(r.Until),
-		}
-		if r.Rrule != nil {
-			o.Rule = *r.Rrule
-		}
-		if r.WindowS != nil {
-			o.Window = time.Duration(*r.WindowS) * time.Second
-		}
-		out[i] = o
+		out[i] = silence(r.UserID, r.Rrule, r.WindowS, r.DisabledAt)
 	}
 	return out, nil
 }
 
-func (s *Store) SetOptOut(ctx context.Context, o store.OptOut) error {
-	id := i64(o.User)
-	return s.audited(ctx, change{schema: schemaUsers, table: tableOptouts, pkColumn: colUserID, pk: id},
-		func(q *gen.Queries) (map[string]any, error) { return getRow(q.GetOptOut(ctx, id)) },
-		func(q *gen.Queries) error {
-			return q.SetOptOut(ctx, gen.SetOptOutParams{
-				UserID: id, Until: fmtTp(o.Until), Rrule: strp(o.Rule), WindowS: secs(o.Window),
-			})
+// SetOptOut closes the live row and appends the new one in one transaction, so a failed append
+// leaves the old one standing rather than nothing.
+func (s *Store) SetOptOut(ctx context.Context, o store.Silence) error {
+	now := fmtT(time.Now())
+	return s.tx(ctx, func(q *gen.Queries) error {
+		if err := q.CloseOptOut(ctx, gen.CloseOptOutParams{UserID: i64(o.ID), DisabledAt: &now}); err != nil {
+			return err
+		}
+		return q.InsertOptOut(ctx, gen.InsertOptOutParams{
+			UserID: i64(o.ID), Rrule: strp(o.Rule), WindowS: secs(o.Window), DisabledAt: fmtTp(o.Until),
 		})
+	})
 }
 
-// strp and secs map the two "not set" shapes onto the null columns: a row with no schedule has no
-// rule and no window, and "" or 0 in those columns would read as a schedule that never fires.
+func (s *Store) ClearOptOut(ctx context.Context, user snowflake.ID) error {
+	now := fmtT(time.Now())
+	return s.q.CloseOptOut(ctx, gen.CloseOptOutParams{UserID: i64(user), DisabledAt: &now})
+}
+
+func (s *Store) ListQuiet(ctx context.Context) ([]store.Silence, error) {
+	now := fmtT(time.Now())
+	rows, err := s.q.ListQuiet(ctx, &now)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]store.Silence, len(rows))
+	for i, r := range rows {
+		out[i] = silence(r.GuildID, r.Rrule, r.WindowS, r.DisabledAt)
+	}
+	return out, nil
+}
+
+func (s *Store) SetQuiet(ctx context.Context, q store.Silence) error {
+	now := fmtT(time.Now())
+	return s.tx(ctx, func(qt *gen.Queries) error {
+		if err := qt.CloseQuiet(ctx, gen.CloseQuietParams{GuildID: i64(q.ID), DisabledAt: &now}); err != nil {
+			return err
+		}
+		return qt.InsertQuiet(ctx, gen.InsertQuietParams{
+			GuildID: i64(q.ID), Rrule: strp(q.Rule), WindowS: secs(q.Window), DisabledAt: fmtTp(q.Until), CreatedBy: i64(q.By),
+		})
+	})
+}
+
+func (s *Store) ClearQuiet(ctx context.Context, guild snowflake.ID) error {
+	now := fmtT(time.Now())
+	return s.q.CloseQuiet(ctx, gen.CloseQuietParams{GuildID: i64(guild), DisabledAt: &now})
+}
+
+// strp and secs map the "all the time" shape onto the null columns: "" or 0 there would read as a
+// schedule that never fires.
 func strp(s string) *string {
 	if s == "" {
 		return nil
@@ -318,13 +348,16 @@ func secs(d time.Duration) *int64 {
 	return &v
 }
 
-// ClearOptOut records nothing when there was no opt-out to clear: both sides are then empty, and a
-// delete that deleted nothing is not a change.
-func (s *Store) ClearOptOut(ctx context.Context, user snowflake.ID) error {
-	id := i64(user)
-	return s.audited(ctx, change{schema: schemaUsers, table: tableOptouts, pkColumn: colUserID, pk: id},
-		func(q *gen.Queries) (map[string]any, error) { return getRow(q.GetOptOut(ctx, id)) },
-		func(q *gen.Queries) error { return q.ClearOptOut(ctx, id) })
+// silence assembles a row's optional columns into the one shape the interface promises.
+func silence(id int64, rule *string, window *int64, until *string) store.Silence {
+	o := store.Silence{ID: sid(id), Until: parseT(until)}
+	if rule != nil {
+		o.Rule = *rule
+	}
+	if window != nil {
+		o.Window = time.Duration(*window) * time.Second
+	}
+	return o
 }
 
 //#endregion

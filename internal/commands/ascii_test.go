@@ -6,7 +6,6 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/be-sandaa/coucou/internal/settings"
 	"github.com/be-sandaa/coucou/internal/sounds"
 )
 
@@ -21,7 +20,7 @@ func TestBlocksFitThePhone(t *testing.T) {
 			meter("suspense", 1, "≤20s"),
 			meter("earshot", 1, "500/500 rooms"), // Discord caps a guild at 500 channels
 		),
-		"hour strip":    hourStrip(22, 7),
+		"hour strip":    hourStrip(clockCells(22, 7)),
 		"help wordmark": wordmark(longest),
 		"now playing":   nowPlaying(longest, ""),
 		"marked":        nowPlaying(longest, bothMarks),
@@ -106,17 +105,33 @@ func TestBarFill(t *testing.T) {
 	}
 }
 
-// The strip draws the same rule the bot schedules by, so a window that wraps past midnight has to
-// come out as two runs at the ends rather than one in the middle.
+// clockHours is a from–to range on the clock, wrapping past midnight.
+func clockHours(from, to, h int) bool {
+	if from < to {
+		return h >= from && h < to
+	}
+	return from != to && (h >= from || h < to)
+}
+
+func clockCells(from, to int) []bool {
+	cells := make([]bool, dayHours)
+	for h := range cells {
+		cells[h] = clockHours(from, to, h)
+	}
+	return cells
+}
+
+// A window that wraps past midnight has to come out as two runs at the ends rather than one in the
+// middle.
 func TestHourStripWrapsMidnight(t *testing.T) {
-	cells := ansiRE.ReplaceAllString(strings.Split(hourStrip(22, 7), "\n")[2], "")
+	cells := ansiRE.ReplaceAllString(strings.Split(hourStrip(clockCells(22, 7)), "\n")[2], "")
 	cells = strings.TrimSpace(cells)
 	if n := utf8.RuneCountInString(cells); n != dayHours {
 		t.Fatalf("strip is %d cells, want %d", n, dayHours)
 	}
 	for h, c := range []rune(cells) {
-		if want := settings.QuietAt(22, 7, h); (c == '█') != want {
-			t.Errorf("hour %d drawn %q, QuietAt says %v", h, c, want)
+		if want := clockHours(22, 7, h); (c == '█') != want {
+			t.Errorf("hour %d drawn %q, want on=%v", h, c, want)
 		}
 	}
 }

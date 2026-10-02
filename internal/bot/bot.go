@@ -28,8 +28,7 @@ import (
 	"github.com/be-sandaa/coucou/internal/bus"
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/metrics"
-	"github.com/be-sandaa/coucou/internal/optout"
-	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/tracing"
 	"github.com/be-sandaa/coucou/internal/voice"
@@ -146,8 +145,8 @@ func Ready(c *bot.Client) bool {
 // bus.Bounded is reused rather than reimplemented: its semaphore, its detach and its registration
 // with Bus.Close's drain are exactly what a play needs, and none of that was ever about delivery.
 // b is also where PlayFinished goes, which is the only part of a play that is still an event. set and
-// opt are for the quiet hours and opt-outs an encore checks again before it comes back.
-func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, opt *optout.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
+// quiet and opt are what an encore checks again before it comes back.
+func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
 	const (
 		concurrency = 8
 		playTimeout = 90 * time.Second
@@ -155,7 +154,7 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, opt *op
 
 	var player func(context.Context, *PlayRequest) error
 	welcome := welcomer(
-		func(g snowflake.ID) bool { return set.IsQuiet(set.Get(g), time.Now()) },
+		quiet.Has,
 		voice.Busy,
 		func(g, ch snowflake.ID) []snowflake.ID { return voice.Humans(c, g, ch) },
 		opt.Has,

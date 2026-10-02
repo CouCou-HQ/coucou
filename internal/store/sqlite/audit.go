@@ -25,10 +25,7 @@ import (
 
 // The prefixes the audited tables carry, recorded as the schema the postgres backend keeps them in,
 // so a log from either backend names the same table the same way.
-const (
-	schemaGuilds = "guilds"
-	schemaUsers  = "users"
-)
+const schemaGuilds = "guilds"
 
 // The operations, spelled the way the audit_logs check constraint spells them.
 const (
@@ -46,10 +43,7 @@ const (
 
 // The audited tables, named the way the postgres log names them — without the prefix the SQLite
 // table carries, since the record has a column for the schema.
-const (
-	tableSettings = "settings"
-	tableOptouts  = "optouts"
-)
+const tableSettings = "settings"
 
 // Columns the record carries itself, and the one a row keeps for whoever it is about.
 const (

@@ -14,20 +14,17 @@ import (
 // TZ is nil only between a guild's settings row being seeded and its zone being filled in; see
 // FillZones.
 type Settings struct {
-	Chance    int
-	QuietFrom *int
-	QuietTo   *int
-	TZ        *string
-	Suspense  int
-	FakeOut   int
-	Encore    int
+	Chance   int
+	TZ       *string
+	Suspense int
+	FakeOut  int
+	Encore   int
 }
 
 type Store struct {
 	db store.Store
 	mu sync.RWMutex
 	m  map[snowflake.ID]Settings
-	tz sync.Map
 }
 
 func New(db store.Store) *Store { return &Store{db: db, m: map[snowflake.ID]Settings{}} }
@@ -39,7 +36,7 @@ func (s *Store) Load(ctx context.Context) error {
 	}
 	m := make(map[snowflake.ID]Settings, len(rows))
 	for _, r := range rows {
-		m[r.Guild] = Settings{Chance: r.Chance, QuietFrom: r.QuietFrom, QuietTo: r.QuietTo, TZ: r.TZ, Suspense: r.Suspense, FakeOut: r.FakeOut, Encore: r.Encore}
+		m[r.Guild] = Settings{Chance: r.Chance, TZ: r.TZ, Suspense: r.Suspense, FakeOut: r.FakeOut, Encore: r.Encore}
 	}
 	s.mu.Lock()
 	s.m = m
@@ -80,27 +77,13 @@ func (s *Store) Configured() map[snowflake.ID]Settings {
 func (s *Store) Update(ctx context.Context, guild, by snowflake.ID, fn func(*Settings)) (Settings, error) {
 	next := s.Get(guild)
 	fn(&next)
-	if err := s.db.UpsertSettings(ctx, store.Settings{Guild: guild, Chance: next.Chance, QuietFrom: next.QuietFrom, QuietTo: next.QuietTo, TZ: next.TZ, Suspense: next.Suspense, FakeOut: next.FakeOut, Encore: next.Encore, UpdatedBy: by}); err != nil {
+	if err := s.db.UpsertSettings(ctx, store.Settings{Guild: guild, Chance: next.Chance, TZ: next.TZ, Suspense: next.Suspense, FakeOut: next.FakeOut, Encore: next.Encore, UpdatedBy: by}); err != nil {
 		return next, err
 	}
 	s.mu.Lock()
 	s.m[guild] = next
 	s.mu.Unlock()
 	return next, nil
-}
-
-func (s *Store) loc(tz string) *time.Location {
-	if v, ok := s.tz.Load(tz); ok {
-		if l, ok := v.(*time.Location); ok {
-			return l
-		}
-	}
-	l, err := time.LoadLocation(tz)
-	if err != nil {
-		l = time.UTC
-	}
-	s.tz.Store(tz, l)
-	return l
 }
 
 // Zone is the zone the guild's settings run in: the stored one. Nothing is worked out here at read
@@ -138,26 +121,6 @@ func (s *Store) FillZones(ctx context.Context, locales map[snowflake.ID]discord.
 		n++
 	}
 	return n, nil
-}
-
-func (s *Store) IsQuiet(st Settings, now time.Time) bool {
-	if st.QuietFrom == nil || st.QuietTo == nil || *st.QuietFrom == *st.QuietTo {
-		return false
-	}
-	return QuietAt(*st.QuietFrom, *st.QuietTo, now.In(s.loc(Zone(st))).Hour())
-}
-
-// QuietAt is the window rule on its own, for one hour of the clock. Exported because the status
-// readout draws all twenty-four and cannot go through IsQuiet, which resolves a zone for a single
-// instant. One rule, so the drawing and the decision can never disagree about midnight.
-func QuietAt(from, to, h int) bool {
-	if from == to {
-		return false
-	}
-	if from < to {
-		return h >= from && h < to
-	}
-	return h >= from || h < to
 }
 
 func ValidTZ(tz string) bool { _, err := time.LoadLocation(tz); return err == nil }

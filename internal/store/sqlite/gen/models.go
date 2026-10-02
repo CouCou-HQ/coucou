@@ -43,11 +43,19 @@ type GuildsInfo struct {
 	LeftAt    *string `json:"left_at"`
 }
 
+type GuildsQuiet struct {
+	ID         int64   `json:"id"`
+	GuildID    int64   `json:"guild_id"`
+	Rrule      *string `json:"rrule"`
+	WindowS    *int64  `json:"window_s"`
+	CreatedBy  int64   `json:"created_by"`
+	CreatedAt  string  `json:"created_at"`
+	DisabledAt *string `json:"disabled_at"`
+}
+
 type GuildsSetting struct {
 	GuildID    int64   `json:"guild_id"`
 	JoinChance int64   `json:"join_chance"`
-	QuietFrom  *int64  `json:"quiet_from"`
-	QuietTo    *int64  `json:"quiet_to"`
 	Tz         *string `json:"tz"`
 	Suspense   int64   `json:"suspense"`
 	UpdatedAt  string  `json:"updated_at"`
@@ -77,9 +85,10 @@ type StatsPlayListener struct {
 }
 
 type UsersOptout struct {
-	UserID  int64   `json:"user_id"`
-	Since   string  `json:"since"`
-	Until   *string `json:"until"`
-	Rrule   *string `json:"rrule"`
-	WindowS *int64  `json:"window_s"`
+	ID         int64   `json:"id"`
+	UserID     int64   `json:"user_id"`
+	Rrule      *string `json:"rrule"`
+	WindowS    *int64  `json:"window_s"`
+	CreatedAt  string  `json:"created_at"`
+	DisabledAt *string `json:"disabled_at"`
 }

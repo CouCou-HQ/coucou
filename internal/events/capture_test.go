@@ -77,9 +77,12 @@ func (*capture) Leaderboard(context.Context, snowflake.ID, string, int) ([]store
 	return nil, nil
 }
 
-func (c *capture) ListOptOuts(context.Context) ([]store.OptOut, error) { return nil, nil }
-func (c *capture) SetOptOut(context.Context, store.OptOut) error       { return nil }
-func (c *capture) ClearOptOut(context.Context, snowflake.ID) error     { return nil }
+func (c *capture) ListOptOuts(context.Context) ([]store.Silence, error) { return nil, nil }
+func (c *capture) SetOptOut(context.Context, store.Silence) error       { return nil }
+func (c *capture) ClearOptOut(context.Context, snowflake.ID) error      { return nil }
+func (c *capture) ListQuiet(context.Context) ([]store.Silence, error)   { return nil, nil }
+func (c *capture) SetQuiet(context.Context, store.Silence) error        { return nil }
+func (c *capture) ClearQuiet(context.Context, snowflake.ID) error       { return nil }
 
 func (c *capture) ListChaos(context.Context) ([]store.Chaos, error) { return nil, nil }
 func (c *capture) AppendChaos(context.Context, store.Chaos) error   { return nil }

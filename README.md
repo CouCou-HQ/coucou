@@ -274,7 +274,7 @@ now and can play in this server. `/play` does not count toward it.
 | `/about` | anyone | who the bot is: its tagline, lore and traits from the profile (only you see it) |
 | `/optout on\|for\|schedule\|rrule\|off` | anyone, per person | stop being counted when the bot picks a channel: indefinitely, `for <hours>`, or on a repeating `schedule` (an RFC 5545 rule, typed directly with `rrule`) |
 | `/chance <0-100>` | Manage Server | odds of a drop-in every 5 minutes (0 = never) |
-| `/quiet set\|off` | Manage Server | hours to be left alone, in the guild's IANA zone |
+| `/quiet on\|for\|schedule\|rrule\|off` | Manage Server | leave the server alone: indefinitely, `for <hours>`, or on a repeating `schedule` — the same shapes as `/optout` |
 | `/suspense <0-20>` | Manage Server | seconds of silence before the sound |
 | `/status` | anyone | what the bot thinks about this server |
 | `/stats user\|guild\|bot` | anyone | play statistics with 30-day ranks and charts — plays a day, a week-by-hour heatmap in the server's zone, how visits began and ended: yours (only you see it; here and across every server), this server's, or bot-wide (both posted in the channel) |
@@ -348,8 +348,8 @@ internal/store           Store interface + DATABASE_URL scheme registry + WaitAn
 internal/store/pg        pgx/v5, goose under pg_advisory_lock, sqlc postgresql engine
 internal/store/sqlite    modernc.org/sqlite (pure Go, WAL), goose sqlite3, sqlc sqlite engine
 internal/profile         the character: profile.toml, its defaults and limits, and where its sounds are
-internal/settings        per-guild chance / quiet hours / suspense, in-memory over the store
-internal/optout          per-user opt-outs: indefinite, until a deadline, or on an RFC 5545 rule
+internal/settings        per-guild chance / suspense / zone, in-memory over the store
+internal/silence         per-user opt-outs and per-guild quiet: always or on an RFC 5545 rule, either with an end
 internal/sounds          live Ogg Opus registry (fsnotify + rescan, OpusHead sniff, settle check)
 internal/voice           join -> DAVE-ready -> suspense -> play -> leave, and channel selection
 internal/events          buffered stats log, batched through the store

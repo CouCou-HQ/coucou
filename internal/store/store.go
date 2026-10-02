@@ -24,8 +24,6 @@ import (
 type Settings struct {
 	Guild     snowflake.ID
 	Chance    int
-	QuietFrom *int
-	QuietTo   *int
 	TZ        *string
 	Suspense  int
 	FakeOut   int
@@ -121,21 +119,21 @@ type GuildRecent struct {
 	AvgListeners float64
 }
 
-// OptOut is one person's opt-out, in one of three shapes: a deadline (Until), a recurring
-// schedule (Rule plus Window), or neither, which is the indefinite kind every row carried before
-// the other two existed.
+// Silence is one live row of a person's /optout or a guild's /quiet. No Rule is all the time; a
+// Rule is its occurrences, each Window long. Until ends either shape, nil runs until turned off.
 //
 // Rule is an RFC 5545 rule with its own DTSTART and TZID line, so it carries the time zone it is
-// read in. Window is how long each occurrence lasts — a recurrence rule yields instants, and an
-// opt-out is an interval, so the length cannot come from the rule itself.
-type OptOut struct {
-	User   snowflake.ID
-	Until  *time.Time
+// read in. Window is how long each occurrence lasts — a recurrence rule yields instants, and a
+// silence is an interval. By is write-only, like Settings.UpdatedBy, and opt-outs have none.
+type Silence struct {
+	ID     snowflake.ID // the user for an opt-out, the guild for quiet
 	Rule   string
 	Window time.Duration
+	Until  *time.Time
+	By     snowflake.ID
 }
 
-// Chaos is a guild's /chaos window: a weekly Rule, carrying its zone as OptOut.Rule does, whose
+// Chaos is a guild's /chaos window: a weekly Rule, carrying its zone as Silence.Rule does, whose
 // occurrences each last Hours, and the Chance the loop rolls against inside one. An empty Rule is
 // /chaos off. CreatedBy is write-only, like Settings.UpdatedBy.
 type Chaos struct {
@@ -189,10 +187,14 @@ type Store interface {
 	SeedSettings(ctx context.Context, d Defaults) (int64, error)
 	SeedSettingsFor(ctx context.Context, guild snowflake.ID, d Defaults) error
 
-	// opt-outs (bot-wide, one row per user; read once at boot and mirrored in memory)
-	ListOptOuts(ctx context.Context) ([]OptOut, error)
-	SetOptOut(ctx context.Context, o OptOut) error
+	// opt-outs (bot-wide, per user) and quiet (per guild): append-only, read once at boot and
+	// mirrored in memory. List is each one's live row, Set closes it and appends, Clear closes it.
+	ListOptOuts(ctx context.Context) ([]Silence, error)
+	SetOptOut(ctx context.Context, o Silence) error
 	ClearOptOut(ctx context.Context, user snowflake.ID) error
+	ListQuiet(ctx context.Context) ([]Silence, error)
+	SetQuiet(ctx context.Context, q Silence) error
+	ClearQuiet(ctx context.Context, guild snowflake.ID) error
 
 	// chaos (append-only; ListChaos is the newest row of every guild whose window is on)
 	ListChaos(ctx context.Context) ([]Chaos, error)

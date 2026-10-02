@@ -46,11 +46,19 @@ type GuildsInfo struct {
 	LeftAt    *time.Time
 }
 
+type GuildsQuiet struct {
+	ID         int64
+	GuildID    int64
+	Rrule      *string
+	WindowS    *int32
+	CreatedBy  int64
+	CreatedAt  time.Time
+	DisabledAt *time.Time
+}
+
 type GuildsSetting struct {
 	GuildID    int64
 	JoinChance int16
-	QuietFrom  *int16
-	QuietTo    *int16
 	Tz         *string
 	Suspense   int16
 	UpdatedAt  time.Time
@@ -150,9 +158,10 @@ type StatsPlaysHourlyMv struct {
 }
 
 type UsersOptout struct {
-	UserID  int64
-	Since   time.Time
-	Until   *time.Time
-	Rrule   *string
-	WindowS *int32
+	ID         int64
+	UserID     int64
+	Rrule      *string
+	WindowS    *int32
+	CreatedAt  time.Time
+	DisabledAt *time.Time
 }

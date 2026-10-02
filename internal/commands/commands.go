@@ -27,6 +27,7 @@ import (
 	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/omit"
 	"github.com/disgoorg/snowflake/v2"
+	"github.com/teambition/rrule-go"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -35,11 +36,11 @@ import (
 	"github.com/be-sandaa/coucou/internal/bus"
 	"github.com/be-sandaa/coucou/internal/chaos"
 	ev "github.com/be-sandaa/coucou/internal/events"
-	"github.com/be-sandaa/coucou/internal/optout"
 	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/ranks"
 	"github.com/be-sandaa/coucou/internal/schedule"
 	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/store"
 	"github.com/be-sandaa/coucou/internal/tracing"
@@ -55,7 +56,8 @@ type Play func(ctx context.Context, guild, channel snowflake.ID, sound string, u
 type Commands struct {
 	client   *bot.Client
 	settings *settings.Store
-	optouts  *optout.Store
+	optouts  *silence.Store
+	quiet    *silence.Store
 	chaos    *chaos.Store
 	sounds   *sounds.Registry
 	events   *ev.Log
@@ -78,14 +80,14 @@ type Sibling struct {
 	App  snowflake.ID
 }
 
-// New takes eleven arguments because a command reads settings, opt-outs and chaos, picks sounds,
-// queries stats and ranks, publishes facts, plays something and answers through the cache and REST
-// — all inside one three-second interaction. Every parameter is a distinct type, so getting the order
-// wrong is a compile error rather than a bug.
+// New takes this many arguments because a command reads settings, opt-outs, quiet and chaos, picks
+// sounds, queries stats and ranks, publishes facts, plays something and answers through the cache and
+// REST — all inside one three-second interaction. Every parameter but opt and quiet is a distinct
+// type, so getting the order wrong is mostly a compile error rather than a bug.
 func New(
 	client *bot.Client,
 	set *settings.Store,
-	opt *optout.Store,
+	opt, quiet *silence.Store,
 	ch *chaos.Store,
 	reg *sounds.Registry,
 	log *ev.Log,
@@ -97,7 +99,7 @@ func New(
 	siblings []Sibling,
 ) *Commands {
 	colBrand = prof.Color
-	return &Commands{client: client, settings: set, optouts: opt, chaos: ch, sounds: reg, events: log, ranks: rk, bus: b, play: play, profile: prof, owners: owners, siblings: siblings}
+	return &Commands{client: client, settings: set, optouts: opt, quiet: quiet, chaos: ch, sounds: reg, events: log, ranks: rk, bus: b, play: play, profile: prof, owners: owners, siblings: siblings}
 }
 
 // isOwner gates the servers leaderboard. A linear scan over a handful of ids is cheaper than the map
@@ -191,11 +193,11 @@ const (
 	optOff      = "off"
 	optPage     = "page"
 	periodAll   = "all"
-	hourRange   = "Hour 0-23"
 	fieldFrom   = "from"
 	fieldHours  = "hours"
 	fieldTZ     = "tz"
 	fieldDays   = "days"
+	fieldRule   = "rule"
 	fieldChance = "chance"
 	subSet      = "set"
 	descDays    = "Which days"
@@ -230,6 +232,32 @@ func dayLabel(value string) string {
 	return value
 }
 
+// silenceSubs is the subcommands /optout and /quiet share: the same shapes, worded for whose it is.
+func silenceSubs(on, timed, sched, off string) []discord.ApplicationCommandOption {
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionSubCommand{Name: optOn, Description: on},
+		// Whole hours, capped at a day. Anything longer is what on is for, and an integer option
+		// needs no parsing and no way to be typed wrongly.
+		discord.ApplicationCommandOptionSubCommand{Name: optFor, Description: timed, Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionInt{Name: fieldHours, Description: "1-24", Required: true, MinValue: ptr(1), MaxValue: ptr(24)},
+		}},
+		// The guided form and the raw one are both rules; the picker exists because nobody types
+		// BYDAY from memory, not because the two mean different things.
+		discord.ApplicationCommandOptionSubCommand{Name: optSchedule, Description: sched, Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionString{Name: fieldDays, Description: descDays, Required: true, Choices: dayChoices},
+			discord.ApplicationCommandOptionInt{Name: fieldFrom, Description: descFrom, Required: true, MinValue: ptr(0), MaxValue: ptr(23)},
+			discord.ApplicationCommandOptionInt{Name: fieldHours, Description: descHours, Required: true, MinValue: ptr(1), MaxValue: ptr(24)},
+			discord.ApplicationCommandOptionString{Name: fieldTZ, Description: tzHint},
+		}},
+		discord.ApplicationCommandOptionSubCommand{Name: optRule, Description: "The same, as a raw RFC 5545 rule", Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionString{Name: fieldRule, Description: "e.g. FREQ=WEEKLY;BYDAY=MO,WE;BYHOUR=20", Required: true},
+			discord.ApplicationCommandOptionInt{Name: fieldHours, Description: "How long each one lasts, 1-24", Required: true, MinValue: ptr(1), MaxValue: ptr(24)},
+			discord.ApplicationCommandOptionString{Name: fieldTZ, Description: tzHint},
+		}},
+		discord.ApplicationCommandOptionSubCommand{Name: optOff, Description: off},
+	}
+}
+
 var definitions = []discord.ApplicationCommandCreate{
 	discord.SlashCommandCreate{
 		Name: cmdNamePlay, Description: "Play a sound in your voice channel",
@@ -249,28 +277,8 @@ var definitions = []discord.ApplicationCommandCreate{
 	discord.SlashCommandCreate{Name: cmdNameInvite, Description: "Add the bot to another server"},
 	discord.SlashCommandCreate{
 		Name: cmdNameOptOut, Description: "Stop the bot counting you when it picks a channel",
-		Options: []discord.ApplicationCommandOption{
-			discord.ApplicationCommandOptionSubCommand{Name: optOn, Description: "Do not count me, until I say otherwise"},
-			// Whole hours, capped at a day. Anything longer is what /optout on is for, and an
-			// integer option needs no parsing and no way to be typed wrongly.
-			discord.ApplicationCommandOptionSubCommand{Name: optFor, Description: "Do not count me for a while", Options: []discord.ApplicationCommandOption{
-				discord.ApplicationCommandOptionInt{Name: fieldHours, Description: "1-24", Required: true, MinValue: ptr(1), MaxValue: ptr(24)},
-			}},
-			// The guided form and the raw one are both rules; the picker exists because nobody
-			// types BYDAY from memory, not because the two mean different things.
-			discord.ApplicationCommandOptionSubCommand{Name: optSchedule, Description: "Do not count me on a repeating schedule", Options: []discord.ApplicationCommandOption{
-				discord.ApplicationCommandOptionString{Name: fieldDays, Description: descDays, Required: true, Choices: dayChoices},
-				discord.ApplicationCommandOptionInt{Name: fieldFrom, Description: descFrom, Required: true, MinValue: ptr(0), MaxValue: ptr(23)},
-				discord.ApplicationCommandOptionInt{Name: fieldHours, Description: descHours, Required: true, MinValue: ptr(1), MaxValue: ptr(24)},
-				discord.ApplicationCommandOptionString{Name: fieldTZ, Description: tzHint},
-			}},
-			discord.ApplicationCommandOptionSubCommand{Name: optRule, Description: "The same, as a raw RFC 5545 rule", Options: []discord.ApplicationCommandOption{
-				discord.ApplicationCommandOptionString{Name: "rule", Description: "e.g. FREQ=WEEKLY;BYDAY=MO,WE;BYHOUR=20", Required: true},
-				discord.ApplicationCommandOptionInt{Name: fieldHours, Description: "How long each one lasts, 1-24", Required: true, MinValue: ptr(1), MaxValue: ptr(24)},
-				discord.ApplicationCommandOptionString{Name: fieldTZ, Description: tzHint},
-			}},
-			discord.ApplicationCommandOptionSubCommand{Name: optOff, Description: "Count me again"},
-		},
+		Options: silenceSubs("Do not count me, until I say otherwise", "Do not count me for a while",
+			"Do not count me on a repeating schedule", "Count me again"),
 	},
 	discord.SlashCommandCreate{
 		Name: cmdNameChance, Description: "How likely the bot drops in every 5 min (0 = never)",
@@ -281,16 +289,10 @@ var definitions = []discord.ApplicationCommandCreate{
 		},
 	},
 	discord.SlashCommandCreate{
-		Name: cmdNameQuiet, Description: "Hours when the bot leaves you alone",
+		Name: cmdNameQuiet, Description: "Times when the bot leaves this server alone",
 		DefaultMemberPermissions: omit.NewPtr(manageGuild),
-		Options: []discord.ApplicationCommandOption{
-			discord.ApplicationCommandOptionSubCommand{Name: subSet, Description: "Set quiet hours (local time)", Options: []discord.ApplicationCommandOption{
-				discord.ApplicationCommandOptionInt{Name: fieldFrom, Description: hourRange, Required: true, MinValue: ptr(0), MaxValue: ptr(23)},
-				discord.ApplicationCommandOptionInt{Name: "to", Description: hourRange, Required: true, MinValue: ptr(0), MaxValue: ptr(23)},
-				discord.ApplicationCommandOptionString{Name: fieldTZ, Description: "IANA zone, e.g. Europe/Brussels"},
-			}},
-			discord.ApplicationCommandOptionSubCommand{Name: optOff, Description: "Disable quiet hours"},
-		},
+		Options: silenceSubs("Leave this server alone, until someone says otherwise", "Leave this server alone for a while",
+			"Leave this server alone on a repeating schedule", "Stop being quiet"),
 	},
 	discord.SlashCommandCreate{
 		Name: cmdNameChaos, Description: "A weekly window when the bot drops in more often",
@@ -759,13 +761,6 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 	return nil
 }
 
-// cmdOptOut is per-user and bot-wide, so it carries no DefaultMemberPermissions and writes nothing
-// against the guild it was run in. It still reads one thing from it: a schedule needs a time zone,
-// and the guild's is the only one the bot has — a person carries none it can see.
-//
-// Every reply spells the semantics out because they are deliberately partial and would otherwise
-// read as broken: opting out keeps a room that holds only opted-out people from being picked, but
-// it does not follow you into a room where other people are present.
 // commandList renders the commands from definitions rather than from a written-out copy, so a
 // command added above shows up here without anyone remembering to. Name and description are
 // already the user-facing strings Discord shows; the permission is the only thing that needs
@@ -943,103 +938,120 @@ func (c *Commands) cmdInvite(_ context.Context, e *events.ApplicationCommandInte
 const optOutTerms = "The bot will not pick a channel just because you are in it, and will leave a channel alone if you are the only one there.\n\n" +
 	"It does not make you inaudible: if other people are in the channel the bot still drops in, and you will still hear it."
 
-func (c *Commands) cmdOptOut(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
-	user := e.User().ID
-	var sub string
-	if data.SubCommandName != nil {
-		sub = *data.SubCommandName
-	}
-	switch sub {
-	case optOff:
-		return c.saveThenSay(e, func() error { return c.optouts.Clear(ctx, user) },
-			info("Counting you again", "You are back in. The bot can pick a channel because you are sitting in it."))
-	case optSchedule:
-		from := data.Int(fieldFrom)
-		return c.optOutSchedule(ctx, e, guild, data,
-			weeklySpec(data.String(fieldDays), from),
-			fmt.Sprintf("%s at %02d:00", dayLabel(data.String(fieldDays)), from))
-	case optRule:
-		rule := data.String("rule")
-		return c.optOutSchedule(ctx, e, guild, data, rule, "`"+rule+"`")
-	case optFor:
-		// The zero time is what Set reads as indefinite, so a timed opt-out has to carry a real
-		// instant rather than a duration the store would have to interpret.
-		until := time.Now().Add(time.Duration(data.Int(fieldHours)) * time.Hour)
-		// Rendered relative and in the reader's own zone; the bot knows no time zone for a person,
-		// only for a guild.
-		return c.saveThenSay(e, func() error { return c.optouts.Set(ctx, store.OptOut{User: user, Until: &until}) },
-			info("Not counting you for now",
-				fmt.Sprintf("You are back in <t:%d:R>. `/optout off` ends it sooner, `/optout on` drops the end date.\n\n", until.Unix())+optOutTerms))
-	default:
-		return c.saveThenSay(e, func() error { return c.optouts.Set(ctx, store.OptOut{User: user}) },
-			info("Not counting you",
-				"Until you say otherwise — `/optout for` is the same thing with an end to it, and `/optout off` puts you back.\n\n"+optOutTerms))
-	}
+// silenceText is what /optout and /quiet say differently; the shapes, the checks and the writes
+// are shared. timed is a format for the end's unix time, and terms closes every reply that turns
+// one on.
+type silenceText struct {
+	cmd                      string
+	on, timed, sched, off    string
+	onBody, timedBody, offOK string
+	terms                    string
 }
 
-// optOutSchedule is both scheduling subcommands: they differ only in who wrote the rule body and
-// how the reply describes it, so the validation, the write and the answer are shared.
-func (c *Commands) optOutSchedule(
+var optOutText = silenceText{
+	cmd: cmdNameOptOut, on: "Not counting you", timed: "Not counting you for now", sched: "Not counting you on a schedule", off: "Counting you again",
+	onBody:    "Until you say otherwise — `/optout for` is the same thing with an end to it, and `/optout off` puts you back.",
+	timedBody: "You are back in <t:%d:R>. `/optout off` ends it sooner, `/optout on` drops the end date.",
+	offOK:     "You are back in. The bot can pick a channel because you are sitting in it.",
+	terms:     "\n\n" + optOutTerms,
+}
+
+var quietText = silenceText{
+	cmd: cmdNameQuiet, on: "Quiet", timed: "Quiet for now", sched: "Quiet on a schedule", off: "Not quiet",
+	onBody:    "Nothing drops in until someone says otherwise — `/quiet for` is the same with an end to it, and `/quiet off` lifts it.",
+	timedBody: "Nothing drops in until <t:%d:R>. `/quiet off` ends it sooner, `/quiet on` drops the end date.",
+	offOK:     "Off. No rest for anyone.",
+}
+
+// cmdOptOut is per-user and bot-wide, so it carries no DefaultMemberPermissions and writes nothing
+// against the guild it was run in. It still reads one thing from it: a schedule needs a time zone,
+// and the guild's is the only one the bot has — a person carries none it can see.
+//
+// Every reply spells the semantics out because they are deliberately partial and would otherwise
+// read as broken: opting out keeps a room that holds only opted-out people from being picked, but
+// it does not follow you into a room where other people are present.
+func (c *Commands) cmdOptOut(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
+	return c.silence(ctx, e, guild, data, c.optouts, e.User().ID, optOutText, nil)
+}
+
+// cmdQuiet keeps what /quiet set always did with a zone: it becomes the server's.
+func (c *Commands) cmdQuiet(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
+	by := e.User().ID
+	return c.silence(ctx, e, guild, data, c.quiet, guild, quietText, func(tz string) error {
+		if tz != "" {
+			if _, err := c.settings.Update(ctx, guild, by, func(s *settings.Settings) { s.TZ = &tz }); err != nil {
+				return err
+			}
+		}
+		c.bus.Publish(ctx, bus.SettingsChanged{Guild: guild, Field: cmdNameQuiet, By: by})
+		return nil
+	})
+}
+
+// silence is both commands. saved, when set, runs after a successful write with the zone the
+// person typed, or "" when they typed none.
+func (c *Commands) silence(
 	ctx context.Context,
 	e *events.ApplicationCommandInteractionCreate,
 	guild snowflake.ID,
 	data discord.SlashCommandInteractionData,
-	spec, desc string,
+	s *silence.Store,
+	id snowflake.ID,
+	t silenceText,
+	saved func(tz string) error,
 ) error {
-	tz, ok := data.OptString(fieldTZ)
-	if !ok {
-		// The guild's zone is the only one the bot knows; a person has none it could read.
-		tz = settings.Zone(c.settings.Get(guild))
+	sub := optOn
+	if data.SubCommandName != nil {
+		sub = *data.SubCommandName
 	}
-	now := time.Now()
-	r, err := buildRule(spec, tz, now)
-	if err != nil {
-		return e.CreateMessage(say(bad("That schedule will not work", err.Error())))
-	}
-	hours := data.Int(fieldHours)
-	window := time.Duration(hours) * time.Hour
-	return c.saveThenSay(e, func() error {
-		return c.optouts.Set(ctx, store.OptOut{User: e.User().ID, Rule: r.String(), Window: window})
-	}, info("Not counting you on a schedule",
-		fmt.Sprintf("%s, %s at a time, %s.\nThe next one starts <t:%d:R>, and `/optout off` ends the whole thing.\n\n",
-			desc, plural(hours, "hour", "hours"), tz, r.After(now, true).Unix())+optOutTerms))
-}
-
-func (c *Commands) cmdQuiet(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
-	if data.SubCommandName != nil && *data.SubCommandName == optOff {
-		return c.saveThenSay(e, func() error {
-			if _, err := c.settings.Update(ctx, guild, e.User().ID, func(s *settings.Settings) { s.QuietFrom, s.QuietTo = nil, nil }); err != nil {
+	write := func(w func() error, tz string) func() error {
+		return func() error {
+			if err := w(); err != nil || saved == nil {
 				return err
 			}
-			c.bus.Publish(ctx, bus.SettingsChanged{Guild: guild, Field: cmdNameQuiet, By: e.User().ID})
-			return nil
-		}, info("Quiet hours", "Off. No rest for anyone."))
-	}
-	from, to := data.Int(fieldFrom), data.Int("to")
-	tz, ok := data.OptString(fieldTZ)
-	if !ok {
-		tz = settings.Zone(c.settings.Get(guild))
-	}
-	if !settings.ValidTZ(tz) {
-		return e.CreateMessage(say(bad("Unknown time zone", fmt.Sprintf("%q is not one. Try Europe/Brussels.", tz))))
-	}
-	if from == to {
-		return e.CreateMessage(say(bad("Same hour twice", "From and to can't be the same hour.")))
-	}
-	body := fmt.Sprintf("%02d:00–%02d:00 %s.\n", from, to, tz) + hourStrip(from, to)
-	return c.saveThenSay(e, func() error {
-		// Only a zone given here is written: without one, tz is the stored zone already.
-		if _, err := c.settings.Update(ctx, guild, e.User().ID, func(s *settings.Settings) {
-			s.QuietFrom, s.QuietTo = &from, &to
-			if ok {
-				s.TZ = &tz
-			}
-		}); err != nil {
-			return err
+			return saved(tz)
 		}
-		c.bus.Publish(ctx, bus.SettingsChanged{Guild: guild, Field: cmdNameQuiet, By: e.User().ID})
-		return nil
-	}, info("Quiet hours", body))
+	}
+	if sub == optOff {
+		return c.saveThenSay(e, write(func() error { return s.Clear(ctx, id) }, ""), info(t.off, t.offOK))
+	}
+
+	row := store.Silence{ID: id, By: e.User().ID}
+	var tz string
+	var reply discord.Embed
+	switch sub {
+	case optFor:
+		// A real instant rather than a duration the store would have to interpret. Rendered
+		// relative and in the reader's own zone; the bot knows no zone for a person.
+		until := time.Now().Add(time.Duration(data.Int(fieldHours)) * time.Hour)
+		row.Until = &until
+		reply = info(t.timed, fmt.Sprintf(t.timedBody, until.Unix())+t.terms)
+	case optSchedule, optRule:
+		spec, desc := data.String(fieldRule), "`"+data.String(fieldRule)+"`"
+		if sub == optSchedule {
+			from := data.Int(fieldFrom)
+			spec = weeklySpec(data.String(fieldDays), from)
+			desc = fmt.Sprintf("%s at %02d:00", dayLabel(data.String(fieldDays)), from)
+		}
+		zone, ok := data.OptString(fieldTZ)
+		if ok {
+			tz = zone
+		} else {
+			zone = settings.Zone(c.settings.Get(guild))
+		}
+		now := time.Now()
+		r, err := buildRule(spec, zone, now)
+		if err != nil {
+			return e.CreateMessage(say(bad("That schedule will not work", err.Error())))
+		}
+		hours := data.Int(fieldHours)
+		row.Rule, row.Window = r.String(), time.Duration(hours)*time.Hour
+		reply = info(t.sched, fmt.Sprintf("%s, %s at a time, %s.\nThe next one starts <t:%d:R>, and `/%s off` ends the whole thing.",
+			desc, plural(hours, "hour", "hours"), zone, r.After(now, true).Unix(), t.cmd)+t.terms)
+	default:
+		reply = info(t.on, t.onBody+t.terms)
+	}
+	return c.saveThenSay(e, write(func() error { return s.Set(ctx, row) }, tz), reply)
 }
 
 func (c *Commands) cmdChaos(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
@@ -1066,8 +1078,8 @@ func (c *Commands) cmdChaos(ctx context.Context, e *events.ApplicationCommandInt
 	w := schedule.Window{Rule: r, Length: time.Duration(hours) * time.Hour}
 	body := fmt.Sprintf("%s, %d%% instead of %d%%.\nThe next one starts <t:%d:R>.",
 		chaosLabel(days, from, hours, tz), chance, st.Chance, r.After(now, true).Unix())
-	if quietOverlap(w, func(t time.Time) bool { return c.settings.IsQuiet(st, t) }, now) {
-		body += "\n\nPart of it falls in quiet hours, and quiet hours win: nothing drops in then."
+	if q, ok := c.quiet.Get(guild); ok && quietOverlap(w, q.At, now) {
+		body += "\n\nPart of it falls in quiet time, and quiet wins: nothing drops in then."
 	}
 	return c.saveThenSay(e, func() error {
 		return c.chaos.Set(ctx, store.Chaos{Guild: guild, Rule: r.String(), Hours: hours, Chance: chance, CreatedBy: by})
@@ -1100,8 +1112,20 @@ func chaosLabel(days string, from, hours int, zone string) string {
 	return fmt.Sprintf("%s from %02d:00 for %s, %s", dayLabel(days), from, plural(hours, "hour", "hours"), zone)
 }
 
-// chaosDays reads the window back out of its stored rule, which is all the table keeps.
-func chaosDays(w chaos.Window) (days string, from int) {
+// scheduleLabel reads a window back out of its stored rule, which is all the tables keep: the
+// guided weekly form in words, anything else as the rule itself.
+func scheduleLabel(w schedule.Window) string {
+	hours := int(w.Length / time.Hour)
+	zone := w.Rule.GetDTStart().Location().String()
+	o := w.Rule.OrigOptions
+	if o.Freq != rrule.WEEKLY || len(o.Byweekday) == 0 {
+		return fmt.Sprintf("`%s` for %s, %s", o.RRuleString(), plural(hours, "hour", "hours"), zone)
+	}
+	days, from := scheduleDays(w)
+	return chaosLabel(days, from, hours, zone)
+}
+
+func scheduleDays(w schedule.Window) (days string, from int) {
 	o := w.Rule.OrigOptions
 	d := make([]string, len(o.Byweekday))
 	for i, wd := range o.Byweekday {
@@ -1141,25 +1165,50 @@ func (c *Commands) cmdStatus(_ context.Context, e *events.ApplicationCommandInte
 		meter(optEncore, float64(st.Encore)/maxEncore, ridingValue(st.Encore, st.Chance)),
 		meter("earshot", frac(populated, rooms), fmt.Sprintf("%d/%s", populated, plural(rooms, "room", "rooms"))),
 	)
-	// Quiet hours stay outside the block: the window is the one setting whose shape is worth
-	// drawing, and the words above it are what a screen reader is left with.
+	// Quiet stays outside the block: its window is the one setting whose shape is worth drawing,
+	// and the words above it are what a screen reader is left with.
 	now := time.Now()
 	chaosLine := "Chaos: off."
 	if w, ok := c.chaos.Get(guild); ok {
-		days, from := chaosDays(w)
-		chaosLine = fmt.Sprintf("Chaos: %s, at %d%%", chaosLabel(days, from, int(w.Length/time.Hour), w.Rule.GetDTStart().Location().String()), w.Chance)
+		chaosLine = fmt.Sprintf("Chaos: %s, at %d%%", scheduleLabel(w.Window), w.Chance)
 		if w.Active(now) {
 			chaosLine += activeNow
 		}
 	}
-	if st.QuietFrom == nil {
-		return e.CreateMessage(say(info("Status", body+"\n"+chaosLine+"\nQuiet hours: off — no rest for anyone.")))
+	return e.CreateMessage(say(info("Status", body+"\n"+chaosLine+"\n"+c.quietLine(guild, now))))
+}
+
+// quietLine is the status readout's quiet: in words, then the day drawn when it has a schedule.
+func (c *Commands) quietLine(guild snowflake.ID, now time.Time) string {
+	q, ok := c.quiet.Get(guild)
+	if !ok {
+		return "Quiet: off — no rest for anyone."
 	}
-	quiet := fmt.Sprintf("Quiet hours: %02d:00–%02d:00 %s", *st.QuietFrom, *st.QuietTo, settings.Zone(st))
-	if c.settings.IsQuiet(st, now) {
+	quiet := "Quiet: all the time"
+	if q.Rule != nil {
+		quiet = "Quiet: " + scheduleLabel(q.Window)
+	}
+	if !q.Until.IsZero() {
+		quiet += fmt.Sprintf(", until <t:%d:f>", q.Until.Unix())
+	}
+	if q.On(now) {
 		quiet += activeNow
 	}
-	return e.CreateMessage(say(info("Status", body+"\n"+chaosLine+"\n"+quiet+"\n"+hourStrip(*st.QuietFrom, *st.QuietTo))))
+	if q.Rule != nil {
+		quiet += "\n" + hourStrip(today(q, now))
+	}
+	return quiet
+}
+
+// today is each hour of the day in the rule's own zone, on or off: what the hour strip draws.
+func today(q silence.Entry, now time.Time) []bool {
+	loc := q.Rule.GetDTStart().Location()
+	y, m, d := now.In(loc).Date()
+	cells := make([]bool, dayHours)
+	for h := range cells {
+		cells[h] = q.At(time.Date(y, m, d, h, 0, 0, 0, loc))
+	}
+	return cells
 }
 
 // ridingValue says when a percentage is kept but cannot happen: a fake-out rides on suspense and an

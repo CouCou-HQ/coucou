@@ -11,6 +11,7 @@ import (
 
 	"github.com/be-sandaa/coucou/internal/chaos"
 	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/store"
 )
 
@@ -85,7 +86,7 @@ func loopWith(t *testing.T, n int, cfg func(i int, s *store.Settings)) *Loop {
 	if err := st.Load(context.Background()); err != nil {
 		t.Fatalf("load settings: %v", err)
 	}
-	return &Loop{settings: st, chaos: chaos.New(&fakeStore{})}
+	return &Loop{settings: st, chaos: chaos.New(&fakeStore{}), quiet: silence.Quiet(&fakeStore{})}
 }
 
 // guildIndex recovers the position a test guild was created at.
@@ -125,16 +126,16 @@ func TestCandidatesSkipsZeroChance(t *testing.T) {
 
 func TestCandidatesNeverPicksAQuietGuild(t *testing.T) {
 	const n = 1000
-	// Every guild is at 100% chance, so only quiet hours can hold one back. Half are quiet always:
-	// 0..24 never wraps and covers every hour of the day.
+	// Every guild is at 100% chance, so only quiet can hold one back. Half are quiet always.
 	isQuiet := func(i int) bool { return i%2 == 0 }
-	l := loopWith(t, n, func(i int, s *store.Settings) {
-		s.Chance = 100
+	l := loopWith(t, n, func(_ int, s *store.Settings) { s.Chance = 100 })
+	for i := range n {
 		if isQuiet(i) {
-			from, to := 0, 24
-			s.QuietFrom, s.QuietTo = &from, &to
+			if err := l.quiet.Set(t.Context(), store.Silence{ID: guildBase + snowflake.ID(i)}); err != nil {
+				t.Fatalf("set quiet: %v", err)
+			}
 		}
-	})
+	}
 
 	got := l.candidates(time.Now(), oneHuman, neverBusy)
 	if len(got) != n/2 {
@@ -291,9 +292,12 @@ func TestCandidatesEncore(t *testing.T) {
 	}
 }
 
-func (f *fakeStore) ListOptOuts(context.Context) ([]store.OptOut, error) { return nil, nil }
-func (f *fakeStore) SetOptOut(context.Context, store.OptOut) error       { return nil }
-func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error     { return nil }
+func (f *fakeStore) ListOptOuts(context.Context) ([]store.Silence, error) { return nil, nil }
+func (f *fakeStore) SetOptOut(context.Context, store.Silence) error       { return nil }
+func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error      { return nil }
+func (f *fakeStore) ListQuiet(context.Context) ([]store.Silence, error)   { return nil, nil }
+func (f *fakeStore) SetQuiet(context.Context, store.Silence) error        { return nil }
+func (f *fakeStore) ClearQuiet(context.Context, snowflake.ID) error       { return nil }
 
 func (f *fakeStore) ListChaos(context.Context) ([]store.Chaos, error) { return nil, nil }
 func (f *fakeStore) AppendChaos(context.Context, store.Chaos) error   { return nil }

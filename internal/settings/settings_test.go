@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/snowflake/v2"
@@ -16,65 +15,6 @@ const (
 	tzParis    = "Europe/Paris"
 	tzUTC      = "UTC"
 )
-
-func hours(from, to int) Settings {
-	return Settings{QuietFrom: &from, QuietTo: &to, TZ: new(tzBrussels)}
-}
-
-func TestIsQuiet(t *testing.T) {
-	s := New(nil) // IsQuiet only reads the settings it is handed; no store involved.
-	bru, err := time.LoadLocation(tzBrussels)
-	if err != nil {
-		t.Fatalf("tzdata missing: %v", err)
-	}
-
-	tests := []struct {
-		name string
-		st   Settings
-		now  time.Time
-		want bool
-	}{
-		{"normal window, inside", hours(22, 23), time.Date(2026, 6, 1, 22, 30, 0, 0, bru), true},
-		{"normal window, at start", hours(22, 23), time.Date(2026, 6, 1, 22, 0, 0, 0, bru), true},
-		{"normal window, at end is exclusive", hours(22, 23), time.Date(2026, 6, 1, 23, 0, 0, 0, bru), false},
-		{"normal window, outside", hours(22, 23), time.Date(2026, 6, 1, 12, 0, 0, 0, bru), false},
-
-		{"wrapped window, late evening", hours(23, 8), time.Date(2026, 6, 1, 23, 30, 0, 0, bru), true},
-		{"wrapped window, small hours", hours(23, 8), time.Date(2026, 6, 2, 3, 0, 0, 0, bru), true},
-		{"wrapped window, just after end", hours(23, 8), time.Date(2026, 6, 2, 8, 0, 0, 0, bru), false},
-		{"wrapped window, midday", hours(23, 8), time.Date(2026, 6, 2, 13, 0, 0, 0, bru), false},
-
-		{"same hour disables it", hours(3, 3), time.Date(2026, 6, 1, 3, 30, 0, 0, bru), false},
-		{"unset disables it", Settings{TZ: new(tzBrussels)}, time.Date(2026, 6, 1, 3, 30, 0, 0, bru), false},
-
-		// 2026-03-29 is the spring-forward day: 02:00 CET becomes 03:00 CEST, so 01:30 UTC is 03:30
-		// local. Reading the UTC hour instead of the guild's would answer false here.
-		{"DST spring forward, inside after the jump", hours(3, 5),
-			time.Date(2026, 3, 29, 1, 30, 0, 0, time.UTC), true},
-		{"DST spring forward, before the jump", hours(3, 5),
-			time.Date(2026, 3, 29, 0, 30, 0, 0, time.UTC), false}, // 01:30 CET
-		// 2026-10-25 is the fall-back day: 03:00 CEST becomes 02:00 CET, so 01:30 UTC is 02:30 CET.
-		{"DST fall back, inside", hours(2, 4),
-			time.Date(2026, 10, 25, 1, 30, 0, 0, time.UTC), true},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := s.IsQuiet(tc.st, tc.now); got != tc.want {
-				t.Errorf("IsQuiet(%s local) = %v, want %v", tc.now.In(bru).Format("2006-01-02 15:04 MST"), got, tc.want)
-			}
-		})
-	}
-}
-
-func TestUnknownTZFallsBackToUTC(t *testing.T) {
-	s := New(nil)
-	from, to := 10, 12
-	st := Settings{QuietFrom: &from, QuietTo: &to, TZ: new("Mars/Olympus_Mons")}
-	if !s.IsQuiet(st, time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC)) {
-		t.Error("an unparseable zone should fall back to UTC, not silently disable quiet hours")
-	}
-}
 
 func TestValidTZ(t *testing.T) {
 	if !ValidTZ(tzBrussels) {

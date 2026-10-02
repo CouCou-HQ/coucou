@@ -153,14 +153,14 @@ func (s *Store) ListSettings(ctx context.Context) ([]store.Settings, error) {
 	}
 	out := make([]store.Settings, len(rows))
 	for i, r := range rows {
-		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), QuietFrom: i16p(r.QuietFrom), QuietTo: i16p(r.QuietTo), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore)}
+		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore)}
 	}
 	return out, nil
 }
 
 func (s *Store) UpsertSettings(ctx context.Context, st store.Settings) error {
 	return s.q.UpsertSettings(ctx, gen.UpsertSettingsParams{
-		GuildID: i64(st.Guild), JoinChance: small(st.Chance), QuietFrom: pi16(st.QuietFrom), QuietTo: pi16(st.QuietTo), Tz: st.TZ, Suspense: small(st.Suspense), Fakeout: small(st.FakeOut), Encore: small(st.Encore),
+		GuildID: i64(st.Guild), JoinChance: small(st.Chance), Tz: st.TZ, Suspense: small(st.Suspense), Fakeout: small(st.FakeOut), Encore: small(st.Encore),
 		UpdatedBy: i64(st.UpdatedBy),
 	})
 }
@@ -279,28 +279,68 @@ func (s *Store) SeedSettingsFor(ctx context.Context, g snowflake.ID, d store.Def
 
 //#endregion
 
-//#region Opt-outs
+//#region Silences
 
-func (s *Store) ListOptOuts(ctx context.Context) ([]store.OptOut, error) {
+func (s *Store) ListOptOuts(ctx context.Context) ([]store.Silence, error) {
 	rows, err := s.q.ListOptOuts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]store.OptOut, len(rows))
+	out := make([]store.Silence, len(rows))
 	for i, r := range rows {
-		out[i] = optOut(snowflake.ID(r.UserID), r.Until, r.Rrule, r.WindowS) //nolint:gosec // G115: a Discord id round-trips through bigint
+		out[i] = silence(r.UserID, r.Rrule, r.WindowS, r.DisabledAt)
 	}
 	return out, nil
 }
 
-func (s *Store) SetOptOut(ctx context.Context, o store.OptOut) error {
-	return s.q.SetOptOut(ctx, gen.SetOptOutParams{
-		UserID: i64(o.User), Until: o.Until, Rrule: strp(o.Rule), WindowS: secs(o.Window),
+// SetOptOut closes the live row and appends the new one in one transaction, so a failed append
+// leaves the old one standing rather than nothing.
+func (s *Store) SetOptOut(ctx context.Context, o store.Silence) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		if err := q.CloseOptOut(ctx, i64(o.ID)); err != nil {
+			return err
+		}
+		return q.InsertOptOut(ctx, gen.InsertOptOutParams{
+			UserID: i64(o.ID), Rrule: strp(o.Rule), WindowS: secs(o.Window), DisabledAt: o.Until,
+		})
 	})
 }
 
-// strp and secs map the two "not set" shapes onto the null columns: a row with no schedule has no
-// rule and no window, and "" or 0 in those columns would read as a schedule that never fires.
+func (s *Store) ClearOptOut(ctx context.Context, user snowflake.ID) error {
+	return s.q.CloseOptOut(ctx, i64(user))
+}
+
+func (s *Store) ListQuiet(ctx context.Context) ([]store.Silence, error) {
+	rows, err := s.q.ListQuiet(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]store.Silence, len(rows))
+	for i, r := range rows {
+		out[i] = silence(r.GuildID, r.Rrule, r.WindowS, r.DisabledAt)
+	}
+	return out, nil
+}
+
+func (s *Store) SetQuiet(ctx context.Context, q store.Silence) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		qt := s.q.WithTx(tx)
+		if err := qt.CloseQuiet(ctx, i64(q.ID)); err != nil {
+			return err
+		}
+		return qt.InsertQuiet(ctx, gen.InsertQuietParams{
+			GuildID: i64(q.ID), Rrule: strp(q.Rule), WindowS: secs(q.Window), DisabledAt: q.Until, CreatedBy: i64(q.By),
+		})
+	})
+}
+
+func (s *Store) ClearQuiet(ctx context.Context, guild snowflake.ID) error {
+	return s.q.CloseQuiet(ctx, i64(guild))
+}
+
+// strp and secs map the "all the time" shape onto the null columns: "" or 0 there would read as a
+// schedule that never fires.
 func strp(s string) *string {
 	if s == "" {
 		return nil
@@ -316,9 +356,9 @@ func secs(d time.Duration) *int32 {
 	return &v
 }
 
-// optOut assembles the row's three optional columns into the one shape the interface promises.
-func optOut(user snowflake.ID, until *time.Time, rule *string, window *int32) store.OptOut {
-	o := store.OptOut{User: user, Until: until}
+// silence assembles a row's optional columns into the one shape the interface promises.
+func silence(id int64, rule *string, window *int32, until *time.Time) store.Silence {
+	o := store.Silence{ID: snowflake.ID(id), Until: until} //nolint:gosec // G115: a Discord id round-trips through bigint
 	if rule != nil {
 		o.Rule = *rule
 	}
@@ -326,10 +366,6 @@ func optOut(user snowflake.ID, until *time.Time, rule *string, window *int32) st
 		o.Window = time.Duration(*window) * time.Second
 	}
 	return o
-}
-
-func (s *Store) ClearOptOut(ctx context.Context, user snowflake.ID) error {
-	return s.q.ClearOptOut(ctx, i64(user))
 }
 
 //#endregion
@@ -569,13 +605,6 @@ func idp(v *snowflake.ID) *int64 {
 		return nil
 	}
 	i := i64(*v)
-	return &i
-}
-func i16p(v *int16) *int {
-	if v == nil {
-		return nil
-	}
-	i := int(*v)
 	return &i
 }
 func pi16(v *int) *int16 {

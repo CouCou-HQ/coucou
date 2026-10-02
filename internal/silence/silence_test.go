@@ -1,4 +1,4 @@
-package optout
+package silence
 
 import (
 	"context"
@@ -20,20 +20,17 @@ const (
 
 var errWrite = errors.New("database is asleep")
 
-// fakeStore is the three opt-out methods and nothing else that matters; the rest of store.Store is
-// here only to satisfy the interface.
+// fakeStore is one silence table: the three functions a Store is built from.
 type fakeStore struct {
-	rows     []store.OptOut
+	rows     []store.Silence
 	failList error
 	failSet  error
 	failClr  error
 }
 
-func (f *fakeStore) ListOptOuts(context.Context) ([]store.OptOut, error) {
-	return f.rows, f.failList
-}
+func (f *fakeStore) list(context.Context) ([]store.Silence, error) { return f.rows, f.failList }
 
-func (f *fakeStore) SetOptOut(_ context.Context, o store.OptOut) error {
+func (f *fakeStore) set(_ context.Context, o store.Silence) error {
 	if f.failSet != nil {
 		return f.failSet
 	}
@@ -41,77 +38,28 @@ func (f *fakeStore) SetOptOut(_ context.Context, o store.OptOut) error {
 	return nil
 }
 
+func (f *fakeStore) clear(context.Context, snowflake.ID) error { return f.failClr }
+
+func newFake(f *fakeStore) *Store { return newStore(f.list, f.set, f.clear) }
+
 // until builds the row /optout for writes, d from now.
-func until(u snowflake.ID, d time.Duration) store.OptOut {
+func until(u snowflake.ID, d time.Duration) store.Silence {
 	t := time.Now().Add(d)
-	return store.OptOut{User: u, Until: &t}
+	return store.Silence{ID: u, Until: &t}
 }
 
 // indefinite and timed build the rows a backend would hand back, so a test says which kind it means.
-func indefinite(u snowflake.ID) store.OptOut { return store.OptOut{User: u} }
-func timed(u snowflake.ID, d time.Duration) store.OptOut {
+func indefinite(u snowflake.ID) store.Silence { return store.Silence{ID: u} }
+func timed(u snowflake.ID, d time.Duration) store.Silence {
 	t := time.Now().Add(d)
-	return store.OptOut{User: u, Until: &t}
-}
-
-func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error { return f.failClr }
-
-func (f *fakeStore) Migrate(context.Context) error                               { return nil }
-func (f *fakeStore) Ping(context.Context) error                                  { return nil }
-func (f *fakeStore) Close()                                                      {}
-func (f *fakeStore) ListSettings(context.Context) ([]store.Settings, error)      { return nil, nil }
-func (f *fakeStore) UpsertSettings(context.Context, store.Settings) error        { return nil }
-func (f *fakeStore) WritePlays(context.Context, []store.Play) error              { return nil }
-func (f *fakeStore) WriteMisc(context.Context, []store.Misc) error               { return nil }
-func (f *fakeStore) UpsertGuilds(context.Context, []store.Guild) error           { return nil }
-func (f *fakeStore) MarkGuildLeft(context.Context, snowflake.ID) error           { return nil }
-func (f *fakeStore) SeedSettings(context.Context, store.Defaults) (int64, error) { return 0, nil }
-
-func (f *fakeStore) MarkGuildsLeftExcept(context.Context, []snowflake.ID) ([]snowflake.ID, error) {
-	return nil, nil
-}
-
-func (f *fakeStore) SeedSettingsFor(context.Context, snowflake.ID, store.Defaults) error { return nil }
-
-func (f *fakeStore) GuildStats(context.Context, snowflake.ID) (store.GuildStats, error) {
-	return store.GuildStats{}, nil
-}
-
-func (f *fakeStore) UserStats(context.Context, *snowflake.ID, snowflake.ID) (store.UserStats, error) {
-	return store.UserStats{}, nil
-}
-
-func (*fakeStore) HeardSounds(context.Context, *snowflake.ID, snowflake.ID, []string) ([]string, error) {
-	return nil, nil
-}
-
-func (f *fakeStore) GlobalStats(context.Context) (store.GlobalStats, error) {
-	return store.GlobalStats{}, nil
-}
-
-func (f *fakeStore) Leaderboard(context.Context, snowflake.ID, string, int) ([]store.Row, error) {
-	return nil, nil
-}
-
-func (f *fakeStore) TopGuilds(context.Context, int) ([]store.Row, error) { return nil, nil }
-func (*fakeStore) UserRank(context.Context, snowflake.ID, snowflake.ID, time.Time) (store.UserRank, error) {
-	return store.UserRank{}, nil
-}
-func (*fakeStore) UserRecent(context.Context, snowflake.ID, time.Time) (store.UserCounts, error) {
-	return store.UserCounts{}, nil
-}
-func (*fakeStore) GuildRecent(context.Context, snowflake.ID, time.Time) (store.GuildRecent, error) {
-	return store.GuildRecent{}, nil
-}
-func (*fakeStore) Cuts(context.Context, string, time.Time, time.Time) ([]float64, error) {
-	return nil, nil
+	return store.Silence{ID: u, Until: &t}
 }
 
 // Load is the only read: the loop asks Has once per human per tick, and that has to be answered
 // from memory or the memory target goes with it.
 func TestLoadThenAnswerFromMemory(t *testing.T) {
-	db := &fakeStore{rows: []store.OptOut{indefinite(userA)}}
-	s := New(db)
+	db := &fakeStore{rows: []store.Silence{indefinite(userA)}}
+	s := newFake(db)
 
 	if s.Has(userA) {
 		t.Error("Has answered true before Load")
@@ -129,13 +77,13 @@ func TestLoadThenAnswerFromMemory(t *testing.T) {
 
 // Load replaces rather than merges, so a set that shrank in the database shrinks here too.
 func TestLoadReplaces(t *testing.T) {
-	db := &fakeStore{rows: []store.OptOut{indefinite(userA)}}
-	s := New(db)
+	db := &fakeStore{rows: []store.Silence{indefinite(userA)}}
+	s := newFake(db)
 	if err := s.Load(t.Context()); err != nil {
 		t.Fatalf("load: %v", err)
 	}
 
-	db.rows = []store.OptOut{indefinite(userB)}
+	db.rows = []store.Silence{indefinite(userB)}
 	if err := s.Load(t.Context()); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
@@ -149,7 +97,7 @@ func TestLoadReplaces(t *testing.T) {
 
 // The whole point of a timed opt-out is that it stops on its own, with nothing scheduled to end it.
 func TestATimedOptOutExpiresOnItsOwn(t *testing.T) {
-	s := New(&fakeStore{})
+	s := newFake(&fakeStore{})
 
 	if err := s.Set(t.Context(), until(userA, -time.Second)); err != nil {
 		t.Fatalf("set: %v", err)
@@ -168,8 +116,8 @@ func TestATimedOptOutExpiresOnItsOwn(t *testing.T) {
 
 // The zero time is the indefinite opt-out, and it must not read as "expired at the epoch".
 func TestTheZeroTimeMeansIndefinite(t *testing.T) {
-	s := New(&fakeStore{})
-	if err := s.Set(t.Context(), store.OptOut{User: userA}); err != nil {
+	s := newFake(&fakeStore{})
+	if err := s.Set(t.Context(), store.Silence{ID: userA}); err != nil {
 		t.Fatalf("set: %v", err)
 	}
 	if !s.Has(userA) {
@@ -179,11 +127,11 @@ func TestTheZeroTimeMeansIndefinite(t *testing.T) {
 
 // Opting out again is how a deadline is extended or dropped, so the second Set has to win.
 func TestSetOverwritesTheDeadline(t *testing.T) {
-	s := New(&fakeStore{})
+	s := newFake(&fakeStore{})
 	if err := s.Set(t.Context(), until(userA, -time.Second)); err != nil {
 		t.Fatalf("set expired: %v", err)
 	}
-	if err := s.Set(t.Context(), store.OptOut{User: userA}); err != nil {
+	if err := s.Set(t.Context(), store.Silence{ID: userA}); err != nil {
 		t.Fatalf("set indefinite: %v", err)
 	}
 	if !s.Has(userA) {
@@ -193,7 +141,7 @@ func TestSetOverwritesTheDeadline(t *testing.T) {
 
 // A row loaded with a deadline behaves like one set with it -- Load is the only other way in.
 func TestLoadCarriesTheDeadline(t *testing.T) {
-	s := New(&fakeStore{rows: []store.OptOut{timed(userA, time.Hour), timed(userB, -time.Hour)}})
+	s := newFake(&fakeStore{rows: []store.Silence{timed(userA, time.Hour), timed(userB, -time.Hour)}})
 	if err := s.Load(t.Context()); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -206,9 +154,9 @@ func TestLoadCarriesTheDeadline(t *testing.T) {
 }
 
 func TestSetAndClear(t *testing.T) {
-	s := New(&fakeStore{})
+	s := newFake(&fakeStore{})
 
-	if err := s.Set(t.Context(), store.OptOut{User: userA}); err != nil {
+	if err := s.Set(t.Context(), store.Silence{ID: userA}); err != nil {
 		t.Fatalf("set: %v", err)
 	}
 	if !s.Has(userA) {
@@ -226,8 +174,8 @@ func TestSetAndClear(t *testing.T) {
 // the next restart and then silently forget what the person asked for.
 func TestAFailedWriteLeavesMemoryAlone(t *testing.T) {
 	t.Run("set", func(t *testing.T) {
-		s := New(&fakeStore{failSet: errWrite})
-		if err := s.Set(t.Context(), store.OptOut{User: userA}); !errors.Is(err, errWrite) {
+		s := newFake(&fakeStore{failSet: errWrite})
+		if err := s.Set(t.Context(), store.Silence{ID: userA}); !errors.Is(err, errWrite) {
 			t.Fatalf("Set returned %v, want %v", err, errWrite)
 		}
 		if s.Has(userA) {
@@ -236,8 +184,8 @@ func TestAFailedWriteLeavesMemoryAlone(t *testing.T) {
 	})
 
 	t.Run("clear", func(t *testing.T) {
-		db := &fakeStore{rows: []store.OptOut{indefinite(userA)}}
-		s := New(db)
+		db := &fakeStore{rows: []store.Silence{indefinite(userA)}}
+		s := newFake(db)
 		if err := s.Load(t.Context()); err != nil {
 			t.Fatalf("load: %v", err)
 		}
@@ -253,7 +201,7 @@ func TestAFailedWriteLeavesMemoryAlone(t *testing.T) {
 }
 
 func TestLoadReturnsTheStoreError(t *testing.T) {
-	s := New(&fakeStore{failList: errWrite})
+	s := newFake(&fakeStore{failList: errWrite})
 	if err := s.Load(t.Context()); !errors.Is(err, errWrite) {
 		t.Errorf("Load returned %v, want %v", err, errWrite)
 	}
@@ -291,7 +239,7 @@ func at(t *testing.T, month time.Month, day, hour, minute int) time.Time {
 // The window is what Has actually answers from, so its edges are the contract. Tested on entry
 // rather than through Has because Has reads the wall clock, and these cases are about instants.
 func TestARecurringOptOutIsOnlyActiveInsideItsWindow(t *testing.T) {
-	e := entry{Window: schedule.Window{Rule: weekdays9(t), Length: 8 * time.Hour}}
+	e := Entry{Window: schedule.Window{Rule: weekdays9(t), Length: 8 * time.Hour}}
 
 	cases := []struct {
 		name string
@@ -310,9 +258,8 @@ func TestARecurringOptOutIsOnlyActiveInsideItsWindow(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			e.At(c.now) // what the refresher does a minute at a time
-			if got := e.active(c.now); got != c.want {
-				t.Errorf("active(%v) = %v, want %v (window %v..%v)", c.now, got, c.want, e.From, e.To)
+			if got := e.At(c.now); got != c.want {
+				t.Errorf("At(%v) = %v, want %v (window %v..%v)", c.now, got, c.want, e.From, e.To)
 			}
 		})
 	}
@@ -321,8 +268,8 @@ func TestARecurringOptOutIsOnlyActiveInsideItsWindow(t *testing.T) {
 // Without the refresher a schedule stays frozen at whichever occurrence was live when it was set,
 // which is the one thing a recurring opt-out cannot do.
 func TestRefreshMovesTheWindowOn(t *testing.T) {
-	s := New(&fakeStore{})
-	s.m[userA] = entry{Window: schedule.Window{Rule: weekdays9(t), Length: 8 * time.Hour}}
+	s := newFake(&fakeStore{})
+	s.m[userA] = Entry{Window: schedule.Window{Rule: weekdays9(t), Length: 8 * time.Hour}}
 
 	s.refresh(at(t, time.September, 21, 10, 0)) // Monday
 	if got := s.m[userA].From; !got.Equal(at(t, time.September, 21, 9, 0)) {
@@ -337,7 +284,7 @@ func TestRefreshMovesTheWindowOn(t *testing.T) {
 // A rule only reaches the table through the command, which parses it first, so an unreadable one
 // is corruption. Honouring the request matters more than honouring its schedule.
 func TestAnUnreadableRuleHoldsTheOptOutOpen(t *testing.T) {
-	s := New(&fakeStore{rows: []store.OptOut{{User: userA, Rule: "RRULE:FREQ=NONSENSE", Window: time.Hour}}})
+	s := newFake(&fakeStore{rows: []store.Silence{{ID: userA, Rule: "RRULE:FREQ=NONSENSE", Window: time.Hour}}})
 	if err := s.Load(t.Context()); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -346,13 +293,14 @@ func TestAnUnreadableRuleHoldsTheOptOutOpen(t *testing.T) {
 	}
 }
 
-func (f *fakeStore) ListChaos(context.Context) ([]store.Chaos, error) { return nil, nil }
-func (f *fakeStore) AppendChaos(context.Context, store.Chaos) error   { return nil }
-
-func (*fakeStore) PlaysHourly(context.Context, *snowflake.ID, time.Time) ([]store.PlayHour, error) {
-	return nil, nil
+// An end applies to a schedule too: the window can be open and the silence still over.
+func TestAScheduleWithAnEndStopsAtIt(t *testing.T) {
+	e := Entry{Window: schedule.Window{Rule: weekdays9(t), Length: 8 * time.Hour}}
+	e.Until = at(t, time.September, 22, 12, 0)
+	if !e.At(at(t, time.September, 22, 11, 0)) {
+		t.Error("off inside the window before its end")
+	}
+	if e.At(at(t, time.September, 22, 13, 0)) {
+		t.Error("on inside the window after its end")
+	}
 }
-func (*fakeStore) UserHourly(context.Context, *snowflake.ID, snowflake.ID, time.Time) ([]store.UserHour, error) {
-	return nil, nil
-}
-func (*fakeStore) RefreshAnalytics(context.Context) error { return nil }

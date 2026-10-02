@@ -2,18 +2,17 @@
 -- single-row statements; sqlite executes ~100k simple inserts/s in a tx, which is plenty.
 
 -- name: ListSettings :many
-select guild_id, join_chance, quiet_from, quiet_to, tz, suspense, fakeout, encore from guilds_settings;
+select guild_id, join_chance, tz, suspense, fakeout, encore from guilds_settings;
 
 -- name: UpsertSettings :exec
 -- updated_by is who asked for the change, null when the bot acted on its own. Postgres nulls the
 -- zero in SQL; sqlc's sqlite grammar rejects sqlc.arg() inside nullif(), so actor does it in Go.
 -- Nothing reads the column here yet, but dropping it on the floor would make the two backends
 -- disagree about what the store was told.
-insert into guilds_settings (guild_id, join_chance, quiet_from, quiet_to, tz, suspense, fakeout, encore, updated_by)
-values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+insert into guilds_settings (guild_id, join_chance, tz, suspense, fakeout, encore, updated_by)
+values (?, ?, ?, ?, ?, ?, ?)
 on conflict (guild_id) do update set
-  join_chance = excluded.join_chance, quiet_from = excluded.quiet_from, quiet_to = excluded.quiet_to,
-  tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, updated_by = excluded.updated_by,
+  join_chance = excluded.join_chance, tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, updated_by = excluded.updated_by,
   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now');
 
 -- name: InsertPlay :one
@@ -282,17 +281,28 @@ select v.n from pos join v on v.rn = pos.rn order by pos.k;
 -- The cutoff comes from Go rather than from strftime so both sides of the comparison carry the one
 -- format this dialect writes. RFC3339Nano trims trailing zeros, so the string compare can be off by
 -- under a second either way; Has re-checks in memory against a real clock, which is what decides.
-select user_id, until, rrule, window_s from users_optouts where until is null or until > ?1;
+select user_id, rrule, window_s, disabled_at from users_optouts
+where disabled_at is null or disabled_at > ?1
+order by id;
 
--- name: SetOptOut :exec
-insert into users_optouts (user_id, until, rrule, window_s) values (?1, ?2, ?3, ?4)
-on conflict (user_id) do update set
-  until    = excluded.until,
-  rrule    = excluded.rrule,
-  window_s = excluded.window_s;
+-- name: CloseOptOut :exec
+update users_optouts set disabled_at = ?2
+where user_id = ?1 and (disabled_at is null or disabled_at > ?2);
 
--- name: ClearOptOut :exec
-delete from users_optouts where user_id = ?;
+-- name: InsertOptOut :exec
+insert into users_optouts (user_id, rrule, window_s, disabled_at) values (?, ?, ?, ?);
+
+-- name: ListQuiet :many
+select guild_id, rrule, window_s, disabled_at from guilds_quiet
+where disabled_at is null or disabled_at > ?1
+order by id;
+
+-- name: CloseQuiet :exec
+update guilds_quiet set disabled_at = ?2
+where guild_id = ?1 and (disabled_at is null or disabled_at > ?2);
+
+-- name: InsertQuiet :exec
+insert into guilds_quiet (guild_id, rrule, window_s, disabled_at, created_by) values (?, ?, ?, ?, ?);
 
 -- The audited tables are read back whole, with select *, on purpose: the diff is taken over every
 -- column the row has rather than a list written out here, so adding a column does not need this
@@ -300,9 +310,6 @@ delete from users_optouts where user_id = ?;
 
 -- name: GetSettings :one
 select * from guilds_settings where guild_id = ?;
-
--- name: GetOptOut :one
-select * from users_optouts where user_id = ?;
 
 -- name: InsertAuditLog :exec
 insert into audit_logs (schema_name, table_name, op, pk_column, pk, by, change)

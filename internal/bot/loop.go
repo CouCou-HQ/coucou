@@ -11,8 +11,8 @@ import (
 
 	"github.com/be-sandaa/coucou/internal/chaos"
 	"github.com/be-sandaa/coucou/internal/events"
-	"github.com/be-sandaa/coucou/internal/optout"
 	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/voice"
 )
@@ -29,14 +29,15 @@ type Loop struct {
 	settings *settings.Store
 	sounds   *sounds.Registry
 	play     func(context.Context, *PlayRequest) error
-	optouts  *optout.Store
+	optouts  *silence.Store
+	quiet    *silence.Store
 	chaos    *chaos.Store
 }
 
 // NewLoop takes what the loop reads: who is configured, whether there is anything to play, and the
 // player to hand a pick to. The client is only ever used to look up channels in the cache.
-func NewLoop(client *bot.Client, set *settings.Store, reg *sounds.Registry, play func(context.Context, *PlayRequest) error, opt *optout.Store, ch *chaos.Store) *Loop {
-	return &Loop{client: client, settings: set, sounds: reg, play: play, optouts: opt, chaos: ch}
+func NewLoop(client *bot.Client, set *settings.Store, reg *sounds.Registry, play func(context.Context, *PlayRequest) error, opt, quiet *silence.Store, ch *chaos.Store) *Loop {
+	return &Loop{client: client, settings: set, sounds: reg, play: play, optouts: opt, quiet: quiet, chaos: ch}
 }
 
 // best is the cache lookup, split out so the test can substitute one and need no Discord at all.
@@ -69,7 +70,7 @@ func (l *Loop) candidates(
 		if chance == 0 || rand.IntN(100) >= chance {
 			continue
 		}
-		if l.settings.IsQuiet(st, now) || busy(guild) {
+		if l.quiet.Has(guild) || busy(guild) {
 			continue
 		}
 		ch, humans := best(guild)

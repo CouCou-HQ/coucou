@@ -112,7 +112,7 @@ active voice. Set `0` to make servers opt in with `/chance`.
 | `/help` | anyone | the command list, and which switch actually keeps the bot out |
 | `/optout` | anyone, for themselves | stop being picked: indefinitely, for some hours, or on a schedule |
 | `/chance <0-100>` | Manage Server | how often it visits; 0 is never |
-| `/quiet set\|off` | Manage Server | hours to be left alone, in the server's time zone |
+| `/quiet` | Manage Server | leave the server alone: indefinitely, for some hours, or on a schedule |
 | `/suspense <0-20>` | Manage Server | seconds of awkward silence before the sound |
 | `/status` | anyone | what the bot thinks about this server |
 | `/stats user\|guild\|bot` | anyone | play statistics, rankings and charts |
