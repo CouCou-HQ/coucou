@@ -1,0 +1,36 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/store/pg/migrations
+    queries: internal/store/pg/queries
+    gen:
+      go:
+        package: gen
+        out: internal/store/pg/gen
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
+        overrides:
+          - { db_type: timestamptz, go_type: time.Time }
+          # A nullable timestamptz has to come back as a pointer: left-joining an optional row is
+          # how every optional value in stats.sql is typed, and scanning its NULL into time.Time fails.
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true
+          - { db_type: pg_catalog.float8, go_type: float64 }
+          - { db_type: pg_catalog.float8, go_type: float64, nullable: true }
+  - engine: sqlite
+    schema: internal/store/sqlite/migrations
+    queries: internal/store/sqlite/queries
+    gen:
+      go:
+        package: gen
+        out: internal/store/sqlite/gen
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
+        # json tags carry the column names, which is what the audit log records: the diff is taken
+        # over the decoded row rather than a list of columns written out by hand.
+        emit_json_tags: true
+        # sqlite has no real types: integer→int64, text→string, real→float64. Timestamps stay text.

@@ -1,0 +1,113 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "make build",
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "build (fast)",
+      "type": "shell",
+      "command": "make build-fast",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "build (dev tag)",
+      "type": "shell",
+      "command": "make build-fast TAGS=dev",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "make test",
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "test (dev tag)",
+      "type": "shell",
+      "command": "go test -tags dev ./...",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "test (with coverage)",
+      "type": "shell",
+      "command": "make test-cover",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "make lint",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "fmt",
+      "type": "shell",
+      "command": "make fmt",
+      "group": "build",
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "tidy",
+      "type": "shell",
+      "command": "make tidy",
+      "group": "build",
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "sqlc: generate",
+      "type": "shell",
+      "command": "make gen",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "image",
+      "type": "shell",
+      "command": "make image",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "migrate: status",
+      "type": "shell",
+      "command": "make migrate-status",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "migrate: new (postgres)",
+      "type": "shell",
+      "command": "make migrate-new-pg name=${input:migrationName}",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "migrate: new (sqlite)",
+      "type": "shell",
+      "command": "make migrate-new-sqlite name=${input:migrationName}",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "migrationName",
+      "type": "promptString",
+      "description": "Migration name, e.g. add_foo — keep both dialects in step"
+    }
+  ]
+}

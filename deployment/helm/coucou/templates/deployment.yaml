@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "coucou.fullname" . }}
+  labels:
+    {{- include "coucou.labels" . | nindent 4 }}
+spec:
+  # One gateway connection, and only one. A second replica is a second bot: it joins the same
+  # channels, plays over the first, and doubles every stats row. Recreate rather than RollingUpdate
+  # for the same reason — the old pod has to be gone before the new one connects.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "coucou.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "coucou.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if not .Values.discord.existingSecret }}
+        # Roll the pod when an inline secret changes; an existing Secret is the owner's to rotate.
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: coucou
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: DISCORD_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "coucou.discordSecretName" . }}
+                  key: {{ include "coucou.discordSecretKey" . }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "coucou.databaseSecretName" . }}
+                  key: {{ include "coucou.databaseSecretKey" . }}
+            - name: SOUNDS_DIR
+              value: {{ .Values.sounds.mountPath | quote }}
+            - name: SOUNDS_POLL
+              value: {{ .Values.config.soundsPoll | quote }}
+            - name: DEFAULT_CHANCE
+              value: {{ .Values.config.defaultChance | quote }}
+            - name: HTTP_ADDR
+              value: {{ printf ":%d" (int .Values.http.port) | quote }}
+            {{- with .Values.config.ownerIDs }}
+            - name: OWNER_IDS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.tracing.otlpEndpoint }}
+            - name: OTLP_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.http.port }}
+              protocol: TCP
+          # Liveness asks only whether the process is running. Readiness asks whether it can do its
+          # job, so a gateway reconnect or a database blip takes the pod out of the Service without
+          # restarting it — restarting would only make a reconnect take longer.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            {{- toYaml .Values.probes.liveness | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            {{- toYaml .Values.probes.readiness | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: sounds
+              mountPath: {{ .Values.sounds.mountPath }}
+              readOnly: true
+      volumes:
+        - name: sounds
+          {{- if .Values.sounds.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.sounds.existingClaim }}
+            readOnly: true
+          {{- else if .Values.sounds.hostPath }}
+          hostPath:
+            path: {{ .Values.sounds.hostPath }}
+            type: Directory
+          {{- else }}
+          # No sounds configured. The bot starts, finds nothing, and never plays.
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

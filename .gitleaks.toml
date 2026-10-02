@@ -1,0 +1,24 @@
+title = "go-service-template gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow example/placeholder values in config and docs"
+paths = [
+  '''.env\.example''',
+  '''CLAUDE\.md''',
+  '''CONTRIBUTING\.md''',
+  '''docs/.*''',
+  '''.*_test\.go''',
+]
+
+[[allowlists]]
+description = "Allow known safe placeholder strings"
+regexes = [
+  '''postgres://postgres:postgres@localhost''',
+  '''your-.*-here''',
+  '''changeme''',
+  '''REPLACE_ME''',
+  '''example\.com''',
+]

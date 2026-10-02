@@ -1,0 +1,72 @@
+# ── Version control ───────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+Dockerfile*
+.*ignore
+docker-compose*.yml
+
+# ── Build artifacts ───────────────────────────────────────────────────────────
+bin/
+dist/
+tmp/
+__debug_bin*
+
+# ── Test & coverage ───────────────────────────────────────────────────────────
+**/*_test.go
+test/
+coverage.*
+*.coverprofile
+*.prof
+*.bench
+trace.out
+
+# ── Generated / tooling output ────────────────────────────────────────────────
+mocks/
+
+# ── Dev tooling config (not needed at runtime) ────────────────────────────────
+.air.toml
+.mockery.yaml
+.editorconfig
+cliff.toml
+sqlc.yaml
+buf.yaml
+buf.gen.yaml
+buf.lock
+docker/tempo.yaml
+docker/prometheus.yml
+docker/otel-collector-config.yaml
+docker/grafana/
+.devcontainer/
+.vscode/
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+*.md
+docs/
+CODEOWNERS
+
+# ── OS metadata ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# ── AI tools ──────────────────────────────────────────────────────────────────
+.planning/
+.claude/
+.aider*
+.cursor/
+.continue/
+.cody/
+
+# ── GitHub / CI ───────────────────────────────────────────────────────────────
+.github/

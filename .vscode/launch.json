@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // A development build, which registers its commands to DISCORD_DEV_GUILD and refuses to
+      // start without one. Debugging the release build instead would push whatever is in the tree
+      // to every server the bot is in.
+      "name": "coucou (dev build)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/coucou",
+      "buildFlags": "-tags dev",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "args": []
+    },
+    {
+      "name": "coucou (dev build, race detector)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/coucou",
+      "buildFlags": "-tags dev -race",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "args": []
+    },
+    {
+      // Everything under internal/, with the dev tag so the build-tagged files compile too.
+      "name": "Test package in editor",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "buildFlags": "-tags dev",
+      "args": ["-test.v"]
+    },
+    {
+      "name": "Attach to process",
+      "type": "go",
+      "request": "attach",
+      "mode": "local",
+      "processId": "${command:pickProcess}"
+    }
+  ]
+}

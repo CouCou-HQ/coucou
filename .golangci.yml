@@ -1,0 +1,158 @@
+version: "2"
+linters:
+  enable:
+    # --- correctness ---
+    - bodyclose        # unclosed HTTP response bodies
+    - errcheck         # unhandled errors
+    - errorlint        # incorrect error wrapping (missing %w, errors.Is misuse)
+    - exhaustive       # missing cases in enum switches
+    - forcetypeassert  # type assertions without the ok guard
+    - govet            # suspicious Go constructs
+    - ineffassign      # assignments that are never read
+    - nilerr           # returning nil after checking error is nil
+    - nilnil           # functions returning (nil, nil) — always a logic bug
+    - noctx            # HTTP requests sent without a context
+    - rowserrcheck     # sql.Rows.Err() not checked after iteration
+    - sqlclosecheck    # sql.Rows/Stmt not closed
+    - staticcheck      # broad static analysis (SA, S, ST families)
+    - unused           # unused code
+    - wastedassign     # assignments whose result is never used
+    - durationcheck    # multiplying two durations (usually a bug)
+    - reassign         # package-level vars reassigned in other packages
+
+    # --- security ---
+    - gosec            # common security issues (hardcoded creds, injection, etc.)
+
+    # --- maintainability ---
+    - dupl             # code duplication
+    - funlen           # function body too long
+    - gocognit         # cognitive complexity
+    - goconst          # repeated string literals
+    - gocritic         # opinionated style and correctness checks
+    - gocyclo          # cyclomatic complexity
+    - nakedret         # naked returns in long functions
+    - nestif           # deeply nested if-chains
+    - revive           # broad style and correctness (replaces golint)
+    - unparam          # parameters that always receive the same value
+
+    # --- style ---
+    - misspell         # spelling mistakes in comments and strings
+    - predeclared      # shadowing predeclared identifiers (len, error, etc.)
+    - unconvert        # unnecessary type conversions
+    - usestdlibvars    # use stdlib constants instead of raw literals
+    - prealloc         # slice preallocation opportunities
+
+    # --- logging ---
+    - loggercheck      # mismatched key-value pairs in structured log calls
+    - sloglint         # slog call shape — see settings
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    errorlint:
+      errorf: true
+      errorf-multi: true
+      asserts: true
+      comparison: true
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    funlen:
+      lines: 80
+      statements: 50
+
+    gocognit:
+      min-complexity: 20
+
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+
+    gocyclo:
+      min-complexity: 10
+
+    gosec:
+      excludes:
+        - G404 # math/rand — acceptable outside crypto contexts
+
+    loggercheck:
+      require-string-key: true
+      no-printf-like: true
+
+    sloglint:
+      # Typed attributes only: slog.Info("sound removed", slog.String("name", n)).
+      # Loose key-value pairs type-check as any and go wrong silently — a swapped or dropped
+      # argument still compiles, and the handler sees a key where a value should be.
+      attr-only: true
+
+    nakedret:
+      max-func-lines: 5
+
+    nestif:
+      min-complexity: 5
+
+    revive:
+      severity: error
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    unparam:
+      check-exported: false
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+    rules:
+      - path: _test\.go
+        linters:
+          - goconst
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - gen/pb
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/be-sandaa
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - gen/pb

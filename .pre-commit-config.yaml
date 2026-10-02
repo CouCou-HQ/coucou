@@ -1,0 +1,75 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+
+repos:
+  # ============================================================================
+  # 🔒 Security Tools
+  # ============================================================================
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+        name: "🔒 security · Detect hardcoded secrets"
+        args: ["--no-banner", "--config", "./.gitleaks.toml"]
+
+  # ============================================================================
+  # 🚀 GoLang Tooling
+  # ============================================================================
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.4
+    hooks:
+      # Formatting & Imports
+      - id: go-fmt-repo
+        name: "🧹 Go · Format source (gofmt)"
+      - id: go-imports-repo
+        name: "📦 Go · Organize imports (goimports)"
+      # Linting & Analysis
+      - id: golangci-lint-repo-mod
+        name: "🚀 Go · Lint with golangci-lint"
+        args: ['-c', './.golangci.yml', '--fix']
+      - id: go-vet-repo-mod
+        name: "🔍 Go · Vet for suspicious constructs"
+      - id: go-mod-tidy-repo
+        name: "🧾 Go · Tidy modules"
+      # Testing
+      - id: go-test-repo-mod
+        name: "🧪 Go · Run unit tests"
+      # Security
+      - id: go-vulncheck-repo-mod
+        name: "🔒 Go · Check for vulnerabilities (govulncheck)"
+
+  # ============================================================================
+  # 🧾 YAML, JSON, and General File Hygiene
+  # ============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+        name: "🧾 YAML · Validate syntax"
+      - id: check-json
+        name: "🧾 JSON · Validate syntax"
+        exclude: ^\.vscode/.*\.json$
+      - id: pretty-format-json
+        name: "🧾 JSON · Auto-format JSON"
+        exclude: ^\.vscode/.*\.json$
+        args: ['--autofix']
+      - id: end-of-file-fixer
+        name: "📁 Format · Fix EOF newlines"
+      - id: trailing-whitespace
+        name: "📁 Format · Trim trailing whitespace"
+      - id: check-merge-conflict
+        name: "🌳 Git · Detect unresolved merge conflicts"
+      - id: check-added-large-files
+        name: "🌳 Git · Prevent large file commits"
+        args: ['--maxkb=5000']
+
+  # ============================================================================
+  # 🐮 Makefile Quality
+  # ============================================================================
+  - repo: https://github.com/mrtazz/checkmake.git
+    rev: v0.3.0
+    hooks:
+      - id: checkmake
+        name: "🐮 Makefile · Lint Makefiles"
+        files: ^makefile$

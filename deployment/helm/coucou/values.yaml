@@ -1,0 +1,112 @@
+# coucou runs one gateway connection. Two replicas means two bots in the same voice channel, so
+# this chart pins a single replica and a Recreate strategy — see the note in templates/deployment.yaml.
+
+image:
+  # Published multi-arch (amd64, arm64) by the release workflow on every version tag. Image tags
+  # carry no leading v, which is why appVersion matches them directly.
+  repository: ghcr.io/be-sandaa/coucou
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# --- credentials -------------------------------------------------------------
+# Both of these take either an existing secret or an inline value. Inline puts the value in a
+# Secret this chart owns, which means it lands in your values file and in Helm's release history:
+# fine for a homelab, wrong anywhere with more than one person.
+
+discord:
+  existingSecret: ""     # name of a Secret holding the bot token
+  existingSecretKey: token
+  token: ""              # inline alternative
+
+# This chart deliberately ships no database. coucou needs one that outlives the pod, and a
+# StatefulSet postgres bundled into an app chart is the wrong place to run it.
+database:
+  existingSecret: ""     # name of a Secret holding the connection string
+  existingSecretKey: url
+  url: ""                # inline alternative, e.g. postgres://user:pass@host:5432/coucou?sslmode=require
+
+# --- behaviour ---------------------------------------------------------------
+config:
+  ownerIDs: ""           # comma-separated user ids that unlock the owner-only reports
+  defaultChance: 5       # join chance seeded for a guild with no settings row, 0-100
+  soundsPoll: "0s"       # 0s uses inotify; set an interval for NFS/SMB mounts where it does not fire
+
+tracing:
+  otlpEndpoint: ""       # host:port of an OTLP/gRPC collector; empty disables tracing
+
+# --- sounds ------------------------------------------------------------------
+# The bot plays what it finds here and never writes to it. An emptyDir gets you a bot with no
+# sounds, which starts fine and does nothing — set one of the other two.
+sounds:
+  existingClaim: ""      # a ReadOnlyMany or ReadWriteOnce PVC of Ogg Opus files
+  hostPath: ""           # single-node clusters only
+  mountPath: /sounds
+
+# --- ops endpoints -----------------------------------------------------------
+# One listener serves all three. It is always on: the probes below depend on it, and turning it
+# off would leave kubelet with nothing to ask.
+#
+#   /healthz  the process is running, and nothing more. A liveness probe that checked Discord or
+#             the database would turn someone else's outage into a restart loop of your own.
+#   /readyz   gateway connected and database answering.
+#   /metrics  Prometheus.
+http:
+  port: 9090
+
+probes:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    # Generous: a gateway reconnect should take the pod out of the Service, not restart it.
+    failureThreshold: 6
+
+metrics:
+  service:
+    enabled: true
+    type: ClusterIP
+    annotations: {}
+  serviceMonitor:
+    enabled: false       # needs the Prometheus operator CRDs
+    interval: 30s
+    labels: {}
+
+# --- pod ---------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# The image is scratch and already runs as 65534. These make that explicit to admission control.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraEnv: []             # [{name: X, value: "y"}] for anything this chart does not name

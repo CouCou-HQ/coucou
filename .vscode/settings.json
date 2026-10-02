@@ -1,0 +1,86 @@
+{
+  "explorer.fileNesting": {
+    "enabled": true,
+    "expand": false,
+    "patterns": {
+      "makefile": "makefile.local, .golangci.yml, sqlc.yaml, cliff.toml",
+      "README.md": "CONTRIBUTING.md, SECURITY.md, NOTES.md",
+      ".gitignore": ".editorconfig, .gitleaks.toml, .env.example, .dockerignore",
+      "go.mod": "go.sum"
+    }
+  },
+
+  "search.exclude": {
+    "**/gen/**": true,
+    "bin/**": true
+  },
+  "files.watcherExclude": {
+    "bin/**": true
+  },
+
+  "markdownlint.ignore": [
+    ".gitignore",
+    ".dockerignore"
+  ],
+
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [
+    "--path-mode=abs",
+    "--fast-only"
+  ],
+  "go.lintOnSave": "file",
+  "go.formatTool": "custom",
+  "go.alternateTools": {
+    "customFormatter": "golangci-lint"
+  },
+  "go.formatFlags": [
+    "fmt",
+    "--stdin"
+  ],
+  // The dev tag compiles the build-tagged files too, so a test run in the editor covers both.
+  "go.testFlags": ["-race", "-count=1", "-tags", "dev"],
+  "go.buildTags": "dev",
+  "go.testTimeout": "60s",
+
+  "gopls": {
+    "usePlaceholders": true,
+    "staticcheck": true,
+    "analyses": {
+      "unusedparams": true,
+      "shadow": true,
+      "nilness": true,
+      "unusedwrite": true,
+      "useany": true
+    },
+    "hints": {
+      "assignVariableTypes": "literals",
+      "parameterNames": "literals"
+    }
+  },
+
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.insertSpaces": false,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2,
+    "editor.rulers": [
+      { "column": 80,  "color": "#80808015" },
+      { "column": 100, "color": "#80808055" },
+      { "column": 120, "color": "#80808099" }
+    ]
+  },
+
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.tabSize": 2
+  }
+}

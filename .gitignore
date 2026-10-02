@@ -1,0 +1,72 @@
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+
+# ── Go binaries ───────────────────────────────────────────────────────────────
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# ── Build output ──────────────────────────────────────────────────────────────
+bin/
+dist/
+
+# ── Test & coverage artifacts ─────────────────────────────────────────────────
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# ── Profiling & benchmarks ────────────────────────────────────────────────────
+*.prof
+*.bench
+trace.out
+
+# ── Debug ─────────────────────────────────────────────────────────────────────
+__debug_bin*
+
+# ── Go workspace ──────────────────────────────────────────────────────────────
+# Dependency directories (remove the comment below to include it)
+# vendor/
+go.work
+go.work.sum
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Local dev tooling ─────────────────────────────────────────────────────────
+tmp/
+
+# generated mocks (remove this line to track them in version control)
+mocks/
+
+# local docker-compose overrides
+docker-compose.override.yml
+
+# ── OS metadata ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor / IDE ──────────────────────────────────────────────────────────────
+.idea/
+# .vscode/  — intentionally tracked; ships Go/gopls settings for new contributors
+
+# vim/emacs swap and backup files
+*.swp
+*.swo
+*~
+
+# ── AI tools ──────────────────────────────────────────────────────────────────
+.planning/                   # GSD planning artifacts
+.claude/settings.local.json  # Claude Code local overrides (settings.json is fine to commit)
+.aider*                      # Aider chat history and session files
+.cursor/                     # Cursor AI
+.continue/                   # Continue dev
+.cody/                       # Sourcegraph Cody

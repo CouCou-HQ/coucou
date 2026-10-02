@@ -1,0 +1,21 @@
+{{- if .Values.metrics.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "coucou.fullname" . }}-metrics
+  labels:
+    {{- include "coucou.labels" . | nindent 4 }}
+  {{- with .Values.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.metrics.service.type }}
+  ports:
+    - name: metrics
+      port: {{ .Values.http.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "coucou.selectorLabels" . | nindent 4 }}
+{{- end }}

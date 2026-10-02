@@ -1,0 +1,31 @@
+{
+  "recommendations": [
+    // Go
+    "golang.go",
+
+    // Docker
+    "ms-azuretools.vscode-docker",
+
+    // Config formats
+    "redhat.vscode-yaml",
+    "tamasfe.even-better-toml",
+
+    // GitHub Actions workflow editing
+    "github.vscode-github-actions",
+
+    // EditorConfig enforcement
+    "EditorConfig.EditorConfig",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Inline diagnostics
+    "usernamehw.errorlens",
+
+    // Markdown
+    "davidanson.vscode-markdownlint",
+
+    // Makefile syntax + task runner
+    "ms-vscode.makefile-tools"
+  ]
+}

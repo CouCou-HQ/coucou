@@ -1,0 +1,32 @@
+# Per-service additions. The template makefile includes this before its own `?=` defaults, so
+# anything set here wins. Keeping coucou's targets out of `makefile` means a template sync has
+# nothing of ours to overwrite.
+
+# sqlc is pinned as a Go tool in go.mod (`go get -tool`), so `make gen` needs no Docker daemon and
+# no globally installed binary — which is the whole point on a Podman box.
+SQLC  ?= go tool sqlc
+GOOSE := go run github.com/pressly/goose/v3/cmd/goose
+
+# The build stamp the banner prints. Recursively expanded: VERSION and COMMIT are defined further
+# down the template makefile, after this file is included.
+DATE     := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS   = -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
+
+.PHONY: gen migrate-new-pg migrate-new-sqlite migrate-status image
+
+gen: ## Regenerate internal/store/{pg,sqlite}/gen from the .sql files (commit the result)
+	@$(SQLC) generate
+
+migrate-new-pg: ## make migrate-new-pg name=add_foo
+	@$(GOOSE) -dir internal/store/pg/migrations create $(name) sql
+
+migrate-new-sqlite: ## make migrate-new-sqlite name=add_foo (keep both dialects in step!)
+	@$(GOOSE) -dir internal/store/sqlite/migrations create $(name) sql
+
+migrate-status: ## Migration status against $DATABASE_URL (postgres only; sqlite migrates at boot)
+	@$(GOOSE) -dir internal/store/pg/migrations postgres "$$DATABASE_URL" status
+
+image: ## Build the scratch container image
+	@docker build -t coucou:$(VERSION) -t coucou:latest \
+		--build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --build-arg DATE=$(DATE) \
+		-f docker/Dockerfile .

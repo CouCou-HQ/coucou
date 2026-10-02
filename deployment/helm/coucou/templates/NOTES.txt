@@ -1,0 +1,33 @@
+coucou {{ .Chart.AppVersion }} is installed as {{ include "coucou.fullname" . }}.
+{{- if not (or .Values.sounds.existingClaim .Values.sounds.hostPath) }}
+
+  WARNING: no sounds volume is configured, so the bot has nothing to play. It will start, find an
+  empty directory and never join a channel. Set sounds.existingClaim (a PVC of Ogg Opus files), or
+  sounds.hostPath on a single-node cluster.
+{{- end }}
+{{- if .Values.discord.token }}
+
+  NOTE: discord.token was given inline, so the token is in this release's stored values and in
+  Helm's history. Prefer discord.existingSecret.
+{{- end }}
+{{- if .Values.database.url }}
+
+  NOTE: database.url was given inline, with the same consequence. Prefer database.existingSecret.
+{{- end }}
+
+Slash commands register themselves on every start, before the gateway opens. Discord still takes
+up to an hour to propagate a changed global set.
+
+Endpoints, on port {{ .Values.http.port }}:
+
+  /healthz  the process is up
+  /readyz   the gateway is connected and the database answers
+{{- if .Values.metrics.service.enabled }}
+  /metrics  scraped from the {{ include "coucou.fullname" . }}-metrics service
+{{- end }}
+
+Find the pod with the label app.kubernetes.io/instance={{ .Release.Name }} in namespace
+{{ .Release.Namespace }}.
+
+The pod is deliberately a single replica with a Recreate strategy. Two replicas would be two bots
+in the same voice channel, each recording its own stats rows — do not scale this up.

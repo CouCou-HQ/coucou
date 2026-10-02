@@ -1,0 +1,118 @@
+name: CI
+
+# Only what this workflow checks: a docs, wiki or art change has nothing here to break.
+on:
+  push:
+    branches: [main]
+    paths: &code
+      - "cmd/**"
+      - "internal/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - ".golangci.yml"
+      - "sqlc.yaml"
+      - "docker/**"
+      - ".dockerignore"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths: *code
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The store suite runs against sqlite unconditionally and against this Postgres when
+    # TEST_DATABASE_URL is set, so both backends are covered by the same job.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: coucou
+          POSTGRES_PASSWORD: coucou
+          POSTGRES_DB: coucou
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U coucou"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Pre-commit runs both of these too, but a --no-verify commit skips it; CI cannot be skipped.
+      - name: go.mod is tidy
+        run: go mod tidy -diff
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+      - name: gofmt
+        run: |
+          if [ -n "$(gofmt -s -l .)" ]; then
+            echo "These files are not formatted; run: make fmt"
+            gofmt -s -l .
+            exit 1
+          fi
+
+      - name: go vet
+        run: |
+          go vet ./...
+          go vet -tags pg ./...
+          go vet -tags sqlite ./...
+
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          # Pinned: `latest` let a linter release turn CI red on a commit that changed nothing.
+          version: v2.13.2
+          args: --config .golangci.yml --timeout=5m
+
+      # gen/ is committed. Regenerating must produce no diff, or the checked-in code is stale.
+      - name: sqlc generate is up to date
+        run: |
+          go tool sqlc generate
+          git diff --exit-code -- internal/store
+
+      - name: test
+        env:
+          TEST_DATABASE_URL: postgres://coucou:coucou@127.0.0.1:5432/coucou?sslmode=disable
+        run: go test -race -count=1 ./...
+
+      - name: build (default and every tag)
+        run: |
+          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/coucou ./cmd/coucou
+          # The dev build swaps the command deploy for a guild-scoped one; build and test it here
+          # so the tagged file cannot rot unnoticed.
+          CGO_ENABLED=0 go build -tags dev ./...
+          go test -tags dev ./internal/bot/
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the scratch image
+        run: docker build -t coucou:ci -f docker/Dockerfile .
+      # 34 MiB against a current 31: enough headroom that a dependency bump does not flap the build,
+      # tight enough that another multi-MiB arrival is caught. The size section of NOTES.md records
+      # what moved and why.
+      - name: Image must stay small
+        run: |
+          bytes=$(docker image inspect coucou:ci --format '{{.Size}}')
+          echo "image size: $((bytes / 1024 / 1024)) MB"
+          test "$bytes" -lt $((34 * 1024 * 1024))

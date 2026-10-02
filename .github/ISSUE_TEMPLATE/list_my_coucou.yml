@@ -1,0 +1,55 @@
+name: List my coucou
+description: Add your own coucou bot to the Community coucous table in the README
+labels: ["community"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Running your own coucou with your own sounds? Tell us about it and it goes in the README's
+        **Community coucous** table.
+
+  - type: input
+    id: name
+    attributes:
+      label: Bot name
+      placeholder: Excuse Me
+    validations:
+      required: true
+
+  - type: input
+    id: pitch
+    attributes:
+      label: What does it do?
+      description: One line, the way you'd want it in the table.
+      placeholder: Burps, then leaves everyone pretending it wasn't them.
+    validations:
+      required: true
+
+  - type: input
+    id: invite
+    attributes:
+      label: Invite link
+      description: The OAuth2 URL from your own Discord application.
+      placeholder: https://discord.com/oauth2/authorize?client_id=...&scope=bot+applications.commands&permissions=3146752
+    validations:
+      required: true
+
+  - type: input
+    id: maintainer
+    attributes:
+      label: Maintainer
+      description: Who to contact about it, as a GitHub handle or Discord username.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: The rules
+      options:
+        - label: It runs on my own Discord application, and I host it myself.
+          required: true
+        - label: I have the right to use every sound in it.
+          required: true
+        - label: It follows Discord's Terms of Service and Developer Policy.
+          required: true

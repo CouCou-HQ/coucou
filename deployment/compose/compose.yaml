@@ -1,0 +1,56 @@
+# Everything coucou needs on one host: the bot and the database it writes to.
+#
+# The bot waits for postgres to accept connections and runs its own migrations at startup, so there
+# is no init job here and no ordering to get right beyond the health check below.
+
+name: coucou
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-coucou}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-coucou}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-coucou} -d ${POSTGRES_DB:-coucou}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  coucou:
+    image: ${COUCOU_IMAGE:-coucou:dev}
+    # Only used by `docker compose up --build`; drop it and set COUCOU_IMAGE to run a published tag.
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:?set DISCORD_BOT_TOKEN in .env}
+      DATABASE_URL: postgres://${POSTGRES_USER:-coucou}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-coucou}?sslmode=disable
+      SOUNDS_DIR: /sounds
+      HTTP_ADDR: ":9090"
+      OWNER_IDS: ${OWNER_IDS:-}
+      DEFAULT_CHANCE: ${DEFAULT_CHANCE:-5}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-}
+    volumes:
+      # Read-only: the bot watches this directory, it never writes to it. The image runs as 65534,
+      # so the files have to be world-readable on the host.
+      - ${SOUNDS_DIR:-../../sounds}:/sounds:ro
+    ports:
+      # /healthz, /readyz and /metrics. The bot itself only makes outbound connections.
+      - "${HTTP_PORT:-9090}:9090"
+    # No healthcheck: a scratch image has nothing that could run one. /readyz is served on the port
+    # above — point a real monitor at it rather than asking `docker compose ps`.
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  pgdata:

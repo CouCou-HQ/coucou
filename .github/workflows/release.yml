@@ -1,0 +1,171 @@
+# Publishes the binaries for a version tag. Tag and push and this is the whole release:
+#
+#   git tag -a v0.1.0 -m 'v0.1.0' && git push origin v0.1.0
+#
+# CI runs on main and on pull requests, not on tags, so this re-runs the tests itself — a tag can
+# be cut from any commit, and a green main is not a promise about the commit that was tagged.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions: {} # each job takes only what it needs
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # creating a release and uploading its assets
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # git-cliff needs the history and the previous tag, not just this commit
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The store suite covers sqlite without a server; the postgres half needs TEST_DATABASE_URL
+      # and skips without it, which is the right trade for a release gate.
+      - name: test
+        run: go test -race ./...
+
+      # Pure Go with CGO off, so every target cross-compiles from this one runner and there is no
+      # build matrix to fan out. Windows is one more line here plus a zip, if anyone asks.
+      - name: build
+        env:
+          VERSION: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            echo "building $os/$arch"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath \
+              -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
+              -o "dist/coucou" ./cmd/coucou
+            tar -czf "dist/coucou_${VERSION}_${os}_${arch}.tar.gz" -C dist coucou
+            rm dist/coucou
+          done
+          cd dist && sha256sum ./*.tar.gz > "coucou_${VERSION}_SHA256SUMS"
+          cat "coucou_${VERSION}_SHA256SUMS"
+
+      # cliff.toml is the project's changelog format; generating notes any other way here would
+      # mean the release page and CHANGELOG.md disagreeing about the same commits.
+      - name: release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        id: cliff
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          # Not NOTES.md: that name is a tracked file in this repo, and git-cliff would write over
+          # the checkout's copy.
+          OUTPUT: RELEASE_NOTES.md
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag \
+            dist/*
+
+  # Runs after the release, so the tests in that job gate this too: an image that nobody can pull
+  # is better than one built from a commit whose tests failed.
+  image:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # pushing to ghcr
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The Dockerfile cross-compiles from BUILDPLATFORM, so nothing here is emulated and QEMU is
+      # not needed — the arm64 image is assembled from a natively built binary.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # metadata-action lowercases the repository name, which ghcr requires and this one is not.
+      # type=semver strips the leading v, so v0.1.0 publishes as 0.1.0 — the same string the Helm
+      # chart's appVersion carries, so the default image.tag resolves without being told.
+      # The binaries above stamp a build date; the image would otherwise say "unknown".
+      - name: build date
+        run: echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ env.DATE }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # The chart names an image tag, so it goes out after the image exists: publishing a chart whose
+  # appVersion cannot be pulled is a worse failure than publishing it a minute later.
+  chart:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write # pushing to ghcr
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # helm ships in the runner image, so there is nothing to install. Were GitHub to drop it this
+      # fails loudly on the first line rather than silently, and azure/setup-helm is the one-line fix.
+      - name: package and push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          v=${VERSION#v}
+          helm lint deployment/helm/coucou
+          # Both stamped from the tag. A chart version bumped by hand is a chart version that is
+          # wrong, and appVersion doubles as the default image tag, which carries no leading v.
+          helm package deployment/helm/coucou --destination dist --version "$v" --app-version "$v"
+          echo "$GH_TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
+          # ghcr rejects an uppercase path and this owner is not lowercase.
+          helm push "dist/coucou-${v}.tgz" "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"

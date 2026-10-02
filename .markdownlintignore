@@ -1,0 +1,4 @@
+# gitignore-style files — # is a comment character, not a Markdown heading
+.templatesyncignore
+.gitignore
+.dockerignore
