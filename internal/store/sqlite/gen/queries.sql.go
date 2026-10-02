@@ -996,26 +996,48 @@ func (q *Queries) PresentGuilds(ctx context.Context) ([]int64, error) {
 }
 
 const seedSettingsForGuild = `-- name: SeedSettingsForGuild :exec
-insert or ignore into guilds_settings (guild_id, join_chance) values (?, ?)
+insert or ignore into guilds_settings (guild_id, join_chance, suspense, fakeout, encore) values (?, ?, ?, ?, ?)
 `
 
 type SeedSettingsForGuildParams struct {
 	GuildID    int64 `json:"guild_id"`
 	JoinChance int64 `json:"join_chance"`
+	Suspense   int64 `json:"suspense"`
+	Fakeout    int64 `json:"fakeout"`
+	Encore     int64 `json:"encore"`
 }
 
 func (q *Queries) SeedSettingsForGuild(ctx context.Context, arg SeedSettingsForGuildParams) error {
-	_, err := q.db.ExecContext(ctx, seedSettingsForGuild, arg.GuildID, arg.JoinChance)
+	_, err := q.db.ExecContext(ctx, seedSettingsForGuild,
+		arg.GuildID,
+		arg.JoinChance,
+		arg.Suspense,
+		arg.Fakeout,
+		arg.Encore,
+	)
 	return err
 }
 
 const seedSettingsForGuilds = `-- name: SeedSettingsForGuilds :execrows
-insert or ignore into guilds_settings (guild_id, join_chance)
-select guild_id, ? from guilds_info where left_at is null
+insert or ignore into guilds_settings (guild_id, join_chance, suspense, fakeout, encore)
+select guild_id, ?1, ?2, ?3, ?4
+from guilds_info where left_at is null
 `
 
-func (q *Queries) SeedSettingsForGuilds(ctx context.Context, joinChance int64) (int64, error) {
-	result, err := q.db.ExecContext(ctx, seedSettingsForGuilds, joinChance)
+type SeedSettingsForGuildsParams struct {
+	JoinChance int64 `json:"join_chance"`
+	Suspense   int64 `json:"suspense"`
+	Fakeout    int64 `json:"fakeout"`
+	Encore     int64 `json:"encore"`
+}
+
+func (q *Queries) SeedSettingsForGuilds(ctx context.Context, arg SeedSettingsForGuildsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, seedSettingsForGuilds,
+		arg.JoinChance,
+		arg.Suspense,
+		arg.Fakeout,
+		arg.Encore,
+	)
 	if err != nil {
 		return 0, err
 	}

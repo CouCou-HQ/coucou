@@ -53,12 +53,11 @@ func mustLoad(t *testing.T, body string) config {
 // logs, and turning pprof on would expose allocation sites and goroutine stacks.
 func TestDefaultsWhenOnlyTheRequiredKeysAreSet(t *testing.T) {
 	want := config{
-		DatabaseURL:   testDSN,
-		Token:         testToken,
-		SoundsDir:     defaultSoundsDir,
-		HTTPAddr:      defaultHTTPAddr,
-		LogLevel:      slog.LevelInfo,
-		DefaultChance: defaultChance,
+		DatabaseURL: testDSN,
+		Token:       testToken,
+		ProfileDir:  defaultProfileDir,
+		HTTPAddr:    defaultHTTPAddr,
+		LogLevel:    slog.LevelInfo,
 	}
 	if got := mustLoad(t, minimal); !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
@@ -69,10 +68,9 @@ func TestEveryKeyIsRead(t *testing.T) {
 	got := mustLoad(t, minimal+`
 owner_ids      = ["`+ownerA+`", "`+ownerB+`"]
 siblings       = "Fart=`+ownerA+`"
-default_chance = 25
+profile        = "/srv/lenore"
 
 [sounds]
-dir  = "/srv/sounds"
 poll = "15s"
 
 [ops]
@@ -85,18 +83,17 @@ otlp      = "collector:4317"
 shard_count = 4
 `)
 	want := config{
-		DatabaseURL:   testDSN,
-		Token:         testToken,
-		OwnerIDs:      []snowflake.ID{snowflake.MustParse(ownerA), snowflake.MustParse(ownerB)},
-		Siblings:      []commands.Sibling{{Name: "Fart", App: snowflake.MustParse(ownerA)}},
-		SoundsDir:     "/srv/sounds",
-		SoundsPoll:    15 * time.Second,
-		HTTPAddr:      "", // explicitly empty disables the ops listener, not a fallback to the default
-		OTLPEndpoint:  "collector:4317",
-		LogLevel:      slog.LevelWarn,
-		PProf:         true,
-		DefaultChance: 25,
-		ShardCount:    4,
+		DatabaseURL:  testDSN,
+		Token:        testToken,
+		OwnerIDs:     []snowflake.ID{snowflake.MustParse(ownerA), snowflake.MustParse(ownerB)},
+		Siblings:     []commands.Sibling{{Name: "Fart", App: snowflake.MustParse(ownerA)}},
+		ProfileDir:   "/srv/lenore",
+		SoundsPoll:   15 * time.Second,
+		HTTPAddr:     "", // explicitly empty disables the ops listener, not a fallback to the default
+		OTLPEndpoint: "collector:4317",
+		LogLevel:     slog.LevelWarn,
+		PProf:        true,
+		ShardCount:   4,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
@@ -155,8 +152,8 @@ func TestValidationErrors(t *testing.T) {
 		{"no token", "database_url = \"" + testDSN + "\""},
 		{"unknown key", minimal + "sounds_dir = \"x\""},
 		{"unknown nested key", minimal + "[ops]\nlog = \"debug\""},
-		{"chance above 100", minimal + "default_chance = 101"},
-		{"chance negative", minimal + "default_chance = -1"},
+		{"default_chance moved to the profile", minimal + "default_chance = 5"},
+		{"sounds.dir moved to the profile", minimal + "[sounds]\ndir = \"x\""},
 		{"bad duration", minimal + "[sounds]\npoll = \"soon\""},
 		{"bad owner id", minimal + "owner_ids = [\"me\"]"},
 		{"one bad owner id among good", minimal + "owner_ids = [\"" + ownerA + "\", \"me\"]"},

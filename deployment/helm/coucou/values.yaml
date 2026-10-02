@@ -33,20 +33,30 @@ database:
 # Rendered into config.toml in a ConfigMap, mounted at /etc/coucou.
 config:
   ownerIDs: []           # user ids that unlock the owner-only reports; quote them, or --set-string
-  defaultChance: 5       # join chance seeded for a guild with no settings row, 0-100
   soundsPoll: "0s"       # 0s uses inotify; set an interval for NFS/SMB mounts where it does not fire
   logLevel: info         # debug | info | warn | error
 
 tracing:
   otlpEndpoint: ""       # host:port of an OTLP/gRPC collector; empty disables tracing
 
+# --- profile -----------------------------------------------------------------
+# The character this bot plays: the contents of its profile.toml, rendered into the ConfigMap. Required;
+# see profile.example.toml at the repo root for every key. Its defaults only seed servers the bot
+# joins after a change.
+profile: ""
+#   profile: |
+#     id = "lenore"
+#     nickname = "Lenore"
+#     [defaults]
+#     chance = 5
+
 # --- sounds ------------------------------------------------------------------
-# The bot plays what it finds here and never writes to it. An emptyDir gets you a bot with no
-# sounds, which starts fine and does nothing — set one of the other two.
+# The profile's sounds/, mounted at /var/lib/coucou/profile/sounds. The bot plays what it finds
+# there and never writes to it. An emptyDir gets you a bot with no sounds, which starts fine and does
+# nothing — set one of the other two.
 sounds:
   existingClaim: ""      # a ReadOnlyMany or ReadWriteOnce PVC of Ogg Opus files
   hostPath: ""           # single-node clusters only
-  mountPath: /var/lib/coucou/sounds
 
 # --- ops endpoints -----------------------------------------------------------
 # One listener serves all three. It is always on: the probes below depend on it, and turning it

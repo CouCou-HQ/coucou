@@ -24,6 +24,7 @@ import (
 	"github.com/be-sandaa/coucou/internal/metrics"
 	"github.com/be-sandaa/coucou/internal/ops"
 	"github.com/be-sandaa/coucou/internal/optout"
+	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/ranks"
 	"github.com/be-sandaa/coucou/internal/rollup"
 	"github.com/be-sandaa/coucou/internal/settings"
@@ -62,13 +63,20 @@ func Run(args []string, build Build) error {
 	// set: audit lines are ordinary Info records, so nothing downstream needs its own handler.
 	slog.SetDefault(slog.New(logging.New(os.Stdout, cfg.LogLevel)))
 
-	return serve(cfg, build)
+	// The character is read before anything opens: a bot with a broken profile is misconfigured,
+	// not degraded, and should say so before it touches the database or Discord.
+	prof, err := profile.Load(cfg.ProfileDir)
+	if err != nil {
+		return fmt.Errorf("%w: profile: %w", ErrUsage, err)
+	}
+
+	return serve(cfg, prof, build)
 }
 
 // serve is the long-running path: open the database, build everything on top of it, and block
 // until a signal or the first failure. The two modes that exit early — migrating and registering
 // slash commands — return from inside it, because each needs part of what it builds.
-func serve(cfg config, build Build) error {
+func serve(cfg config, prof profile.Profile, build Build) error {
 	r := run.New()
 	defer r.Stop()
 
@@ -83,7 +91,7 @@ func serve(cfg config, build Build) error {
 		return fmt.Errorf("db: refusing to start: %w", err)
 	}
 
-	p, err := assemble(r, cfg, db)
+	p, err := assemble(r, cfg, prof, db)
 	if err != nil {
 		return err
 	}
@@ -126,7 +134,7 @@ func serve(cfg config, build Build) error {
 		if err := p.client.OpenShardManager(ctx); err != nil {
 			return err
 		}
-		if err := bot.SyncGuilds(ctx, p.client, p.ready, p.bus, db, p.settings, cfg.DefaultChance); err != nil {
+		if err := bot.SyncGuilds(ctx, p.client, p.ready, p.bus, db, p.settings, prof.Defaults); err != nil {
 			return err
 		}
 		printBanner(os.Stdout, build, p.client, p.sounds)
@@ -187,13 +195,13 @@ func mirrors(ctx context.Context, db store.Store) (*settings.Store, *optout.Stor
 	return set, opt, cha, nil
 }
 
-func assemble(r *run.Runner, cfg config, db store.Store) (*parts, error) {
+func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (*parts, error) {
 	set, opt, cha, err := mirrors(r, db)
 	if err != nil {
 		return nil, err
 	}
 
-	reg := sounds.New(cfg.SoundsDir)
+	reg := sounds.New(prof.SoundsDir())
 	log := ev.New(db)
 	eb, err := bus.New()
 	if err != nil {
@@ -230,7 +238,7 @@ func assemble(r *run.Runner, cfg config, db store.Store) (*parts, error) {
 		}()
 	}
 	rk := ranks.New(db)
-	cmds := commands.New(client, set, opt, cha, reg, log, rk, eb, play, cfg.OwnerIDs, cfg.Siblings)
+	cmds := commands.New(client, set, opt, cha, reg, log, rk, eb, play, prof, cfg.OwnerIDs, cfg.Siblings)
 	ready := bot.NewReadyTracker()
 	pulse := bot.NewPulse()
 
@@ -264,7 +272,7 @@ func assemble(r *run.Runner, cfg config, db store.Store) (*parts, error) {
 	bus.OnTopic(eb, gw, "stats-guilds-leave", bot.TopicGuildDelete, handlers.GuildLeftStats(log))
 	bus.On(eb, "stats-guilds-reconciled", handlers.GuildReconciledStats(log))
 
-	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, cfg.DefaultChance))
+	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, prof.Defaults))
 	bus.OnTopic(eb, gw, "guild-sync-leave", bot.TopicGuildDelete, handlers.GuildLeftSync(db))
 
 	bus.On(eb, "log-sounds-added", handlers.SoundAdded(log))

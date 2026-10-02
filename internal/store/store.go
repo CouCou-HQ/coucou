@@ -33,6 +33,15 @@ type Settings struct {
 	UpdatedBy snowflake.ID
 }
 
+// Defaults is what a guild's settings row starts as, from the bot's profile. Seeding never touches a
+// row that already exists, so changing them only reaches guilds that have none yet.
+type Defaults struct {
+	Chance   int
+	Suspense int
+	FakeOut  int
+	Encore   int
+}
+
 type Play struct {
 	At          time.Time
 	Guild       snowflake.ID
@@ -177,8 +186,8 @@ type Store interface {
 	UpsertGuilds(ctx context.Context, guilds []Guild) error
 	MarkGuildsLeftExcept(ctx context.Context, present []snowflake.ID) ([]snowflake.ID, error)
 	MarkGuildLeft(ctx context.Context, guild snowflake.ID) error
-	SeedSettings(ctx context.Context, defaultChance int) (int64, error)
-	SeedSettingsFor(ctx context.Context, guild snowflake.ID, defaultChance int) error
+	SeedSettings(ctx context.Context, d Defaults) (int64, error)
+	SeedSettingsFor(ctx context.Context, guild snowflake.ID, d Defaults) error
 
 	// opt-outs (bot-wide, one row per user; read once at boot and mirrored in memory)
 	ListOptOuts(ctx context.Context) ([]OptOut, error)

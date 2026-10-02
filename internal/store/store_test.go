@@ -572,39 +572,46 @@ func TestSeedSettingsDoesNotOverwrite(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if _, err := s.SeedSettings(ctx, 25); err != nil {
+		boot := store.Defaults{Chance: 25, Suspense: 8, FakeOut: 10, Encore: 5}
+		if _, err := s.SeedSettings(ctx, boot); err != nil {
 			t.Fatalf("SeedSettings: %v", err)
 		}
-		if got := find(t, s, configured).Chance; got != 90 {
-			t.Errorf("seeding overwrote an existing row: chance = %d, want 90", got)
+		if got := find(t, s, configured); got.Chance != 90 || got.Suspense != 0 {
+			t.Errorf("seeding overwrote an existing row: %+v, want chance 90 and suspense 0 kept", got)
 		}
-		if got := find(t, s, fresh).Chance; got != 25 {
-			t.Errorf("fresh guild chance = %d, want the seeded 25", got)
-		}
+		checkSeeded(t, find(t, s, fresh), boot)
 
 		// SeedSettingsFor is the join-time path and has the same do-not-overwrite rule.
-		if err := s.SeedSettingsFor(ctx, configured, 3); err != nil {
+		if err := s.SeedSettingsFor(ctx, configured, store.Defaults{Chance: 3, Suspense: 1}); err != nil {
 			t.Fatal(err)
 		}
-		if got := find(t, s, configured).Chance; got != 90 {
-			t.Errorf("SeedSettingsFor overwrote an existing row: chance = %d, want 90", got)
+		if got := find(t, s, configured); got.Chance != 90 || got.Suspense != 0 {
+			t.Errorf("SeedSettingsFor overwrote an existing row: %+v, want chance 90 and suspense 0 kept", got)
 		}
 
 		joined := guildID(t)
-		if err := s.SeedSettingsFor(ctx, joined, 11); err != nil {
+		join := store.Defaults{Chance: 11, Suspense: 20, FakeOut: 50, Encore: 50}
+		if err := s.SeedSettingsFor(ctx, joined, join); err != nil {
 			t.Fatal(err)
 		}
-		if got := find(t, s, joined).Chance; got != 11 {
-			t.Errorf("newly joined guild chance = %d, want 11", got)
-		}
+		checkSeeded(t, find(t, s, joined), join)
 	})
+}
+
+// checkSeeded compares all four profile defaults, not only the chance: a column the seed query
+// forgot would otherwise quietly start every guild at zero.
+func checkSeeded(t *testing.T, got store.Settings, want store.Defaults) {
+	t.Helper()
+	if d := (store.Defaults{Chance: got.Chance, Suspense: got.Suspense, FakeOut: got.FakeOut, Encore: got.Encore}); d != want {
+		t.Errorf("seeded %+v, want %+v", d, want)
+	}
 }
 
 // A seeded row has no zone yet: the store cannot see a locale, so settings.FillZones writes one after.
 func TestSeededSettingsHaveNoZone(t *testing.T) {
 	run(t, "seed-tz", func(t *testing.T, s store.Store) {
 		g := guildID(t)
-		if err := s.SeedSettingsFor(context.Background(), g, 5); err != nil {
+		if err := s.SeedSettingsFor(context.Background(), g, store.Defaults{Chance: 5}); err != nil {
 			t.Fatal(err)
 		}
 		if got := find(t, s, g).TZ; got != nil {

@@ -56,22 +56,22 @@ func timed(u snowflake.ID, d time.Duration) store.OptOut {
 
 func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error { return f.failClr }
 
-func (f *fakeStore) Migrate(context.Context) error                          { return nil }
-func (f *fakeStore) Ping(context.Context) error                             { return nil }
-func (f *fakeStore) Close()                                                 {}
-func (f *fakeStore) ListSettings(context.Context) ([]store.Settings, error) { return nil, nil }
-func (f *fakeStore) UpsertSettings(context.Context, store.Settings) error   { return nil }
-func (f *fakeStore) WritePlays(context.Context, []store.Play) error         { return nil }
-func (f *fakeStore) WriteMisc(context.Context, []store.Misc) error          { return nil }
-func (f *fakeStore) UpsertGuilds(context.Context, []store.Guild) error      { return nil }
-func (f *fakeStore) MarkGuildLeft(context.Context, snowflake.ID) error      { return nil }
-func (f *fakeStore) SeedSettings(context.Context, int) (int64, error)       { return 0, nil }
+func (f *fakeStore) Migrate(context.Context) error                               { return nil }
+func (f *fakeStore) Ping(context.Context) error                                  { return nil }
+func (f *fakeStore) Close()                                                      {}
+func (f *fakeStore) ListSettings(context.Context) ([]store.Settings, error)      { return nil, nil }
+func (f *fakeStore) UpsertSettings(context.Context, store.Settings) error        { return nil }
+func (f *fakeStore) WritePlays(context.Context, []store.Play) error              { return nil }
+func (f *fakeStore) WriteMisc(context.Context, []store.Misc) error               { return nil }
+func (f *fakeStore) UpsertGuilds(context.Context, []store.Guild) error           { return nil }
+func (f *fakeStore) MarkGuildLeft(context.Context, snowflake.ID) error           { return nil }
+func (f *fakeStore) SeedSettings(context.Context, store.Defaults) (int64, error) { return 0, nil }
 
 func (f *fakeStore) MarkGuildsLeftExcept(context.Context, []snowflake.ID) ([]snowflake.ID, error) {
 	return nil, nil
 }
 
-func (f *fakeStore) SeedSettingsFor(context.Context, snowflake.ID, int) error { return nil }
+func (f *fakeStore) SeedSettingsFor(context.Context, snowflake.ID, store.Defaults) error { return nil }
 
 func (f *fakeStore) GuildStats(context.Context, snowflake.ID) (store.GuildStats, error) {
 	return store.GuildStats{}, nil

@@ -60,15 +60,21 @@ docker compose up -d --build
 `COUCOU_IMAGE=ghcr.io/be-sandaa/coucou:0.2.0` in `.env` and drop the flag. Image tags have no
 leading `v`, unlike the git tags they are built from.
 
-`SOUNDS_DIR` defaults to `../../sounds` relative to `compose.yaml`. Create it and put pre-encoded
-Ogg Opus files in it — the container runs as uid 65534, so they must be world-readable. An empty or
-missing directory starts a bot that never plays anything.
+`PROFILE_DIR` defaults to `../../profile` relative to `compose.yaml`: the bot's character, with its
+`profile.toml` (start from `profile.example.toml` at the repo root) and a `sounds/` of pre-encoded
+Ogg Opus files. The container runs as uid 65534, so everything in it must be world-readable. A
+missing `profile.toml` stops the bot; an empty `sounds/` starts one that never plays anything.
 
 ## Helm
 
 The chart renders `config.toml` from `values.yaml` into a `ConfigMap` mounted at `/etc/coucou`. The
 token and DSN never go in it: they come from the Secret as environment variables, which the file
 references as `${DISCORD_BOT_TOKEN}` and `${DATABASE_URL}`.
+
+The bot's character is the required `profile` value — the contents of its `profile.toml` — rendered
+into the same `ConfigMap` and mounted at `/var/lib/coucou/profile/profile.toml`, with the sounds
+volume at `/var/lib/coucou/profile/sounds` beside it. `--set-file profile=lenore.toml` is the easy way
+to pass it.
 
 Every `v*` tag publishes the chart as an OCI artifact next to the image, versioned with the same
 number:
@@ -77,6 +83,7 @@ number:
 helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.10.0 \
   --set discord.existingSecret=coucou-creds \
   --set database.existingSecret=coucou-creds \
+  --set-file profile=lenore.toml \
   --set sounds.existingClaim=coucou-sounds
 ```
 

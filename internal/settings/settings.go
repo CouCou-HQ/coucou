@@ -56,6 +56,15 @@ func (s *Store) Get(guild snowflake.ID) Settings {
 	return Settings{}
 }
 
+// Known reports whether guild has a settings row mirrored, which a guild that left and came back
+// still has.
+func (s *Store) Known(guild snowflake.ID) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.m[guild]
+	return ok
+}
+
 func (s *Store) Configured() map[snowflake.ID]Settings {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

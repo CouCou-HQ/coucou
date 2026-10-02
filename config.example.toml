@@ -13,13 +13,12 @@ database_url  = "${DATABASE_URL}"
 owner_ids = []          # user ids, as strings, that unlock the servers leaderboard
 siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated
 
-# Seeded for guilds with no settings row. Percent per 5-minute tick, rolled only when someone is in
-# voice: ~1 visit per 1.5-2h of active voice. 0 = opt-in.
-default_chance = 5
+# The character this bot plays: a directory holding profile.toml and sounds/. From a checkout,
+# "profile" (git-ignored; start it from profile.example.toml).
+profile = "/var/lib/coucou/profile"
 
 [sounds]
-dir  = "/var/lib/coucou/sounds"   # pre-encoded Ogg Opus files; from a checkout, "sounds"
-poll = "0s"             # e.g. "15s" on NFS/SMB mounts where inotify doesn't fire
+poll = "0s"             # rescan interval for the profile's sounds/; e.g. "15s" on NFS/SMB mounts where inotify doesn't fire
 
 [ops]
 http_addr = ":9090"     # /healthz, /readyz and /metrics; "" disables them

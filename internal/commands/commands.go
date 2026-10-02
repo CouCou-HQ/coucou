@@ -8,6 +8,7 @@
 package commands
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -35,6 +36,7 @@ import (
 	"github.com/be-sandaa/coucou/internal/chaos"
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/optout"
+	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/ranks"
 	"github.com/be-sandaa/coucou/internal/schedule"
 	"github.com/be-sandaa/coucou/internal/settings"
@@ -60,6 +62,7 @@ type Commands struct {
 	ranks    *ranks.Cuts
 	bus      *bus.Bus
 	play     Play
+	profile  profile.Profile
 	owners   []snowflake.ID
 	siblings []Sibling
 	// Zero value works, so New never has to mention it and a test can build a Commands literal.
@@ -89,10 +92,12 @@ func New(
 	rk *ranks.Cuts,
 	b *bus.Bus,
 	play Play,
+	prof profile.Profile,
 	owners []snowflake.ID,
 	siblings []Sibling,
 ) *Commands {
-	return &Commands{client: client, settings: set, optouts: opt, chaos: ch, sounds: reg, events: log, ranks: rk, bus: b, play: play, owners: owners, siblings: siblings}
+	colBrand = prof.Color
+	return &Commands{client: client, settings: set, optouts: opt, chaos: ch, sounds: reg, events: log, ranks: rk, bus: b, play: play, profile: prof, owners: owners, siblings: siblings}
 }
 
 // isOwner gates the servers leaderboard. A linear scan over a handful of ids is cheaper than the map
@@ -135,6 +140,7 @@ const (
 	cmdNameLeaderboard = "leaderboard"
 	cmdNameOptOut      = "optout"
 	cmdNameHelp        = "help"
+	cmdNameAbout       = "about"
 	cmdNameInvite      = "invite"
 )
 
@@ -231,6 +237,7 @@ var definitions = []discord.ApplicationCommandCreate{
 	},
 	discord.SlashCommandCreate{Name: cmdNameLeave, Description: "Make the bot leave voice"},
 	discord.SlashCommandCreate{Name: cmdNameHelp, Description: "What the commands do, and how to keep the bot out"},
+	discord.SlashCommandCreate{Name: cmdNameAbout, Description: "Who this bot is"},
 	discord.SlashCommandCreate{Name: cmdNameInvite, Description: "Add the bot to another server"},
 	discord.SlashCommandCreate{
 		Name: cmdNameOptOut, Description: "Stop the bot counting you when it picks a channel",
@@ -333,19 +340,23 @@ func ptr[T any](v T) *T { return &v }
 
 // maxSuspense is the option's ceiling and the meter's denominator. One constant, because a bar
 // drawn against a different maximum than the one Discord enforces is a bar that lies.
-const maxSuspense = 20
+const maxSuspense = profile.MaxSuspense
 
 const (
 	optFakeOut = "fakeout"
-	maxFakeOut = 50
+	maxFakeOut = profile.MaxFakeOut
 	optEncore  = "encore"
-	maxEncore  = 50
+	maxEncore  = profile.MaxEncore
 )
 
 // Embed colours. Four of them, and every title states in words what its colour states in hue — a
 // screen reader is read the title and never the colour, so the colour is confirmation, not carrier.
+//
+// colBrand is the character's accent from its profile. A var set once in New rather than a field:
+// one process runs one profile, and info is called from everywhere.
+var colBrand = profile.DefaultColor // reports and confirmations
+
 const (
-	colBrand = 0xE4572E // reports and confirmations
 	colBoard = 0xF2B705 // leaderboards, matching the medal
 	colBad   = 0xC4413B // refusals, bad input, anything that failed
 	colMuted = 0x4E5058 // nothing to show, which is not the same as failing
@@ -435,6 +446,7 @@ func (c *Commands) handlers() map[string]cmdFunc {
 		cmdNameLeaderboard: c.cmdLeaderboard,
 		cmdNameOptOut:      c.cmdOptOut,
 		cmdNameHelp:        c.cmdHelp,
+		cmdNameAbout:       c.cmdAbout,
 		cmdNameInvite:      c.cmdInvite,
 	}
 }
@@ -735,19 +747,56 @@ func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandIntera
 	name, avatar := c.self(guild)
 	body := wordmark(name) + "\n**Commands**\n" + commandList() + "\n" + helpLimits +
 		siblingsHelp(c.siblings, c.client.ApplicationID, name)
-	return e.CreateMessage(say(info(name, body).WithThumbnail(avatar)))
+	return e.CreateMessage(say(info(withEmoji(c.profile.Emoji, name), body).WithThumbnail(avatar)))
 }
 
-// self is the bot as people in guild see it: its nickname there, else its own name, and the avatar
-// that goes with it. coucou is the application, never the character, so nothing here names it.
+// withEmoji puts the profile's emoji in front of a title, when it has one.
+func withEmoji(emoji, title string) string {
+	if emoji == "" {
+		return title
+	}
+	return emoji + " " + title
+}
+
+// aboutLimit keeps /about under Discord's 4096 description cap with room for the ellipsis; the lore is
+// the operator's free text and nothing else bounds it.
+const aboutLimit = 4000
+
+// aboutBody is the character sheet: tagline, lore, then traits as a list, each left out when the
+// profile has none of it.
+func aboutBody(p profile.Profile) string {
+	var parts []string
+	if p.Tagline != "" {
+		parts = append(parts, "*"+p.Tagline+"*")
+	}
+	if p.Lore != "" {
+		parts = append(parts, p.Lore)
+	}
+	if len(p.Traits) > 0 {
+		parts = append(parts, "**Traits**\n• "+strings.Join(p.Traits, "\n• "))
+	}
+	if len(parts) == 0 {
+		return "No story yet."
+	}
+	return truncate(strings.Join(parts, "\n\n"), aboutLimit)
+}
+
+func (c *Commands) cmdAbout(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
+	name, avatar := c.self(guild)
+	return e.CreateMessage(say(info(withEmoji(c.profile.Emoji, name), aboutBody(c.profile)).WithThumbnail(avatar)))
+}
+
+// self is the bot as people in guild see it, and the avatar that goes with it. The profile's
+// nickname wins, because the character's name is the operator's to decide; then its nickname in that
+// server; then its own name. coucou is the application, never the character, so nothing here names it.
 func (c *Commands) self(guild snowflake.ID) (name, avatar string) {
+	name = "the bot"
 	if m, ok := c.client.Caches.SelfMember(guild); ok {
-		return m.EffectiveName(), m.EffectiveAvatarURL()
+		name, avatar = m.EffectiveName(), m.EffectiveAvatarURL()
+	} else if u, ok := c.client.Caches.SelfUser(); ok {
+		name, avatar = u.EffectiveName(), u.EffectiveAvatarURL()
 	}
-	if u, ok := c.client.Caches.SelfUser(); ok {
-		return u.EffectiveName(), u.EffectiveAvatarURL()
-	}
-	return "the bot", ""
+	return cmp.Or(c.profile.Nickname, name), avatar
 }
 
 // markdown escapes what would restyle or break a name dropped into bold or a link label: a

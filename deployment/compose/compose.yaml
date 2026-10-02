@@ -40,7 +40,8 @@ services:
       - ./config.toml:/etc/coucou/config.toml:ro
       # Read-only: the bot watches this directory, it never writes to it. The image runs as 65534,
       # so the files have to be world-readable on the host.
-      - ${SOUNDS_DIR:-../../sounds}:/var/lib/coucou/sounds:ro
+      # The character: profile.toml and sounds/. Read-only, like the sounds were.
+      - ${PROFILE_DIR:-../../profile}:/var/lib/coucou/profile:ro
     ports:
       # /healthz, /readyz and /metrics. The bot itself only makes outbound connections.
       - "${HTTP_PORT:-9090}:9090"

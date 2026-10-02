@@ -3,8 +3,11 @@ package commands
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/disgoorg/disgo/discord"
+
+	"github.com/be-sandaa/coucou/internal/profile"
 )
 
 // embedDescriptionLimit is Discord's cap on an embed description. Past it the whole message is
@@ -84,5 +87,24 @@ func TestEveryDefinitionHasAHandler(t *testing.T) {
 		if _, found := h[c.Name]; !found {
 			t.Errorf("/%s is defined and listed in /help but has no handler", c.Name)
 		}
+	}
+}
+
+// /about is the character sheet: each part shows only when the profile has it, and a profile with
+// none of them still answers rather than sending an empty embed Discord would reject.
+func TestAboutBody(t *testing.T) {
+	full := aboutBody(profile.Profile{Tagline: "Mean, nicely.", Lore: "Came anyway.", Traits: []string{"sits in silence", "leaves"}})
+	if want := "*Mean, nicely.*\n\nCame anyway.\n\n**Traits**\n• sits in silence\n• leaves"; full != want {
+		t.Errorf("aboutBody = %q, want %q", full, want)
+	}
+	const onlyLore = "Only lore."
+	if got := aboutBody(profile.Profile{Lore: onlyLore}); got != onlyLore {
+		t.Errorf("aboutBody(lore only) = %q", got)
+	}
+	if got := aboutBody(profile.Profile{}); got == "" {
+		t.Error("aboutBody(empty) is empty, which Discord rejects")
+	}
+	if got := aboutBody(profile.Profile{Lore: strings.Repeat("x", 5000)}); utf8.RuneCountInString(got) > embedDescriptionLimit {
+		t.Errorf("aboutBody of long lore is %d runes, over Discord's 4096", utf8.RuneCountInString(got))
 	}
 }

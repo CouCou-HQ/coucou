@@ -19,14 +19,19 @@ starts it. Get the binary or image first: see [Installation](Installation).
 
    `3146752` is View Channels, Connect and Speak, which is everything the bot does.
 
-## 2. Make the sounds
+## 2. Make the character and its sounds
+
+Your bot's character lives in one folder, its **profile**: a `profile.toml` and a `sounds/` folder
+beside it. Copy `profile.example.toml` from the repository as `profile.toml` and fill it in: an id,
+optionally a nickname, the tagline, lore and traits `/about` shows, and the settings a server starts
+with. Nothing in it changes the bot's name or picture in Discord; those stay what you set in step 1.
 
 The bot plays pre-encoded **Ogg Opus** files and does no encoding itself. `scripts/sound` in the
 repository turns any audio file into one, named the way the bot wants (it needs bash and ffmpeg):
 
 ```sh
-scripts/sound "Wet Fart 3.mp3" ~/Downloads/farts/   # -> sounds/wet_fart_3.ogg, ...
-scripts/sound --rare "Perfect Fart.wav"             # -> sounds/perfect_fart.rare.ogg
+scripts/sound "Wet Fart 3.mp3" ~/Downloads/farts/   # -> profile/sounds/wet_fart_3.ogg, ...
+scripts/sound --rare "Perfect Fart.wav"             # -> profile/sounds/perfect_fart.rare.ogg
 ```
 
 - **Names** are lowercase snake_case. `wet_fart_3.ogg` shows in Discord as **Wet Fart 3**. The file
@@ -42,8 +47,9 @@ otherwise come along as a video stream, and the bot would quietly reject the fil
 ffmpeg -i in.mp3 -vn -map_metadata -1 -c:a libopus -b:a 64k -ar 48000 -ac 2 out.ogg
 ```
 
-New files are picked up within about 1.5 seconds, with no restart. An empty or missing sounds folder
-starts a bot that never plays anything.
+New sounds are picked up within about 1.5 seconds, with no restart; a change to `profile.toml`
+needs one. An empty sounds folder starts a bot that never plays anything, and a missing or invalid
+`profile.toml` stops it with an error saying what is wrong.
 
 ## 3. Configure and start
 
@@ -55,8 +61,7 @@ don't go in the file. It reads them from the environment instead:
 discord_token = "${DISCORD_BOT_TOKEN}"   # the token from step 1
 database_url  = "${DATABASE_URL}"        # sqlite:///path/to/coucou.db, or postgres://user:pass@host:5432/db
 
-[sounds]
-dir = "sounds"                           # the folder from step 2
+profile       = "/var/lib/coucou/profile"   # the folder from step 2
 ```
 
 ```sh
@@ -75,9 +80,12 @@ A few settings worth knowing about. `config.example.toml` lists them all, and so
 
 | Key | Default | What |
 |---|---|---|
-| `default_chance` | `5` | the chance of a visit, in percent, rolled every 5 minutes while someone is in voice. 5 works out to about one visit per 1.5–2 hours of active voice. Set `0` to make servers opt in with `/chance`. |
 | `owner_ids` | `[]` | your Discord user ID, in quotes; unlocks the leaderboard of servers |
 | `ops.log_level` | `info` | `debug`, `info`, `warn` or `error` |
+
+How often the bot visits a new server is the profile's `defaults.chance`: a percentage rolled every 5
+minutes while someone is in voice, so the default 5 works out to about one visit per 1.5–2 hours of
+active voice. Set `0` to make servers opt in with `/chance`.
 | `GOMEMLIMIT` (environment) | — | set `48MiB`; the bot is built to sit well under it |
 
 ## Is it working?

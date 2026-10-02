@@ -47,30 +47,53 @@ func (q *Queries) MarkGuildsLeftExcept(ctx context.Context, present []int64) ([]
 }
 
 const seedSettingsForGuild = `-- name: SeedSettingsForGuild :exec
-insert into guilds.settings (guild_id, join_chance) values ($1, $2)
+insert into guilds.settings (guild_id, join_chance, suspense, fakeout, encore) values ($1, $2, $3, $4, $5)
 on conflict (guild_id) do nothing
 `
 
 type SeedSettingsForGuildParams struct {
 	GuildID    int64
 	JoinChance int16
+	Suspense   int16
+	Fakeout    int16
+	Encore     int16
 }
 
 func (q *Queries) SeedSettingsForGuild(ctx context.Context, arg SeedSettingsForGuildParams) error {
-	_, err := q.db.Exec(ctx, seedSettingsForGuild, arg.GuildID, arg.JoinChance)
+	_, err := q.db.Exec(ctx, seedSettingsForGuild,
+		arg.GuildID,
+		arg.JoinChance,
+		arg.Suspense,
+		arg.Fakeout,
+		arg.Encore,
+	)
 	return err
 }
 
 const seedSettingsForGuilds = `-- name: SeedSettingsForGuilds :execrows
-insert into guilds.settings (guild_id, join_chance)
-select guild_id, $1::smallint from guilds.info where left_at is null
+insert into guilds.settings (guild_id, join_chance, suspense, fakeout, encore)
+select guild_id, $1::smallint, $2::smallint,
+       $3::smallint, $4::smallint
+from guilds.info where left_at is null
 on conflict (guild_id) do nothing
 `
 
-// Give every present guild a settings row with the bot's default chance if it doesn't have one yet.
+type SeedSettingsForGuildsParams struct {
+	JoinChance int16
+	Suspense   int16
+	Fakeout    int16
+	Encore     int16
+}
+
+// Give every present guild a settings row with the profile's defaults if it doesn't have one yet.
 // ON CONFLICT DO NOTHING means guilds that already configured themselves are untouched.
-func (q *Queries) SeedSettingsForGuilds(ctx context.Context, defaultChance int16) (int64, error) {
-	result, err := q.db.Exec(ctx, seedSettingsForGuilds, defaultChance)
+func (q *Queries) SeedSettingsForGuilds(ctx context.Context, arg SeedSettingsForGuildsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, seedSettingsForGuilds,
+		arg.JoinChance,
+		arg.Suspense,
+		arg.Fakeout,
+		arg.Encore,
+	)
 	if err != nil {
 		return 0, err
 	}

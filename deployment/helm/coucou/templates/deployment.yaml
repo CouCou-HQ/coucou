@@ -78,10 +78,18 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config
-              mountPath: /etc/coucou
+              mountPath: /etc/coucou/config.toml
+              subPath: config.toml
+              readOnly: true
+            # The profile is assembled from two sources: profile.toml from values, sounds/ from a
+            # volume. The bot reads the profile once at startup, so a subPath not updating live
+            # costs nothing; the config checksum rolls the pod instead.
+            - name: config
+              mountPath: /var/lib/coucou/profile/profile.toml
+              subPath: profile.toml
               readOnly: true
             - name: sounds
-              mountPath: {{ .Values.sounds.mountPath }}
+              mountPath: /var/lib/coucou/profile/sounds
               readOnly: true
       volumes:
         - name: config

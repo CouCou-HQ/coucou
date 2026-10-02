@@ -1,0 +1,21 @@
+# A character for a bot running on coucou. Copy to profile/profile.toml in a checkout, or to
+# /var/lib/coucou/profile/profile.toml when installed; its sounds go in sounds/ beside it.
+# Read once at startup: a change needs a restart. Only sounds/ reloads live.
+
+id       = "lenore"             # required: lowercase letters, digits and dashes
+nickname = "Lenore"             # optional: what replies call the bot, over its server nickname and Discord name
+emoji    = "🖤"                  # optional: in front of the /help and /about titles
+color    = "#4E5058"            # optional: embed accent, #RRGGBB; default #E4572E
+tagline  = "Says something mean she definitely means nicely."
+lore     = """
+Nobody invited her. She came anyway, and she is not leaving until she has said her piece.
+"""
+traits   = ["sits in silence too long", "loves leaving without a sound"]   # quirks to read in /about; they change nothing
+
+# What a server starts with before anyone changes it. Seeding never touches a server that already
+# has settings, so changing these only reaches servers the bot joins afterwards.
+[defaults]
+chance   = 5     # % per 5-minute tick, rolled only when someone is in voice; 0-100
+suspense = 0     # max seconds of silence before the sound; 0-20
+fakeout  = 0     # % of visits that leave without a sound; 0-50
+encore   = 0     # % of visits that come back for a second sound; 0-50

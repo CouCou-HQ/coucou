@@ -40,6 +40,7 @@ go.work.sum
 .env.local
 .env.*.local
 /config.toml
+/profile/
 /deployment/compose/config.toml
 
 # ── Local dev tooling ─────────────────────────────────────────────────────────

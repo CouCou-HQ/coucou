@@ -18,48 +18,37 @@ import (
 	"github.com/be-sandaa/coucou/internal/commands"
 )
 
-// defaultChance is the join chance a guild starts with, as a percentage rolled once every 5 minutes
-// — and only on ticks where somebody is actually sitting in a voice channel.
-//
-// At 5%, a guild with people in voice sees roughly one visit per 1.5-2 hours of that voice time:
-// enough that the bot visibly does something the day it is added, not so much that a four-hour
-// session gets interrupted five times. 0 would leave a freshly added bot looking broken, and 10+
-// is how a joke bot gets removed. Guilds tune it per server with /chance.
-const defaultChance = 5
-
 const (
 	defaultConfigPath = "/etc/coucou/config.toml"
-	defaultSoundsDir  = "/var/lib/coucou/sounds"
+	defaultProfileDir = "/var/lib/coucou/profile"
 	defaultHTTPAddr   = ":9090"
 )
 
 // config is every knob the bot has, read from one TOML file. Secrets reach it as ${VAR}
 // references inside string values rather than through a second way of setting the same key.
 type config struct {
-	DatabaseURL   string
-	Token         string
-	OwnerIDs      []snowflake.ID
-	Siblings      []commands.Sibling
-	SoundsDir     string
-	SoundsPoll    time.Duration
-	HTTPAddr      string
-	OTLPEndpoint  string
-	LogLevel      slog.Level
-	PProf         bool
-	DefaultChance int16
-	ShardCount    int
+	DatabaseURL  string
+	Token        string
+	OwnerIDs     []snowflake.ID
+	Siblings     []commands.Sibling
+	ProfileDir   string
+	SoundsPoll   time.Duration
+	HTTPAddr     string
+	OTLPEndpoint string
+	LogLevel     slog.Level
+	PProf        bool
+	ShardCount   int
 }
 
 // file is config.toml as written, before parsing. Every string field may hold ${VAR} references;
 // the non-string ones cannot, because they are typed by the decoder before expansion runs.
 type file struct {
-	DiscordToken  string   `toml:"discord_token"`
-	DatabaseURL   string   `toml:"database_url"`
-	OwnerIDs      []string `toml:"owner_ids"`
-	Siblings      string   `toml:"siblings"`
-	DefaultChance int      `toml:"default_chance"`
-	Sounds        struct {
-		Dir  string        `toml:"dir"`
+	DiscordToken string   `toml:"discord_token"`
+	DatabaseURL  string   `toml:"database_url"`
+	OwnerIDs     []string `toml:"owner_ids"`
+	Siblings     string   `toml:"siblings"`
+	Profile      string   `toml:"profile"`
+	Sounds       struct {
 		Poll time.Duration `toml:"poll"`
 	} `toml:"sounds"`
 	Ops struct {
@@ -103,8 +92,7 @@ func parseConfig(args []string) (config, error) {
 // readFile decodes path over the defaults, refuses keys the file has that config does not, and
 // then expands ${VAR} references in the decoded strings.
 func readFile(path string) (file, error) {
-	f := file{DefaultChance: defaultChance}
-	f.Sounds.Dir = defaultSoundsDir
+	f := file{Profile: defaultProfileDir}
 	f.Ops.HTTPAddr = defaultHTTPAddr
 
 	md, err := toml.DecodeFile(path, &f)
@@ -180,16 +168,13 @@ func (f file) parse() (config, error) {
 	c := config{
 		DatabaseURL:  f.DatabaseURL,
 		Token:        f.DiscordToken,
-		SoundsDir:    f.Sounds.Dir,
+		ProfileDir:   f.Profile,
 		SoundsPoll:   f.Sounds.Poll,
 		HTTPAddr:     f.Ops.HTTPAddr,
 		OTLPEndpoint: f.Ops.OTLP,
 		PProf:        f.Ops.PProf,
 	}
 	var err error
-	if c.DefaultChance, err = parseChance(f.DefaultChance); err != nil {
-		return config{}, err
-	}
 	if c.OwnerIDs, err = parseOwners(f.OwnerIDs); err != nil {
 		return config{}, err
 	}
@@ -215,14 +200,6 @@ func (c config) validate() error {
 		return errors.New("missing discord_token")
 	}
 	return nil
-}
-
-// parseChance reads the default join chance, which the schema constrains to 0-100.
-func parseChance(n int) (int16, error) {
-	if n < 0 || n > 100 {
-		return 0, fmt.Errorf("default_chance %d is outside 0-100", n)
-	}
-	return int16(n), nil //nolint:gosec // G109: bounded to 0-100 immediately above
 }
 
 // parseLogLevel reads the console level. slog.Level is a TextUnmarshaler, so it already accepts

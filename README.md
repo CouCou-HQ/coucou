@@ -29,17 +29,20 @@ towards your collection in `/stats` once a bot catches you with one.
 
 ## Bring your own bot
 
-coucou doesn't care what's in its sounds folder. Point it at a directory of your own clips and you
-have a new bot: one binary, your sounds, your Discord app, your database. Nothing in the code knows
-which bot it is.
+coucou doesn't care who it plays. Give it a [profile](#profile) — a character with its own sounds —
+and you have a new bot: one binary, your character, your Discord app, your database. Nothing in the
+code knows which bot it is.
 
-1. **Make the sounds.** Run `scripts/sound` on a folder of short clips: it encodes them to Ogg Opus
+1. **Write the character.** Copy [`profile.example.toml`](profile.example.toml) into a profile
+   directory as `profile.toml`: an id, an optional nickname, the tagline, lore and traits `/about`
+   shows, and the settings a server starts with. See [Profile](#profile).
+2. **Make the sounds.** Run `scripts/sound` on a folder of short clips: it encodes them to Ogg Opus
    and names them in snake_case (`Wet Fart 3.mp3` becomes `wet_fart_3.ogg`, shown as
-   **Wet Fart 3**). Add `--rare` for the special ones. See [Sounds](#sounds).
-2. **Run it.** A [release binary](#install), the [container image](#container) or the
-   [Helm chart](deployment), with `sounds.dir` pointing at your clips and a token from your own
+   **Wet Fart 3**), into the profile's `sounds/`. Add `--rare` for the special ones. See [Sounds](#sounds).
+3. **Run it.** A [release binary](#install), the [container image](#container) or the
+   [Helm chart](deployment), with `profile` pointing at that directory and a token from your own
    Discord application.
-3. **Get it listed.** Open a [**List my bot**](https://github.com/be-sandaa/coucou/issues/new?template=list_my_bot.yml)
+4. **Get it listed.** Open a [**List my bot**](https://github.com/be-sandaa/coucou/issues/new?template=list_my_bot.yml)
    issue, and it joins the table below.
 
 To be listed, a bot has to:
@@ -148,42 +151,67 @@ also means numbers and booleans cannot come from the environment: write them out
 | `discord_token` | — (required) | bot token |
 | `owner_ids` | `[]` | user ids, as strings, that unlock the servers leaderboard |
 | `siblings` | `""` | `Name=application-id` pairs of other coucou bots, comma separated; `/help` links each one but itself under **More from coucou**, and about 1 in 100 `/play` replies plugs one at random |
-| `default_chance` | `5` | chance seeded for guilds with no settings row |
-| `sounds.dir` | `/var/lib/coucou/sounds` | directory of pre-encoded Ogg Opus files |
-| `sounds.poll` | `0s` | rescan interval; `0s` uses inotify |
+| `profile` | `/var/lib/coucou/profile` | the character: a directory holding `profile.toml` and `sounds/`; see [Profile](#profile) |
+| `sounds.poll` | `0s` | rescan interval for the profile's `sounds/`; `0s` uses inotify |
 | `ops.http_addr` | `:9090` | `/healthz`, `/readyz` and `/metrics`; `""` disables them |
 | `ops.log_level` | `info` | `debug` \| `info` \| `warn` \| `error`; audit records are stored regardless |
 | `ops.pprof` | `false` | serve `/debug/pprof` on the ops listener |
 | `ops.otlp` | `""` | `host:port` of an OTLP/gRPC collector; `""` disables tracing |
 | `gateway.shard_count` | `0` | shards to run; `0` lets Discord decide, which is what a deploy should do |
 
-`default_chance` is a percentage rolled once every 5 minutes, and only on ticks where somebody is
-actually in a voice channel — so 5 works out to roughly one visit per 1.5–2 hours of active voice.
-It seeds guilds that have no settings row; a guild overrides it with `/chance`, and seeding never
-touches a row that already exists. Set it to `0` to make the bot opt-in.
-
 One setting stays an environment variable: `DISCORD_DEV_GUILD`, read only by a `-tags dev` build,
 is the guild that build registers its commands to.
+
+### Profile
+
+Who the bot is lives in one directory, the `profile` key above: `profile.toml` and the `sounds/` it
+plays. Copy [`profile.example.toml`](profile.example.toml), which lists every key. Nothing in it is
+pushed to Discord — the bot's username, avatar and banner stay whatever the developer portal says.
+
+| key | default | what |
+|---|---|---|
+| `id` | — (required) | lowercase letters, digits and dashes |
+| `nickname` | `""` | what replies call the bot. Wins over its nickname in a server, which wins over its Discord name |
+| `emoji` | `""` | in front of the `/help` and `/about` titles |
+| `color` | `#E4572E` | embed accent for reports and confirmations, `#RRGGBB` |
+| `tagline`, `lore` | `""` | shown by `/about` |
+| `traits` | `[]` | character quirks, listed by `/about`. Something to read; they never change what the bot does |
+| `defaults.chance` | `5` | join chance a server starts with, 0–100 |
+| `defaults.suspense` | `0` | seconds of silence before the sound, 0–20 |
+| `defaults.fakeout` | `0` | % of visits that leave without a sound, 0–50 |
+| `defaults.encore` | `0` | % of visits that come back for a second sound, 0–50 |
+
+`defaults.chance` is a percentage rolled once every 5 minutes, and only on ticks where somebody is
+actually in a voice channel — so 5 works out to roughly one visit per 1.5–2 hours of active voice.
+Set it to `0` to make the bot opt-in. The defaults seed servers that have no settings yet; a server
+overrides each with its command, and seeding never touches a server that already has settings, so a
+changed default only reaches servers the bot joins afterwards.
+
+`profile.toml` is read once at startup and an invalid one stops the bot; a change needs a restart.
+Only `sounds/` reloads live. From a checkout, `profile/` is git-ignored: start it with
+`mkdir -p profile/sounds && cp profile.example.toml profile/profile.toml`, and set
+`profile = "profile"` in your `config.toml`.
 
 ### Container
 
 ```sh
 make image                                            # or:
 docker build -t coucou -f docker/Dockerfile .
-docker run --rm -e DATABASE_URL=... -e DISCORD_BOT_TOKEN=... -v ./sounds:/var/lib/coucou/sounds:ro coucou
+docker run --rm -e DATABASE_URL=... -e DISCORD_BOT_TOKEN=... -v ./profile:/var/lib/coucou/profile:ro coucou
 ```
 
 The image carries a minimal config at the default path, `/etc/coucou/config.toml` (from
-[`docker/config.toml`](docker/config.toml)): token and DSN from the environment, sounds at the default `/var/lib/coucou/sounds`. That directory
-is owned by the runtime user, so a volume at `/var/lib/coucou` can hold a SQLite database too.
+[`docker/config.toml`](docker/config.toml)): token and DSN from the environment, the profile at the
+default `/var/lib/coucou/profile`. `/var/lib/coucou` is owned by the runtime user, so a volume there
+can hold a SQLite database too.
 Mount your own file over it for anything else.
 
 `FROM scratch`, non-root (65534), ~31 MiB. The zoneinfo database is embedded in the binary via
 `time/tzdata`, so quiet hours work with no files in the image and there is nothing to copy but the
 binary and the TLS roots.
 
-Run it against a PostgreSQL 17 container, one database and role per bot, with the sounds directory
-mounted at whatever `sounds.dir` points to. Set `GOMEMLIMIT=48MiB` in the unit.
+Run it against a PostgreSQL 17 container, one database and role per bot, with the profile directory
+mounted at whatever `profile` points to. Set `GOMEMLIMIT=48MiB` in the unit.
 
 ### Sounds
 
@@ -192,12 +220,12 @@ command. `scripts/sound` takes files or folders, encodes everything it finds, an
 in snake_case for you:
 
 ```sh
-scripts/sound "Wet Fart 3.mp3" ~/Downloads/farts/   # -> sounds/wet_fart_3.ogg, ...
-scripts/sound --rare "Perfect Fart.wav"             # -> sounds/perfect_fart.rare.ogg
-scripts/sound -o /srv/sounds -n ~/Downloads/farts/  # dry run into another folder
+scripts/sound "Wet Fart 3.mp3" ~/Downloads/farts/   # -> profile/sounds/wet_fart_3.ogg, ...
+scripts/sound --rare "Perfect Fart.wav"             # -> profile/sounds/perfect_fart.rare.ogg
+scripts/sound -o /srv/lenore/sounds -n ~/Downloads/farts/  # dry run into another profile
 ```
 
-It writes to `$SOUNDS_DIR` (or `./sounds`), skips anything that already exists unless `-f`, and needs
+It writes to the checkout's `profile/sounds` (or `-o`), skips anything that already exists unless `-f`, and needs
 only bash and ffmpeg. Underneath it is this, with `-vn` because an mp3's embedded cover art would
 otherwise ride along as a video stream and the bot would reject the file:
 
@@ -205,7 +233,7 @@ otherwise ride along as a video stream and the bot would reject the file:
 ffmpeg -i in.mp3 -vn -map_metadata -1 -c:a libopus -b:a 64k -ar 48000 -ac 2 out.ogg
 ```
 
-Drop the `.ogg` into `SOUNDS_DIR` and it is playable within ~1.5 s. No restart. Half-copied or
+Drop the `.ogg` into the profile's `sounds/` and it is playable within ~1.5 s. No restart. Half-copied or
 non-Opus files are ignored until they are valid.
 
 Name files in lowercase snake_case: `marta_moan_2.ogg` is the sound `marta_moan_2`, and Discord
@@ -228,6 +256,7 @@ is loaded now. `/play` does not count toward it.
 | `/play [sound]` | anyone | play now in your channel; autocompletes over the live registry |
 | `/leave` | anyone | cut a play short |
 | `/help` | anyone | the command list, and which switch actually keeps the bot out |
+| `/about` | anyone | who the bot is: its tagline, lore and traits from the profile (only you see it) |
 | `/optout on\|for\|schedule\|rrule\|off` | anyone, per person | stop being counted when the bot picks a channel: indefinitely, `for <hours>`, or on a repeating `schedule` (an RFC 5545 rule, typed directly with `rrule`) |
 | `/chance <0-100>` | Manage Server | odds of a drop-in every 5 minutes (0 = never) |
 | `/quiet set\|off` | Manage Server | hours to be left alone, in the guild's IANA zone |
@@ -303,6 +332,7 @@ internal/ops             /healthz, /readyz and /metrics
 internal/store           Store interface + DATABASE_URL scheme registry + WaitAndMigrate
 internal/store/pg        pgx/v5, goose under pg_advisory_lock, sqlc postgresql engine
 internal/store/sqlite    modernc.org/sqlite (pure Go, WAL), goose sqlite3, sqlc sqlite engine
+internal/profile         the character: profile.toml, its defaults and limits, and where its sounds are
 internal/settings        per-guild chance / quiet hours / suspense, in-memory over the store
 internal/optout          per-user opt-outs: indefinite, until a deadline, or on an RFC 5545 rule
 internal/sounds          live Ogg Opus registry (fsnotify + rescan, OpusHead sniff, settle check)

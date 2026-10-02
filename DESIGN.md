@@ -14,7 +14,9 @@ screen reader is read the title and never the colour, so colour is confirmation,
 never the carrier.
 
 - `colBrand` `#E4572E` — reports and confirmations. The signature hue; also the
-  release badge in the README, so the bot and its repo match.
+  release badge in the README, so the bot and its repo match. A character's
+  `profile.toml` may replace it with its own `color`; it is the only one of the
+  four a profile can change, because the other three carry meaning.
 - `colBoard` `#F2B705` — leaderboards only, matching the gold medal that heads them.
 - `colBad`   `#C4413B` — refusals, bad input, anything that failed.
 - `colMuted` `#4E5058` — nothing to show, which is not the same as failing.
@@ -86,8 +88,8 @@ limit for a gimmick.
 - **Mascot** — the `/help` wordmark and the `/play` speaker. Decoration, and the
   only two places decoration is allowed. The wordmark is the bot's own name as the
   server sees it, letter-spaced: coucou is the application, never the character.
-- **Avatar** — the bot's avatar as a thumbnail on `/help` and `/invite`, the two
-  replies that say who the bot is. Identity, not decoration, so nowhere else.
+- **Avatar** — the bot's avatar as a thumbnail on `/help`, `/about` and `/invite`,
+  the replies that say who the bot is. Identity, not decoration, so nowhere else.
 
 ## Colour inside blocks (ANSI)
 

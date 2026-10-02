@@ -65,7 +65,7 @@ func (t *ReadyTracker) OnReady() bot.EventListener {
 // Deliberately no longer a GuildsReady listener. disgo dispatches that when the client-wide unready
 // set empties, which under sharding can fire before the last shard has identified — and never at
 // all for a shard holding no guilds. There is no count of it that is right.
-func SyncGuilds(ctx context.Context, c *bot.Client, t *ReadyTracker, b *bus.Bus, db store.Store, set *settings.Store, defaultChance int16) error {
+func SyncGuilds(ctx context.Context, c *bot.Client, t *ReadyTracker, b *bus.Bus, db store.Store, set *settings.Store, d store.Defaults) error {
 	unready, err := waitForGuilds(ctx, shardCount(c), t.Count, c.Caches.UnreadyGuildIDs)
 	if err != nil {
 		// Reconciling while a shard is still silent is the one outcome worse than not reconciling:
@@ -106,7 +106,7 @@ func SyncGuilds(ctx context.Context, c *bot.Client, t *ReadyTracker, b *bus.Bus,
 	for _, id := range left {
 		b.Publish(ctx, bus.GuildLeft{Guild: id, Reconciled: true})
 	}
-	seeded, err := db.SeedSettings(ctx, int(defaultChance))
+	seeded, err := db.SeedSettings(ctx, d)
 	if err != nil {
 		slog.Error("guilds: seed settings", slog.Any("err", err))
 	}

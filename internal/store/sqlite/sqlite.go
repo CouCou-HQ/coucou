@@ -252,11 +252,15 @@ func (s *Store) MarkGuildsLeftExcept(ctx context.Context, present []snowflake.ID
 func (s *Store) MarkGuildLeft(ctx context.Context, g snowflake.ID) error {
 	return s.q.MarkGuildLeft(ctx, i64(g))
 }
-func (s *Store) SeedSettings(ctx context.Context, dc int) (int64, error) {
-	return s.q.SeedSettingsForGuilds(ctx, int64(dc))
+func (s *Store) SeedSettings(ctx context.Context, d store.Defaults) (int64, error) {
+	return s.q.SeedSettingsForGuilds(ctx, gen.SeedSettingsForGuildsParams{
+		JoinChance: int64(d.Chance), Suspense: int64(d.Suspense), Fakeout: int64(d.FakeOut), Encore: int64(d.Encore),
+	})
 }
-func (s *Store) SeedSettingsFor(ctx context.Context, g snowflake.ID, dc int) error {
-	return s.q.SeedSettingsForGuild(ctx, gen.SeedSettingsForGuildParams{GuildID: i64(g), JoinChance: int64(dc)})
+func (s *Store) SeedSettingsFor(ctx context.Context, g snowflake.ID, d store.Defaults) error {
+	return s.q.SeedSettingsForGuild(ctx, gen.SeedSettingsForGuildParams{
+		GuildID: i64(g), JoinChance: int64(d.Chance), Suspense: int64(d.Suspense), Fakeout: int64(d.FakeOut), Encore: int64(d.Encore),
+	})
 }
 
 //#endregion

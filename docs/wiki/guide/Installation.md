@@ -43,11 +43,11 @@ docker run --rm \
   -e DATABASE_URL=sqlite:///var/lib/coucou/coucou.db \
   -e DISCORD_BOT_TOKEN=... \
   -v coucou-data:/var/lib/coucou \
-  -v "$PWD/sounds:/var/lib/coucou/sounds:ro" \
+  -v "$PWD/profile:/var/lib/coucou/profile:ro" \
   ghcr.io/be-sandaa/coucou:0.10.0
 ```
 
-The image is `FROM scratch` and runs as uid 65534, so the sound files must be world-readable. It
+The image is `FROM scratch` and runs as uid 65534, so the profile and its sounds must be world-readable. It
 has no shell and no `HEALTHCHECK`; health is on the bot's own HTTP port (see
 [Running the bot](Running-the-bot#is-it-working)).
 

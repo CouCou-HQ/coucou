@@ -41,11 +41,12 @@ select guild_id from guilds_info where left_at is null;
 update guilds_info set left_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where guild_id = ?;
 
 -- name: SeedSettingsForGuilds :execrows
-insert or ignore into guilds_settings (guild_id, join_chance)
-select guild_id, ? from guilds_info where left_at is null;
+insert or ignore into guilds_settings (guild_id, join_chance, suspense, fakeout, encore)
+select guild_id, sqlc.arg(join_chance), sqlc.arg(suspense), sqlc.arg(fakeout), sqlc.arg(encore)
+from guilds_info where left_at is null;
 
 -- name: SeedSettingsForGuild :exec
-insert or ignore into guilds_settings (guild_id, join_chance) values (?, ?);
+insert or ignore into guilds_settings (guild_id, join_chance, suspense, fakeout, encore) values (?, ?, ?, ?, ?);
 
 -- Same shape as the postgres backend: each optional value gets a CTE that yields zero rows when there
 -- is nothing to report and is LEFT JOINed in, so sqlc types them as pointers instead of scanning a

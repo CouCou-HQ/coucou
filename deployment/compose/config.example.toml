@@ -9,10 +9,10 @@ database_url  = "${DATABASE_URL}"
 owner_ids = []          # user ids, as strings, that unlock the servers leaderboard
 siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated
 
-default_chance = 5      # join chance seeded for a guild with no settings row, 0-100
+# profile is left at its default, /var/lib/coucou/profile, where compose.yaml mounts PROFILE_DIR.
 
 [sounds]
-poll = "0s"             # dir is left at its default, /var/lib/coucou/sounds, where compose.yaml mounts SOUNDS_DIR             # e.g. "15s" on NFS/SMB mounts where inotify doesn't fire
+poll = "0s"             # e.g. "15s" on NFS/SMB mounts where inotify doesn't fire
 
 [ops]
 http_addr = ":9090"     # compose.yaml publishes container port 9090; change both together

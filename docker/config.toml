@@ -1,8 +1,8 @@
 # The image's config, at /etc/coucou/config.toml (the binary's default path). Enough to run with
 #   docker run -e DISCORD_BOT_TOKEN=... -e DATABASE_URL=sqlite:///var/lib/coucou/coucou.db \
-#     -v coucou-data:/var/lib/coucou -v <sounds>:/var/lib/coucou/sounds:ro
-# Sounds come from the default sounds.dir, /var/lib/coucou/sounds. Mount your own file over this
-# one for anything else; config.example.toml at the repo root lists every key.
+#     -v coucou-data:/var/lib/coucou -v <profile>:/var/lib/coucou/profile:ro
+# The profile (profile.toml and sounds/) comes from the default path, /var/lib/coucou/profile. Mount
+# your own file over this one for anything else; config.example.toml at the repo root lists every key.
 
 discord_token = "${DISCORD_BOT_TOKEN}"
 database_url  = "${DATABASE_URL}"

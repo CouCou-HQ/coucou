@@ -104,19 +104,23 @@ func GuildReconciledStats(log *events.Log) bus.Handler[bus.GuildLeft] {
 
 // GuildJoinedSync keeps the guilds table and the settings seed in step with Discord, and fills in a
 // zone guessed from the guild's locale if it has none.
-// defaultChance seeds a guild that has no settings row yet; a guild overrides it with /chance, and
+// d seeds a guild that has no settings row yet; a guild overrides each value with its command, and
 // seeding never overwrites a row that already exists.
-func GuildJoinedSync(db store.Store, set *settings.Store, defaultChance int16) bus.Handler[discord.GatewayGuild] {
+func GuildJoinedSync(db store.Store, set *settings.Store, d store.Defaults) bus.Handler[discord.GatewayGuild] {
 	return func(ctx context.Context, g *discord.GatewayGuild) error {
 		if err := db.UpsertGuilds(ctx, []store.Guild{{ID: g.ID, JoinedAt: g.JoinedAt}}); err != nil {
 			return err // retried by middleware, then dropped with a log line
 		}
-		if err := db.SeedSettingsFor(ctx, g.ID, int(defaultChance)); err != nil {
+		if err := db.SeedSettingsFor(ctx, g.ID, d); err != nil {
 			return err
 		}
-		if defaultChance > 0 {
-			// Actor zero: nobody asked for this, the bot is applying its own default.
-			if _, err := set.Update(ctx, g.ID, 0, func(s *settings.Settings) { s.Chance = int(defaultChance) }); err != nil {
+		// A guild coming back already has its row, and the mirror with it: writing the defaults over
+		// it here would undo the seed's do-not-overwrite rule.
+		if d != (store.Defaults{}) && !set.Known(g.ID) {
+			// Actor zero: nobody asked for this, the bot is applying its own defaults.
+			if _, err := set.Update(ctx, g.ID, 0, func(s *settings.Settings) {
+				s.Chance, s.Suspense, s.FakeOut, s.Encore = d.Chance, d.Suspense, d.FakeOut, d.Encore
+			}); err != nil {
 				return err
 			}
 		}

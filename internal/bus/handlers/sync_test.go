@@ -40,7 +40,7 @@ func (f *fakeStore) UpsertGuilds(_ context.Context, g []store.Guild) error {
 	return f.failUpsert
 }
 
-func (f *fakeStore) SeedSettingsFor(_ context.Context, g snowflake.ID, _ int) error {
+func (f *fakeStore) SeedSettingsFor(_ context.Context, g snowflake.ID, _ store.Defaults) error {
 	f.seeded = append(f.seeded, g)
 	return f.failSeed
 }
@@ -56,13 +56,13 @@ func (f *fakeStore) MarkGuildLeft(_ context.Context, g snowflake.ID) error {
 	return f.failMarkLeft
 }
 
-func (f *fakeStore) Migrate(context.Context) error                          { return nil }
-func (f *fakeStore) Ping(context.Context) error                             { return nil }
-func (f *fakeStore) Close()                                                 {}
-func (f *fakeStore) ListSettings(context.Context) ([]store.Settings, error) { return nil, nil }
-func (f *fakeStore) WritePlays(context.Context, []store.Play) error         { return nil }
-func (f *fakeStore) WriteMisc(context.Context, []store.Misc) error          { return nil }
-func (f *fakeStore) SeedSettings(context.Context, int) (int64, error)       { return 0, nil }
+func (f *fakeStore) Migrate(context.Context) error                               { return nil }
+func (f *fakeStore) Ping(context.Context) error                                  { return nil }
+func (f *fakeStore) Close()                                                      {}
+func (f *fakeStore) ListSettings(context.Context) ([]store.Settings, error)      { return nil, nil }
+func (f *fakeStore) WritePlays(context.Context, []store.Play) error              { return nil }
+func (f *fakeStore) WriteMisc(context.Context, []store.Misc) error               { return nil }
+func (f *fakeStore) SeedSettings(context.Context, store.Defaults) (int64, error) { return 0, nil }
 
 func (f *fakeStore) MarkGuildsLeftExcept(context.Context, []snowflake.ID) ([]snowflake.ID, error) {
 	return nil, nil
@@ -106,23 +106,24 @@ func (f *fakeStore) ListOptOuts(context.Context) ([]store.OptOut, error) { retur
 func (f *fakeStore) SetOptOut(context.Context, store.OptOut) error       { return nil }
 func (f *fakeStore) ClearOptOut(context.Context, snowflake.ID) error     { return nil }
 
-// A join writes the guild row, seeds its settings, and fills in a zone from its locale. The chance
-// is only written when there is a non-zero one to write; the zone always is, for a new guild.
+// A join writes the guild row, seeds its settings, and fills in a zone from its locale. The
+// defaults are only written when there is something non-zero to write; the zone always is, for a
+// new guild.
 func TestGuildJoinedSyncWrites(t *testing.T) {
 	tests := []struct {
 		name         string
-		chance       int16
+		defaults     store.Defaults
 		wantSettings int
 	}{
-		{"a seeded chance and a zone", 5, 2},
-		{"a zero chance, only the zone", 0, 1},
+		{"seeded defaults and a zone", store.Defaults{Chance: 5}, 2},
+		{"zero defaults, only the zone", store.Defaults{}, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeStore{}
 			joined := time.Now().UTC().Truncate(time.Second)
 
-			h := GuildJoinedSync(db, settings.New(db), tt.chance)
+			h := GuildJoinedSync(db, settings.New(db), tt.defaults)
 			if err := h(t.Context(), gatewayGuild(testGuild, joined)); err != nil {
 				t.Fatalf("handler returned %v, want nil", err)
 			}
@@ -143,7 +144,7 @@ func TestGuildJoinedSyncWrites(t *testing.T) {
 // The zone a new guild gets is the one its locale points at, written, not worked out later.
 func TestGuildJoinedSyncFillsTheZone(t *testing.T) {
 	db := &fakeStore{}
-	if err := GuildJoinedSync(db, settings.New(db), 0)(t.Context(), gatewayGuild(testGuild, time.Time{})); err != nil {
+	if err := GuildJoinedSync(db, settings.New(db), store.Defaults{})(t.Context(), gatewayGuild(testGuild, time.Time{})); err != nil {
 		t.Fatal(err)
 	}
 	if db.tz == nil || *db.tz != "Europe/Paris" {
@@ -160,11 +161,29 @@ func TestGuildJoinedSyncKeepsAZone(t *testing.T) {
 	if _, err := set.Update(t.Context(), back, 1, func(s *settings.Settings) { s.TZ = &tz }); err != nil {
 		t.Fatal(err)
 	}
-	if err := GuildJoinedSync(db, set, 0)(t.Context(), gatewayGuild(back, time.Time{})); err != nil {
+	if err := GuildJoinedSync(db, set, store.Defaults{})(t.Context(), gatewayGuild(back, time.Time{})); err != nil {
 		t.Fatal(err)
 	}
 	if got := settings.Zone(set.Get(back)); got != tz {
 		t.Errorf("zone = %q after rejoining, want %q kept", got, tz)
+	}
+}
+
+// A guild coming back keeps the settings it chose: the seed leaves its row alone, and so must the
+// mirror, or the bot would play by the profile's defaults until the next restart reloaded the row.
+func TestGuildJoinedSyncKeepsChosenSettings(t *testing.T) {
+	const back = snowflake.ID(44)
+	db := &fakeStore{}
+	set := settings.New(db)
+	if _, err := set.Update(t.Context(), back, 1, func(s *settings.Settings) { s.Chance, s.Suspense = 90, 3 }); err != nil {
+		t.Fatal(err)
+	}
+	h := GuildJoinedSync(db, set, store.Defaults{Chance: 5, Suspense: 8, FakeOut: 10, Encore: 5})
+	if err := h(t.Context(), gatewayGuild(back, time.Time{})); err != nil {
+		t.Fatal(err)
+	}
+	if got := set.Get(back); got.Chance != 90 || got.Suspense != 3 || got.FakeOut != 0 {
+		t.Errorf("settings after rejoining = %+v, want chance 90 and suspense 3 kept", got)
 	}
 }
 
@@ -183,7 +202,7 @@ func TestGuildJoinedSyncReturnsEachStepsError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := GuildJoinedSync(tt.db, settings.New(tt.db), 5)
+			h := GuildJoinedSync(tt.db, settings.New(tt.db), store.Defaults{Chance: 5})
 			if err := h(t.Context(), gatewayGuild(testGuild, time.Time{})); !errors.Is(err, tt.want) {
 				t.Errorf("handler returned %v, want %v", err, tt.want)
 			}
@@ -196,7 +215,7 @@ func TestGuildJoinedSyncReturnsEachStepsError(t *testing.T) {
 func TestGuildJoinedSyncStopsAtTheFirstFailure(t *testing.T) {
 	db := &fakeStore{failUpsert: errUpsert}
 
-	h := GuildJoinedSync(db, settings.New(db), 5)
+	h := GuildJoinedSync(db, settings.New(db), store.Defaults{Chance: 5})
 	if err := h(t.Context(), gatewayGuild(testGuild, time.Time{})); !errors.Is(err, errUpsert) {
 		t.Fatalf("handler returned %v, want %v", err, errUpsert)
 	}

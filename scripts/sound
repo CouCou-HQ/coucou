@@ -10,7 +10,7 @@ Encodes each audio file into DIR as Ogg Opus (64k, 48 kHz, stereo), named in sna
 "Wet Fart 3.mp3" becomes wet_fart_3.ogg. A folder is searched recursively for audio files.
 
   -r, --rare       name the output <name>.rare.ogg: a tenth as often, never by /play
-  -o, --out DIR    where to write (default: $SOUNDS_DIR, else ./sounds)
+  -o, --out DIR    where to write (default: profile/sounds, the checkout's profile)
   -f, --force      overwrite an existing output instead of skipping it
   -n, --dry-run    print what would be written, encode nothing
   -h, --help       this text
@@ -19,7 +19,7 @@ A source already named <name>.rare.<ext> stays rare without -r.
 EOF
 }
 
-rare=0 force=0 dry=0 out="${SOUNDS_DIR:-sounds}"
+rare=0 force=0 dry=0 out="profile/sounds"
 inputs=()
 while (($#)); do
 	case $1 in

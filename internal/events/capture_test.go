@@ -30,16 +30,16 @@ func (c *capture) rows() []store.Misc {
 	return c.misc
 }
 
-func (*capture) Migrate(context.Context) error                          { return nil }
-func (*capture) Ping(context.Context) error                             { return nil }
-func (*capture) Close()                                                 {}
-func (*capture) ListSettings(context.Context) ([]store.Settings, error) { return nil, nil }
-func (*capture) UpsertSettings(context.Context, store.Settings) error   { return nil }
-func (*capture) WritePlays(context.Context, []store.Play) error         { return nil }
-func (*capture) UpsertGuilds(context.Context, []store.Guild) error      { return nil }
-func (*capture) MarkGuildLeft(context.Context, snowflake.ID) error      { return nil }
-func (*capture) SeedSettings(context.Context, int) (int64, error)       { return 0, nil }
-func (*capture) TopGuilds(context.Context, int) ([]store.Row, error)    { return nil, nil }
+func (*capture) Migrate(context.Context) error                               { return nil }
+func (*capture) Ping(context.Context) error                                  { return nil }
+func (*capture) Close()                                                      {}
+func (*capture) ListSettings(context.Context) ([]store.Settings, error)      { return nil, nil }
+func (*capture) UpsertSettings(context.Context, store.Settings) error        { return nil }
+func (*capture) WritePlays(context.Context, []store.Play) error              { return nil }
+func (*capture) UpsertGuilds(context.Context, []store.Guild) error           { return nil }
+func (*capture) MarkGuildLeft(context.Context, snowflake.ID) error           { return nil }
+func (*capture) SeedSettings(context.Context, store.Defaults) (int64, error) { return 0, nil }
+func (*capture) TopGuilds(context.Context, int) ([]store.Row, error)         { return nil, nil }
 func (*capture) UserRank(context.Context, snowflake.ID, snowflake.ID, time.Time) (store.UserRank, error) {
 	return store.UserRank{}, nil
 }
@@ -55,7 +55,7 @@ func (*capture) Cuts(context.Context, string, time.Time, time.Time) ([]float64, 
 func (*capture) GlobalStats(context.Context) (store.GlobalStats, error) {
 	return store.GlobalStats{}, nil
 }
-func (*capture) SeedSettingsFor(context.Context, snowflake.ID, int) error { return nil }
+func (*capture) SeedSettingsFor(context.Context, snowflake.ID, store.Defaults) error { return nil }
 
 func (*capture) MarkGuildsLeftExcept(context.Context, []snowflake.ID) ([]snowflake.ID, error) {
 	return nil, nil

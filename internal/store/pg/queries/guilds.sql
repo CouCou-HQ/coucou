@@ -19,12 +19,14 @@ returning guild_id;
 update guilds.info set left_at = now() where guild_id = $1;
 
 -- name: SeedSettingsForGuilds :execrows
--- Give every present guild a settings row with the bot's default chance if it doesn't have one yet.
+-- Give every present guild a settings row with the profile's defaults if it doesn't have one yet.
 -- ON CONFLICT DO NOTHING means guilds that already configured themselves are untouched.
-insert into guilds.settings (guild_id, join_chance)
-select guild_id, sqlc.arg(default_chance)::smallint from guilds.info where left_at is null
+insert into guilds.settings (guild_id, join_chance, suspense, fakeout, encore)
+select guild_id, sqlc.arg(join_chance)::smallint, sqlc.arg(suspense)::smallint,
+       sqlc.arg(fakeout)::smallint, sqlc.arg(encore)::smallint
+from guilds.info where left_at is null
 on conflict (guild_id) do nothing;
 
 -- name: SeedSettingsForGuild :exec
-insert into guilds.settings (guild_id, join_chance) values ($1, $2)
+insert into guilds.settings (guild_id, join_chance, suspense, fakeout, encore) values ($1, $2, $3, $4, $5)
 on conflict (guild_id) do nothing;
