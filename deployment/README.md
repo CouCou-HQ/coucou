@@ -1,20 +1,20 @@
 # Deploying coucou
 
-Two ways, differing mainly in who owns the database.
+Three ways, differing mainly in who owns the database.
 
-| | [`compose/`](compose) | [`helm/coucou/`](helm/coucou) |
-|---|---|---|
-| Database | included (postgres 17) | **not included** — point it at one you run |
-| Target | one host, homelab, trying it out | a cluster you already operate |
-| Settings | `config.toml`, bind-mounted | `values.yaml`, rendered into a `ConfigMap` |
-| Secrets | a `.env` file | an existing `Secret`, or inline if you must |
-| Sounds | a bind mount | a PVC, or a hostPath on one node |
+| | [`compose/`](compose) | [`helm/coucou/`](helm/coucou) | [`systemd/`](systemd) |
+|---|---|---|---|
+| Database | included (postgres 17) | **not included** — point it at one you run | a SQLite file, or a postgres you run |
+| Target | one host, homelab, trying it out | a cluster you already operate | one host, the release binary, no containers |
+| Settings | `config.toml`, bind-mounted | `values.yaml`, rendered into a `ConfigMap` | `/etc/coucou/config.toml` |
+| Secrets | a `.env` file | an existing `Secret`, or inline if you must | `/etc/coucou/env`, `0600 root` |
+| Sounds | a bind mount | a PVC, or a hostPath on one node | `/var/lib/coucou/profile/sounds` |
 
 The database split is deliberate. Compose is one host and one lifecycle, so bundling postgres is
 honest. A chart that shipped a StatefulSet postgres would be claiming to run your database for you,
 and an app chart is the wrong place for that.
 
-## Common to both
+## Common to all
 
 **Migrations run themselves.** The bot waits for the database to accept connections and applies
 goose migrations at startup, and refuses to start if they fail. There is no migration job to
@@ -96,3 +96,12 @@ that cannot start. Inline `discord.token` / `database.url` work, but they land i
 and in Helm's release history — fine for a homelab, wrong anywhere with more than one person.
 
 `metrics.serviceMonitor.enabled=true` needs the Prometheus operator CRDs.
+
+## systemd
+
+`systemd/coucou.service` runs the release binary from `/usr/local/bin` under `DynamicUser=`, with
+`/var/lib/coucou` as its state directory. Setup is in the wiki:
+[Install as a service](../docs/wiki/guide/Installation.md#install-as-a-service).
+
+systemd reads `/etc/coucou/env` as root before dropping privileges, so the bot itself never has read
+access to its own secrets file. `systemd-analyze security` rates the unit 1.2 (OK).

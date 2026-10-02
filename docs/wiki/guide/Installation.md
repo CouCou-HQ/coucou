@@ -6,6 +6,7 @@ entire dependency. Pick whichever way of running it you already use:
 | Way | Good for | Database |
 |---|---|---|
 | [Release binary](#release-binary) | a single box, trying it out | SQLite file, or PostgreSQL |
+| [As a service](#install-as-a-service) | a single box, kept running by systemd | SQLite file, or PostgreSQL |
 | [Container image](#container-image) | Docker or Podman | SQLite on a volume, or PostgreSQL |
 | [Docker Compose](#docker-compose) | one host, everything included | PostgreSQL 17, bundled |
 | [Helm chart](#helm-chart) | a Kubernetes cluster you already run | PostgreSQL you provide |
@@ -31,6 +32,50 @@ tar -xzf "coucou_${tag}_linux_amd64.tar.gz"
 
 The release binary carries both database backends, so it runs against a plain SQLite file with no
 database server at all.
+
+## Install as a service
+
+`deployment/systemd/coucou.service` runs the release binary under systemd with a throwaway
+`DynamicUser=` and `/var/lib/coucou` as its only writable directory. As root, from the unpacked
+tarball and a checkout:
+
+```sh
+install -m 0755 coucou /usr/local/bin/coucou
+install -D -m 0644 config.example.toml /etc/coucou/config.toml
+install -m 0600 /dev/null /etc/coucou/env
+install -m 0644 deployment/systemd/coucou.service /etc/systemd/system/
+```
+
+| File | Mode | Holds |
+|---|---|---|
+| `/etc/coucou/config.toml` | `0644` | settings, no secrets; it references `${DISCORD_BOT_TOKEN}` and `${DATABASE_URL}` |
+| `/etc/coucou/env` | `0600 root` | the secrets, as `KEY=value` lines |
+| `/var/lib/coucou/profile/` | world-readable | `profile.toml` and `sounds/` |
+
+```sh
+# /etc/coucou/env
+DISCORD_BOT_TOKEN=...
+DATABASE_URL=sqlite:///var/lib/coucou/coucou.db
+```
+
+systemd reads the env file as root and hands the bot only the variables, so the bot can't read the
+file itself.
+
+Put the profile in place **before the first start**:
+
+```sh
+install -d -m 0755 /var/lib/coucou/profile/sounds
+install -m 0644 profile.toml /var/lib/coucou/profile/
+install -m 0644 sounds/*.ogg /var/lib/coucou/profile/sounds/
+systemctl daemon-reload
+systemctl enable --now coucou
+journalctl -u coucou -f
+```
+
+On that start systemd moves `/var/lib/coucou` to `/var/lib/private/coucou`, leaves a symlink in its
+place, and hands the tree to the dynamic user. Keep using `/var/lib/coucou/profile` as root after
+that, but files added later keep the owner you give them, so make them world-readable (`0644`, and
+`0755` for directories) or the bot can't open them.
 
 ## Container image
 
