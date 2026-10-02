@@ -6,6 +6,7 @@ Two ways, differing mainly in who owns the database.
 |---|---|---|
 | Database | included (postgres 17) | **not included** — point it at one you run |
 | Target | one host, homelab, trying it out | a cluster you already operate |
+| Settings | `config.toml`, bind-mounted | `values.yaml`, rendered into a `ConfigMap` |
 | Secrets | a `.env` file | an existing `Secret`, or inline if you must |
 | Sounds | a bind mount | a PVC, or a hostPath on one node |
 
@@ -34,7 +35,7 @@ for it.
 bot: it joins the same channels, talks over the first, and writes its own copy of every stats row.
 The chart pins `replicas: 1` with a `Recreate` strategy for this reason.
 
-**Endpoints**, all on one port (`HTTP_ADDR`, default `:9090`):
+**Endpoints**, all on one port (`ops.http_addr`, default `:9090`):
 
 - `/healthz` — the process is running, and nothing more. It stays 200 through a Discord outage on
   purpose: a liveness probe that checked dependencies would turn someone else's outage into a
@@ -51,6 +52,7 @@ nothing in it that could run one. Health belongs to whatever is supervising: the
 ```sh
 cd compose
 cp .env.example .env     # fill in DISCORD_BOT_TOKEN and POSTGRES_PASSWORD
+cp config.example.toml config.toml   # bot settings; the defaults run as they are
 docker compose up -d --build
 ```
 
@@ -63,6 +65,10 @@ Ogg Opus files in it — the container runs as uid 65534, so they must be world-
 missing directory starts a bot that never plays anything.
 
 ## Helm
+
+The chart renders `config.toml` from `values.yaml` into a `ConfigMap` mounted at `/etc/coucou`. The
+token and DSN never go in it: they come from the Secret as environment variables, which the file
+references as `${DISCORD_BOT_TOKEN}` and `${DATABASE_URL}`.
 
 Every `v*` tag publishes the chart as an OCI artifact next to the image, versioned with the same
 number:

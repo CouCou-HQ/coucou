@@ -46,6 +46,8 @@ docker/grafana/
 .env
 .env.local
 .env.*.local
+config.toml
+deployment/compose/config.toml
 
 # ── Documentation ─────────────────────────────────────────────────────────────
 *.md

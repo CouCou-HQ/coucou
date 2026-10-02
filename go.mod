@@ -5,6 +5,7 @@ go 1.26.0
 toolchain go1.26.8
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/ThreeDotsLabs/watermill v1.5.3
 	github.com/disgoorg/disgo v0.19.6
 	github.com/disgoorg/godave v0.3.0

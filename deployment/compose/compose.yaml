@@ -32,18 +32,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Settings live in config.toml; only the secrets it references as ${VAR} are passed here.
     environment:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:?set DISCORD_BOT_TOKEN in .env}
       DATABASE_URL: postgres://${POSTGRES_USER:-coucou}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-coucou}?sslmode=disable
-      SOUNDS_DIR: /sounds
-      HTTP_ADDR: ":9090"
-      OWNER_IDS: ${OWNER_IDS:-}
-      DEFAULT_CHANCE: ${DEFAULT_CHANCE:-5}
-      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-}
     volumes:
+      - ./config.toml:/etc/coucou/config.toml:ro
       # Read-only: the bot watches this directory, it never writes to it. The image runs as 65534,
       # so the files have to be world-readable on the host.
-      - ${SOUNDS_DIR:-../../sounds}:/sounds:ro
+      - ${SOUNDS_DIR:-../../sounds}:/var/lib/coucou/sounds:ro
     ports:
       # /healthz, /readyz and /metrics. The bot itself only makes outbound connections.
       - "${HTTP_PORT:-9090}:9090"

@@ -40,10 +40,10 @@ leading `v`, so the git tag `v0.10.0` is the image tag `0.10.0`:
 ```sh
 docker pull ghcr.io/be-sandaa/coucou:0.10.0
 docker run --rm \
-  -e DATABASE_URL=sqlite:///data/coucou.db \
+  -e DATABASE_URL=sqlite:///var/lib/coucou/coucou.db \
   -e DISCORD_BOT_TOKEN=... \
-  -v coucou-data:/data \
-  -v "$PWD/sounds:/sounds:ro" \
+  -v coucou-data:/var/lib/coucou \
+  -v "$PWD/sounds:/var/lib/coucou/sounds:ro" \
   ghcr.io/be-sandaa/coucou:0.10.0
 ```
 
@@ -58,6 +58,7 @@ has no shell and no `HEALTHCHECK`; health is on the bot's own HTTP port (see
 ```sh
 cd deployment/compose
 cp .env.example .env     # fill in DISCORD_BOT_TOKEN and POSTGRES_PASSWORD
+cp config.example.toml config.toml   # bot settings; the defaults run as they are
 docker compose up -d --build
 ```
 

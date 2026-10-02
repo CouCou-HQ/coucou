@@ -131,10 +131,6 @@ linters:
       - comments
       - common-false-positives
       - legacy
-    rules:
-      - path: _test\.go
-        linters:
-          - goconst
     paths:
       - third_party$
       - builtin$

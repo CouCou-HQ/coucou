@@ -108,8 +108,8 @@ make help           # everything else
 Running it:
 
 ```sh
-./bin/coucou                  # migrate, register the slash commands, load settings, watch the sounds dir, connect
-./bin/coucou -h               # every flag, with the environment variable it falls back to
+./bin/coucou -config config.toml   # migrate, register the slash commands, load settings, watch the sounds dir, connect
+./bin/coucou                       # installed: reads /etc/coucou/config.toml
 ```
 
 Migrations, command registration and the version stamp are not separate modes: the bot applies its
@@ -122,51 +122,65 @@ is the same thing the long way round.
 
 ### Configuration
 
-Every setting is both a **CLI flag and an environment variable**. The flag wins when given; the
-environment is the fallback, so a container sets everything in its unit file and a shell session
-overrides one value for a single run:
+Everything is set in one TOML file: `-config <path>`, else `COUCOU_CONFIG`, else
+`/etc/coucou/config.toml`. The working directory is never searched, so a service can't pick up a
+stray file. `make dev` points at the checkout's `config.toml`. Copy
+[`config.example.toml`](config.example.toml), which lists every key. Secrets stay out of the
+file: any string value may reference the environment as `${VAR}`, or `${VAR:-default}` to fall back
+when it is unset or empty.
 
-```sh
-DATABASE_URL=postgres://... ./bin/coucou -sounds-dir ./test-sounds -default-chance 100
+```toml
+discord_token = "${DISCORD_BOT_TOKEN}"
+database_url  = "${DATABASE_URL}"
 ```
 
-| flag | environment | default | what |
-|---|---|---|---|
-| `-database-url` | `DATABASE_URL` | — (required) | connection string; the scheme picks the backend |
-| `-discord-token` | `DISCORD_BOT_TOKEN` | — (required) | bot token |
-| — | `DISCORD_DEV_GUILD` | — | environment only, and only a `-tags dev` build reads it: the guild it registers its commands to |
-| `-owner-ids` | `OWNER_IDS` | — | comma-separated ids that unlock the servers leaderboard |
-| `-siblings` | `SIBLINGS` | — | `Name=application-id` pairs of other coucou bots; `/help` links each one but itself under **More from coucou**, and about 1 in 100 `/play` replies plugs one at random |
-| `-sounds-dir` | `SOUNDS_DIR` | `sounds` | directory of pre-encoded Ogg Opus files |
-| `-sounds-poll` | `SOUNDS_POLL` | `0s` | rescan interval; `0s` uses inotify |
-| `-default-chance` | `DEFAULT_CHANCE` | `5` | chance seeded for guilds with no settings row |
-| `-log-level` | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error`; audit records are stored regardless |
-| `-shard-count` | `SHARD_COUNT` | `0` | shards to run; `0` lets Discord decide, which is what a deploy should do |
+An unset `${VAR}` with no default stops startup rather than running with an empty token. So does an
+unknown key. Expansion runs on the decoded values, not the raw file, so a secret containing a quote
+or a backslash arrives intact, a bare `$` is literal, and a `${VAR}` in a comment is never read. It
+also means numbers and booleans cannot come from the environment: write them out.
 
-`-default-chance` is a percentage rolled once every 5 minutes, and only on ticks where somebody is
+| key | default | what |
+|---|---|---|
+| `database_url` | — (required) | connection string; the scheme picks the backend |
+| `discord_token` | — (required) | bot token |
+| `owner_ids` | `[]` | user ids, as strings, that unlock the servers leaderboard |
+| `siblings` | `""` | `Name=application-id` pairs of other coucou bots, comma separated; `/help` links each one but itself under **More from coucou**, and about 1 in 100 `/play` replies plugs one at random |
+| `default_chance` | `5` | chance seeded for guilds with no settings row |
+| `sounds.dir` | `/var/lib/coucou/sounds` | directory of pre-encoded Ogg Opus files |
+| `sounds.poll` | `0s` | rescan interval; `0s` uses inotify |
+| `ops.http_addr` | `:9090` | `/healthz`, `/readyz` and `/metrics`; `""` disables them |
+| `ops.log_level` | `info` | `debug` \| `info` \| `warn` \| `error`; audit records are stored regardless |
+| `ops.pprof` | `false` | serve `/debug/pprof` on the ops listener |
+| `ops.otlp` | `""` | `host:port` of an OTLP/gRPC collector; `""` disables tracing |
+| `gateway.shard_count` | `0` | shards to run; `0` lets Discord decide, which is what a deploy should do |
+
+`default_chance` is a percentage rolled once every 5 minutes, and only on ticks where somebody is
 actually in a voice channel — so 5 works out to roughly one visit per 1.5–2 hours of active voice.
 It seeds guilds that have no settings row; a guild overrides it with `/chance`, and seeding never
 touches a row that already exists. Set it to `0` to make the bot opt-in.
 
-Flags default to empty rather than to the environment value, so `-h` never prints a token or a DSN
-password.
-
-See [`.env.example`](.env.example) for a file to copy.
+One setting stays an environment variable: `DISCORD_DEV_GUILD`, read only by a `-tags dev` build,
+is the guild that build registers its commands to.
 
 ### Container
 
 ```sh
 make image                                            # or:
 docker build -t coucou -f docker/Dockerfile .
-docker run --rm -e DATABASE_URL=... -e DISCORD_BOT_TOKEN=... coucou
+docker run --rm -e DATABASE_URL=... -e DISCORD_BOT_TOKEN=... -v ./sounds:/var/lib/coucou/sounds:ro coucou
 ```
+
+The image carries a minimal config at the default path, `/etc/coucou/config.toml` (from
+[`docker/config.toml`](docker/config.toml)): token and DSN from the environment, sounds at the default `/var/lib/coucou/sounds`. That directory
+is owned by the runtime user, so a volume at `/var/lib/coucou` can hold a SQLite database too.
+Mount your own file over it for anything else.
 
 `FROM scratch`, non-root (65534), ~31 MiB. The zoneinfo database is embedded in the binary via
 `time/tzdata`, so quiet hours work with no files in the image and there is nothing to copy but the
 binary and the TLS roots.
 
 Run it against a PostgreSQL 17 container, one database and role per bot, with the sounds directory
-mounted at whatever `-sounds-dir` points to. Set `GOMEMLIMIT=48MiB` in the unit.
+mounted at whatever `sounds.dir` points to. Set `GOMEMLIMIT=48MiB` in the unit.
 
 ### Sounds
 
@@ -281,7 +295,7 @@ hidden — a room where somebody else is present is still fair game.
 
 ```
 cmd/coucou               one func: run the app, turn its error into an exit code
-internal/app             composition root: flags + env, boot order, the bus fan-out map
+internal/app             composition root: TOML config, boot order, the bus fan-out map
 internal/ops             /healthz, /readyz and /metrics
 internal/store           Store interface + DATABASE_URL scheme registry + WaitAndMigrate
 internal/store/pg        pgx/v5, goose under pg_advisory_lock, sqlc postgresql engine
@@ -316,7 +330,7 @@ Backends register themselves in `init()`; `internal/app` blank-imports the ones 
 **sqlc** owns each backend's queries, one engine per backend. The SQL is allowed to differ
 completely — Postgres batches with `unnest` + `COPY`, SQLite loops single-row inserts in one
 transaction. Adding a column means two migrations and two query edits; the reward is
-`DATABASE_URL=sqlite:///data/coucou.db` for a single-box deploy with no database to run.
+`DATABASE_URL=sqlite:///var/lib/coucou/coucou.db` for a single-box deploy with no database to run.
 
 `make gen` after touching any `.sql`, and commit `gen/`. CI fails if regenerating produces a diff.
 

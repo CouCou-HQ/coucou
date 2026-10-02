@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "coucou.fullname" . }}
+  labels:
+    {{- include "coucou.labels" . | nindent 4 }}
+data:
+  # The token and DSN stay in a Secret; the deployment passes them as env vars this file references.
+  config.toml: |
+    discord_token  = "${DISCORD_BOT_TOKEN}"
+    database_url   = "${DATABASE_URL}"
+    owner_ids      = {{ .Values.config.ownerIDs | toJson }}
+    default_chance = {{ int .Values.config.defaultChance }}
+
+    [sounds]
+    dir  = {{ .Values.sounds.mountPath | toJson }}
+    poll = {{ .Values.config.soundsPoll | toJson }}
+
+    [ops]
+    http_addr = {{ printf ":%d" (int .Values.http.port) | toJson }}
+    log_level = {{ .Values.config.logLevel | toJson }}
+    otlp      = {{ .Values.tracing.otlpEndpoint | toJson }}

@@ -1,0 +1,31 @@
+# Installed: /etc/coucou/config.toml, the default path. From a checkout: copy to config.toml
+# (git-ignored); `make dev` and the VS Code launch configs point at it. Anywhere else: -config <path>
+# or COUCOU_CONFIG=<path>.
+#
+# String values may reference the environment as ${VAR} or ${VAR:-default}. An unset ${VAR} with no
+# default stops startup. Non-string values (numbers, booleans) are written out literally.
+
+discord_token = "${DISCORD_BOT_TOKEN}"
+# postgres://user:pass@host:5432/coucou    -> PostgreSQL (pgx)
+# sqlite:///var/lib/coucou/coucou.db or file:coucou.db -> embedded SQLite (pure Go, WAL)
+database_url  = "${DATABASE_URL}"
+
+owner_ids = []          # user ids, as strings, that unlock the servers leaderboard
+siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated
+
+# Seeded for guilds with no settings row. Percent per 5-minute tick, rolled only when someone is in
+# voice: ~1 visit per 1.5-2h of active voice. 0 = opt-in.
+default_chance = 5
+
+[sounds]
+dir  = "/var/lib/coucou/sounds"   # pre-encoded Ogg Opus files; from a checkout, "sounds"
+poll = "0s"             # e.g. "15s" on NFS/SMB mounts where inotify doesn't fire
+
+[ops]
+http_addr = ":9090"     # /healthz, /readyz and /metrics; "" disables them
+log_level = "info"      # debug | info | warn | error. Audit records are stored regardless.
+pprof     = false       # serve /debug/pprof on the ops listener
+otlp      = ""          # host:port of an OTLP/gRPC collector; "" disables tracing
+
+[gateway]
+shard_count = 0         # 0 lets Discord decide. Raise it only to exercise multiple shards.

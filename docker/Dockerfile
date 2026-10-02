@@ -49,6 +49,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
       -o /coucou ./cmd/coucou
 
+# An empty state directory for the final stage: a scratch image has no mkdir.
+RUN mkdir /state
+
 # ── Final: nothing but the binary ────────────────────────────────────────────
 FROM scratch AS final
 
@@ -56,6 +59,9 @@ FROM scratch AS final
 # so quiet hours work with no files in the image and there is nothing else to copy.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /coucou /coucou
+COPY docker/config.toml /etc/coucou/config.toml
+# Owned by the runtime user so a named volume mounted here inherits it and SQLite can write.
+COPY --from=builder --chown=65534:65534 /state /var/lib/coucou
 
 USER 65534:65534
 

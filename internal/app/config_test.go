@@ -4,110 +4,205 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
-	"slices"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/disgoorg/snowflake/v2"
+
+	"github.com/be-sandaa/coucou/internal/commands"
 )
 
 const (
-	envDatabaseURL = "DATABASE_URL"
-	flagDatabase   = "-database-url"
-	flagChance     = "-default-chance"
-	flagShards     = "-shard-count"
-	flagLogLevel   = "-log-level"
-	caseEnvWins    = "environment is the fallback"
-	caseFlagWins   = "flag beats environment"
-	levelDebug     = "debug"
-	levelError     = "error"
-	testDSN        = "sqlite://x.db"
-	testToken      = "tok"
-	envToken       = "DISCORD_BOT_TOKEN" //nolint:gosec // G101: the name of a variable, not a secret
-	flagSoundsDir  = "/flag/sounds"
-	flagDSN        = "postgres://from-flag/db"
-	flagOwners     = "-owner-ids"
-	flagToken      = "-discord-token"
-	ownerA         = "987654321098765432"
-	ownerB         = "876543210987654321"
+	testDSN    = "sqlite://x.db"
+	testToken  = "tok"
+	ownerA     = "987654321098765432"
+	ownerB     = "876543210987654321"
+	flagConfig = "-config"
+	minimal    = "database_url = \"" + testDSN + "\"\ndiscord_token = \"" + testToken + "\"\n"
 )
 
-// clearEnv blanks every variable parseConfig reads, so a test only sees what it sets itself and
-// never the developer's own shell.
-func clearEnv(t *testing.T) {
+// writeConfig puts body in a temp config.toml and returns its path.
+func writeConfig(t *testing.T, body string) string {
 	t.Helper()
-	for _, k := range []string{
-		envDatabaseURL, envToken, "DISCORD_DEV_GUILD", "OWNER_IDS",
-		"SOUNDS_DIR", "SOUNDS_POLL", "DEFAULT_CHANCE", "SHARD_COUNT", "LOG_LEVEL", "PPROF",
-		"SIBLINGS",
-	} {
-		t.Setenv(k, "")
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
 	}
+	return path
 }
 
-// The whole point of the exercise: a flag wins, the environment is the fallback.
-func TestFlagBeatsEnvironment(t *testing.T) {
-	clearEnv(t)
-	t.Setenv(envDatabaseURL, "postgres://from-env/db")
-	t.Setenv(envToken, "token-from-env")
-	t.Setenv("SOUNDS_DIR", "/env/sounds")
+func load(t *testing.T, body string) (config, error) {
+	t.Helper()
+	return parseConfig([]string{flagConfig, writeConfig(t, body)})
+}
 
-	c, err := parseConfig([]string{flagDatabase, flagDSN, "-sounds-dir", flagSoundsDir})
+func mustLoad(t *testing.T, body string) config {
+	t.Helper()
+	c, err := load(t, body)
 	if err != nil {
 		t.Fatalf("parseConfig: %v", err)
 	}
-	if c.DatabaseURL != flagDSN {
-		t.Errorf("DatabaseURL = %q, want the flag value", c.DatabaseURL)
+	return c
+}
+
+// The defaults are pinned whole: raising the log level would quietly change what every deploy
+// logs, and turning pprof on would expose allocation sites and goroutine stacks.
+func TestDefaultsWhenOnlyTheRequiredKeysAreSet(t *testing.T) {
+	want := config{
+		DatabaseURL:   testDSN,
+		Token:         testToken,
+		SoundsDir:     defaultSoundsDir,
+		HTTPAddr:      defaultHTTPAddr,
+		LogLevel:      slog.LevelInfo,
+		DefaultChance: defaultChance,
 	}
-	if c.SoundsDir != flagSoundsDir {
-		t.Errorf("SoundsDir = %q, want the flag value", c.SoundsDir)
-	}
-	// Not passed as a flag, so it must come from the environment.
-	if c.Token != "token-from-env" {
-		t.Errorf("Token = %q, want the environment value", c.Token)
+	if got := mustLoad(t, minimal); !reflect.DeepEqual(got, want) {
+		t.Errorf("got  %+v\nwant %+v", got, want)
 	}
 }
 
-func TestEnvironmentIsUsedWhenNoFlagGiven(t *testing.T) {
-	clearEnv(t)
-	t.Setenv(envDatabaseURL, "sqlite:///tmp/x.db")
-	t.Setenv(envToken, testToken)
-	t.Setenv("OWNER_IDS", ownerA+", "+ownerB+" ,")
-	t.Setenv("SOUNDS_POLL", "15s")
-	t.Setenv("DEFAULT_CHANCE", "25")
+func TestEveryKeyIsRead(t *testing.T) {
+	got := mustLoad(t, minimal+`
+owner_ids      = ["`+ownerA+`", "`+ownerB+`"]
+siblings       = "Fart=`+ownerA+`"
+default_chance = 25
 
-	c, err := parseConfig(nil)
-	if err != nil {
-		t.Fatalf("parseConfig: %v", err)
+[sounds]
+dir  = "/srv/sounds"
+poll = "15s"
+
+[ops]
+http_addr = ""
+log_level = "WARN"
+pprof     = true
+otlp      = "collector:4317"
+
+[gateway]
+shard_count = 4
+`)
+	want := config{
+		DatabaseURL:   testDSN,
+		Token:         testToken,
+		OwnerIDs:      []snowflake.ID{snowflake.MustParse(ownerA), snowflake.MustParse(ownerB)},
+		Siblings:      []commands.Sibling{{Name: "Fart", App: snowflake.MustParse(ownerA)}},
+		SoundsDir:     "/srv/sounds",
+		SoundsPoll:    15 * time.Second,
+		HTTPAddr:      "", // explicitly empty disables the ops listener, not a fallback to the default
+		OTLPEndpoint:  "collector:4317",
+		LogLevel:      slog.LevelWarn,
+		PProf:         true,
+		DefaultChance: 25,
+		ShardCount:    4,
 	}
-	if c.DatabaseURL != "sqlite:///tmp/x.db" || c.Token != testToken {
-		t.Errorf("got %+v", c)
-	}
-	if c.SoundsPoll != 15*time.Second {
-		t.Errorf("SoundsPoll = %s, want 15s", c.SoundsPoll)
-	}
-	if c.DefaultChance != 25 {
-		t.Errorf("DefaultChance = %d, want 25", c.DefaultChance)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got  %+v\nwant %+v", got, want)
 	}
 }
 
-// Owners are a list: several ids, comma separated, with the blanks and spacing a hand-edited
-// environment variable picks up along the way.
-func TestOwnerIDsAreAList(t *testing.T) {
-	clearEnv(t)
-	t.Setenv(envDatabaseURL, testDSN)
-	t.Setenv(envToken, testToken)
-	t.Setenv("OWNER_IDS", ownerA+", "+ownerB+" ,")
+func TestEnvInterpolation(t *testing.T) {
+	t.Setenv("COUCOU_TEST_TOKEN", `se"cr\et$x`)
+	t.Setenv("COUCOU_TEST_EMPTY", "")
+	c := mustLoad(t, `
+# a commented-out ${COUCOU_TEST_NEVER_SET} is never looked up
+database_url  = "postgres://h/db?sslmode=${COUCOU_TEST_EMPTY:-disable}&x=$literal"
+discord_token = "${COUCOU_TEST_TOKEN}"
+owner_ids     = ["${COUCOU_TEST_NEVER_SET:-`+ownerA+`}"]
+[ops]
+http_addr = "${COUCOU_TEST_NEVER_SET:-:8080}"
+`)
+	// A quote or backslash in a secret arrives as-is: expansion runs after decoding.
+	if c.Token != `se"cr\et$x` {
+		t.Errorf("Token = %q", c.Token)
+	}
+	// :- takes the default when the variable is empty as well as unset, and a bare $ is literal.
+	if c.DatabaseURL != "postgres://h/db?sslmode=disable&x=$literal" {
+		t.Errorf("DatabaseURL = %q", c.DatabaseURL)
+	}
+	if c.HTTPAddr != ":8080" {
+		t.Errorf("HTTPAddr = %q", c.HTTPAddr)
+	}
+	if len(c.OwnerIDs) != 1 || c.OwnerIDs[0].String() != ownerA {
+		t.Errorf("OwnerIDs = %v, want the expanded default", c.OwnerIDs)
+	}
+}
 
-	c, err := parseConfig(nil)
-	if err != nil {
+func TestUnsetVariableIsAnError(t *testing.T) {
+	_, err := load(t, "database_url = \""+testDSN+"\"\ndiscord_token = \"${COUCOU_TEST_NEVER_SET}\"\n")
+	if err == nil {
+		t.Fatal("expected an error for an unset variable with no default")
+	}
+}
+
+func TestConfigPathFromEnvironment(t *testing.T) {
+	t.Setenv("COUCOU_CONFIG", writeConfig(t, minimal))
+	if _, err := parseConfig(nil); err != nil {
 		t.Fatalf("parseConfig: %v", err)
 	}
-	want := []string{ownerA, ownerB}
-	got := make([]string, len(c.OwnerIDs))
-	for i, id := range c.OwnerIDs {
-		got[i] = id.String()
+	// -config wins over the environment.
+	t.Setenv("COUCOU_CONFIG", filepath.Join(t.TempDir(), "missing.toml"))
+	if _, err := parseConfig([]string{flagConfig, writeConfig(t, minimal)}); err != nil {
+		t.Fatalf("parseConfig: %v", err)
 	}
-	if !slices.Equal(got, want) {
-		t.Errorf("OwnerIDs = %v, want %v", got, want)
+}
+
+func TestValidationErrors(t *testing.T) {
+	tests := []struct{ name, body string }{
+		{"no database url", "discord_token = \"t\""},
+		{"no token", "database_url = \"" + testDSN + "\""},
+		{"unknown key", minimal + "sounds_dir = \"x\""},
+		{"unknown nested key", minimal + "[ops]\nlog = \"debug\""},
+		{"chance above 100", minimal + "default_chance = 101"},
+		{"chance negative", minimal + "default_chance = -1"},
+		{"bad duration", minimal + "[sounds]\npoll = \"soon\""},
+		{"bad owner id", minimal + "owner_ids = [\"me\"]"},
+		{"one bad owner id among good", minimal + "owner_ids = [\"" + ownerA + "\", \"me\"]"},
+		{"negative shard count", minimal + "[gateway]\nshard_count = -2"},
+		{"unknown log level", minimal + "[ops]\nlog_level = \"loud\""},
+		{"pprof not a bool", minimal + "[ops]\npprof = \"yesplease\""},
+		{"not toml", "database_url ="},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := load(t, tc.body); err == nil {
+				t.Error("expected an error")
+			}
+		})
+	}
+}
+
+func TestDefaultPathIsEtc(t *testing.T) {
+	t.Setenv("COUCOU_CONFIG", "")
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("config.toml", []byte(minimal), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A config.toml in the working directory is not read; the error names the /etc path instead.
+	_, err := parseConfig(nil)
+	if err == nil || !strings.Contains(err.Error(), defaultConfigPath) {
+		t.Fatalf("got %v, want an error naming %s", err, defaultConfigPath)
+	}
+}
+
+func TestMissingFileIsAnError(t *testing.T) {
+	if _, err := parseConfig([]string{flagConfig, filepath.Join(t.TempDir(), "nope.toml")}); err == nil {
+		t.Fatal("expected an error for a missing file")
+	}
+}
+
+func TestStrayArgumentIsAnError(t *testing.T) {
+	if _, err := parseConfig([]string{"extra"}); err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
+// -h is not a failure; main returns quietly after flag has printed the usage.
+func TestHelpIsNotAnError(t *testing.T) {
+	if _, err := parseConfig([]string{"-h"}); !errors.Is(err, flag.ErrHelp) {
+		t.Fatalf("got %v, want flag.ErrHelp", err)
 	}
 }
 
@@ -130,201 +225,19 @@ func TestSiblings(t *testing.T) {
 	}
 }
 
-func TestDefaultsWhenNothingIsSet(t *testing.T) {
-	clearEnv(t)
-	c, err := parseConfig([]string{flagDatabase, testDSN, flagToken, testToken})
-	if err != nil {
-		t.Fatalf("parseConfig: %v", err)
-	}
-	if c.SoundsDir != "sounds" {
-		t.Errorf("SoundsDir = %q, want sounds", c.SoundsDir)
-	}
-	if c.SoundsPoll != 0 {
-		t.Errorf("SoundsPoll = %s, want 0 (inotify)", c.SoundsPoll)
-	}
-	if c.DefaultChance != defaultChance {
-		t.Errorf("DefaultChance = %d, want %d", c.DefaultChance, defaultChance)
-	}
-	if len(c.OwnerIDs) != 0 {
-		t.Errorf("OwnerIDs = %v, want none — a bot with no owner has no owner-only reports", c.OwnerIDs)
-	}
-}
-
-func TestValidationErrors(t *testing.T) {
-	withDB := map[string]string{envDatabaseURL: testDSN, envToken: testToken}
-	tests := []struct {
-		name string
-		env  map[string]string
-		args []string
-	}{
-		{"no database url", nil, nil},
-		{"no token for a normal run", map[string]string{envDatabaseURL: testDSN}, nil},
-		{"chance above 100", withDB, []string{flagChance, "101"}},
-		{"chance not a number", withDB, []string{flagChance, "loads"}},
-		{"bad duration", withDB, []string{"-sounds-poll", "soon"}},
-		{"bad owner id", withDB, []string{flagOwners, "me"}},
-		{"one bad owner id among good", withDB, []string{flagOwners, ownerA + ",me"}},
-		{"stray argument", withDB, []string{"extra"}},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			clearEnv(t)
-			for k, v := range tc.env {
-				t.Setenv(k, v)
-			}
-			if _, err := parseConfig(tc.args); err == nil {
-				t.Error("expected an error")
+// The shipped examples are what people copy, so they must load as they stand.
+func TestExampleConfigsLoad(t *testing.T) {
+	t.Setenv("DISCORD_BOT_TOKEN", testToken)
+	t.Setenv("DATABASE_URL", testDSN)
+	for _, path := range []string{
+		"../../config.example.toml",
+		"../../deployment/compose/config.example.toml",
+		"../../docker/config.toml",
+	} {
+		t.Run(path, func(t *testing.T) {
+			if _, err := parseConfig([]string{flagConfig, path}); err != nil {
+				t.Errorf("parseConfig: %v", err)
 			}
 		})
-	}
-}
-
-// 0 is the normal answer and means "let Discord decide", so it has to survive as 0 rather than
-// being treated as unset-and-defaulted to something else.
-func TestShardCount(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-		env  string
-		want int
-	}{
-		{"unset lets Discord decide", nil, "", 0},
-		{"explicit zero lets Discord decide", []string{flagShards, "0"}, "", 0},
-		{"flag overrides", []string{flagShards, "4"}, "", 4},
-		{caseEnvWins, nil, "3", 3},
-		{caseFlagWins, []string{flagShards, "4"}, "9", 4},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			clearEnv(t)
-			t.Setenv(envDatabaseURL, "sqlite://x.db")
-			t.Setenv(envToken, "t")
-			if tc.env != "" {
-				t.Setenv("SHARD_COUNT", tc.env)
-			}
-			c, err := parseConfig(tc.args)
-			if err != nil {
-				t.Fatalf("parseConfig: %v", err)
-			}
-			if c.ShardCount != tc.want {
-				t.Errorf("ShardCount = %d, want %d", c.ShardCount, tc.want)
-			}
-		})
-	}
-}
-
-func TestShardCountRejectsNegative(t *testing.T) {
-	clearEnv(t)
-	t.Setenv(envDatabaseURL, "sqlite://x.db")
-	t.Setenv(envToken, "t")
-	if _, err := parseConfig([]string{flagShards, "-2"}); err == nil {
-		t.Error("expected an error for a negative shard count")
-	}
-}
-
-// slog.Level is a TextUnmarshaler, so the parsing is stdlib's — this pins that the flag reaches it
-// and that the default stays info, since raising it quietly would change what a deploy logs today.
-func TestLogLevel(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-		env  string
-		want slog.Level
-	}{
-		{"defaults to info", nil, "", slog.LevelInfo},
-		{"flag sets debug", []string{flagLogLevel, levelDebug}, "", slog.LevelDebug},
-		{"case does not matter", []string{flagLogLevel, "WARN"}, "", slog.LevelWarn},
-		{caseEnvWins, nil, levelError, slog.LevelError},
-		{caseFlagWins, []string{flagLogLevel, levelDebug}, levelError, slog.LevelDebug},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			clearEnv(t)
-			t.Setenv(envDatabaseURL, testDSN)
-			t.Setenv(envToken, testToken)
-			if tc.env != "" {
-				t.Setenv("LOG_LEVEL", tc.env)
-			}
-			c, err := parseConfig(tc.args)
-			if err != nil {
-				t.Fatalf("parseConfig: %v", err)
-			}
-			if c.LogLevel != tc.want {
-				t.Errorf("LogLevel = %v, want %v", c.LogLevel, tc.want)
-			}
-		})
-	}
-}
-
-func TestLogLevelRejectsNonsense(t *testing.T) {
-	clearEnv(t)
-	t.Setenv(envDatabaseURL, testDSN)
-	t.Setenv(envToken, testToken)
-	if _, err := parseConfig([]string{flagLogLevel, "loud"}); err == nil {
-		t.Error("expected an error for an unknown level")
-	}
-}
-
-// -h is not a failure; main returns quietly after flag has printed the usage.
-func TestHelpIsNotAnError(t *testing.T) {
-	clearEnv(t)
-	if _, err := parseConfig([]string{"-h"}); !errors.Is(err, flag.ErrHelp) {
-		t.Fatalf("got %v, want flag.ErrHelp", err)
-	}
-}
-
-// envOn is the truthy value these tests set; strconv.ParseBool takes several spellings, and "1"
-// below is there to prove the parse is not a string comparison.
-const envOn = "true"
-
-// Profiling is off unless asked for: the endpoints expose allocation sites and goroutine stacks,
-// and /debug/pprof/profile costs 30 s of CPU sampling per request.
-func TestPProfDefaultsOff(t *testing.T) {
-	clearEnv(t)
-	c, err := parseConfig([]string{flagDatabase, flagDSN, flagToken, testToken})
-	if err != nil {
-		t.Fatalf("parseConfig: %v", err)
-	}
-	if c.PProf {
-		t.Error("PProf is on with neither flag nor environment set")
-	}
-}
-
-func TestPProfFromFlagAndEnvironment(t *testing.T) {
-	tests := []struct {
-		name string
-		env  string
-		args []string
-		want bool
-	}{
-		{"flag on", "", []string{"-pprof=" + envOn}, true},
-		{"flag off beats env on", envOn, []string{"-pprof=false"}, false},
-		{"env on", envOn, nil, true},
-		{"env accepts 1", "1", nil, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			clearEnv(t)
-			if tt.env != "" {
-				t.Setenv("PPROF", tt.env)
-			}
-			args := append([]string{flagDatabase, flagDSN, flagToken, testToken}, tt.args...)
-			c, err := parseConfig(args)
-			if err != nil {
-				t.Fatalf("parseConfig: %v", err)
-			}
-			if c.PProf != tt.want {
-				t.Errorf("PProf = %v, want %v", c.PProf, tt.want)
-			}
-		})
-	}
-}
-
-// A value that is not a bool is a misconfiguration, not a quiet off.
-func TestPProfRejectsNonsense(t *testing.T) {
-	clearEnv(t)
-	if _, err := parseConfig([]string{flagDatabase, flagDSN, flagToken, testToken, "-pprof=yesplease"}); err == nil {
-		t.Fatal("parseConfig accepted -pprof=yesplease")
 	}
 }

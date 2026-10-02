@@ -47,17 +47,21 @@ starts a bot that never plays anything.
 
 ## 3. Configure and start
 
-Every setting is both a flag and an environment variable; the flag wins when both are given.
-Three are all you need to start:
+Settings live in one file, `/etc/coucou/config.toml` (or wherever `-config` points). Copy
+`config.example.toml` from the repository there; it lists every setting with a comment. Secrets
+don't go in the file. It reads them from the environment instead:
 
-| Variable | Flag | What |
-|---|---|---|
-| `DISCORD_BOT_TOKEN` | `-discord-token` | the token from step 1 |
-| `DATABASE_URL` | `-database-url` | `sqlite:///path/to/coucou.db` or `file:coucou.db` for a SQLite file; `postgres://user:pass@host:5432/db` for PostgreSQL |
-| `SOUNDS_DIR` | `-sounds-dir` | the folder from step 2; default `sounds` |
+```toml
+discord_token = "${DISCORD_BOT_TOKEN}"   # the token from step 1
+database_url  = "${DATABASE_URL}"        # sqlite:///path/to/coucou.db, or postgres://user:pass@host:5432/db
+
+[sounds]
+dir = "sounds"                           # the folder from step 2
+```
 
 ```sh
-DISCORD_BOT_TOKEN=... DATABASE_URL=sqlite://$PWD/coucou.db SOUNDS_DIR=./sounds ./coucou
+DISCORD_BOT_TOKEN=... DATABASE_URL=sqlite://$PWD/coucou.db ./coucou            # reads /etc/coucou/config.toml
+DISCORD_BOT_TOKEN=... DATABASE_URL=sqlite://$PWD/coucou.db ./coucou -config ./config.toml
 ```
 
 On the way up it applies its database migrations, registers its slash commands, loads the sounds,
@@ -66,21 +70,21 @@ and connects. There are no separate setup steps.
 **Slash commands can take up to an hour to appear** the first time, or after an update changes them.
 The registration is immediate; Discord's propagation isn't.
 
-A few settings worth knowing about. `./coucou -h` lists them all, and so does the
+A few settings worth knowing about. `config.example.toml` lists them all, and so does the
 [README](https://github.com/be-sandaa/coucou#configuration):
 
-| Variable | Default | What |
+| Key | Default | What |
 |---|---|---|
-| `DEFAULT_CHANCE` | `5` | the chance of a visit, in percent, rolled every 5 minutes while someone is in voice. 5 works out to about one visit per 1.5–2 hours of active voice. Set `0` to make servers opt in with `/chance`. |
-| `OWNER_IDS` | — | your Discord user ID; unlocks the leaderboard of servers |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
-| `GOMEMLIMIT` | — | set `48MiB`; the bot is built to sit well under it |
+| `default_chance` | `5` | the chance of a visit, in percent, rolled every 5 minutes while someone is in voice. 5 works out to about one visit per 1.5–2 hours of active voice. Set `0` to make servers opt in with `/chance`. |
+| `owner_ids` | `[]` | your Discord user ID, in quotes; unlocks the leaderboard of servers |
+| `ops.log_level` | `info` | `debug`, `info`, `warn` or `error` |
+| `GOMEMLIMIT` (environment) | — | set `48MiB`; the bot is built to sit well under it |
 
 ## Is it working?
 
 - **In Discord:** `/status` says what the bot thinks of your server, and `/play` plays a sound in
   your channel right now.
-- **Over HTTP**, on `HTTP_ADDR` (default `:9090`): `/readyz` answers 200 once it's connected to
+- **Over HTTP**, on `ops.http_addr` (default `:9090`): `/readyz` answers 200 once it's connected to
   Discord and the database answers, `/healthz` answers 200 while the process runs, and `/metrics`
   serves Prometheus metrics.
 
@@ -105,6 +109,6 @@ Each coucou is the same binary with its own Discord application, its own sounds 
 database. Run one process per bot, and never two processes with the same token: a second instance is
 a second bot that joins the same channels and doubles every stats row.
 
-`SIBLINGS` lets your bots advertise each other: a comma-separated list of `Name=application-id`.
+`siblings` in `config.toml` lets your bots advertise each other: a comma-separated list of `Name=application-id`.
 `/help` links every one but itself, and now and then a `/play` reply plugs one. Give every bot the
 same list; each leaves itself out.

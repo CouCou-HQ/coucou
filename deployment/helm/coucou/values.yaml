@@ -30,10 +30,12 @@ database:
   url: ""                # inline alternative, e.g. postgres://user:pass@host:5432/coucou?sslmode=require
 
 # --- behaviour ---------------------------------------------------------------
+# Rendered into config.toml in a ConfigMap, mounted at /etc/coucou.
 config:
-  ownerIDs: ""           # comma-separated user ids that unlock the owner-only reports
+  ownerIDs: []           # user ids that unlock the owner-only reports; quote them, or --set-string
   defaultChance: 5       # join chance seeded for a guild with no settings row, 0-100
   soundsPoll: "0s"       # 0s uses inotify; set an interval for NFS/SMB mounts where it does not fire
+  logLevel: info         # debug | info | warn | error
 
 tracing:
   otlpEndpoint: ""       # host:port of an OTLP/gRPC collector; empty disables tracing
@@ -44,7 +46,7 @@ tracing:
 sounds:
   existingClaim: ""      # a ReadOnlyMany or ReadWriteOnce PVC of Ogg Opus files
   hostPath: ""           # single-node clusters only
-  mountPath: /sounds
+  mountPath: /var/lib/coucou/sounds
 
 # --- ops endpoints -----------------------------------------------------------
 # One listener serves all three. It is always on: the probes below depend on it, and turning it
@@ -109,4 +111,4 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
-extraEnv: []             # [{name: X, value: "y"}] for anything this chart does not name
+extraEnv: []             # [{name: X, value: "y"}], e.g. GOMEMLIMIT; settings belong in config above

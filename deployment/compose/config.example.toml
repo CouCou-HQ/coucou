@@ -1,0 +1,24 @@
+# Copy to config.toml next to compose.yaml; it is mounted read-only into the container.
+#
+# String values may reference the environment as ${VAR} or ${VAR:-default}. compose.yaml passes
+# DISCORD_BOT_TOKEN and DATABASE_URL through from .env; everything else is set here.
+
+discord_token = "${DISCORD_BOT_TOKEN}"
+database_url  = "${DATABASE_URL}"
+
+owner_ids = []          # user ids, as strings, that unlock the servers leaderboard
+siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated
+
+default_chance = 5      # join chance seeded for a guild with no settings row, 0-100
+
+[sounds]
+poll = "0s"             # dir is left at its default, /var/lib/coucou/sounds, where compose.yaml mounts SOUNDS_DIR             # e.g. "15s" on NFS/SMB mounts where inotify doesn't fire
+
+[ops]
+http_addr = ":9090"     # compose.yaml publishes container port 9090; change both together
+log_level = "info"
+pprof     = false
+otlp      = ""          # host:port of an OTLP/gRPC collector; "" disables tracing
+
+[gateway]
+shard_count = 0

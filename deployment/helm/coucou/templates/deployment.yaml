@@ -22,6 +22,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- if not .Values.discord.existingSecret }}
         # Roll the pod when an inline secret changes; an existing Secret is the owner's to rotate.
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
@@ -53,22 +54,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "coucou.databaseSecretName" . }}
                   key: {{ include "coucou.databaseSecretKey" . }}
-            - name: SOUNDS_DIR
-              value: {{ .Values.sounds.mountPath | quote }}
-            - name: SOUNDS_POLL
-              value: {{ .Values.config.soundsPoll | quote }}
-            - name: DEFAULT_CHANCE
-              value: {{ .Values.config.defaultChance | quote }}
-            - name: HTTP_ADDR
-              value: {{ printf ":%d" (int .Values.http.port) | quote }}
-            {{- with .Values.config.ownerIDs }}
-            - name: OWNER_IDS
-              value: {{ . | quote }}
-            {{- end }}
-            {{- with .Values.tracing.otlpEndpoint }}
-            - name: OTLP_ENDPOINT
-              value: {{ . | quote }}
-            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -92,10 +77,16 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            - name: config
+              mountPath: /etc/coucou
+              readOnly: true
             - name: sounds
               mountPath: {{ .Values.sounds.mountPath }}
               readOnly: true
       volumes:
+        - name: config
+          configMap:
+            name: {{ include "coucou.fullname" . }}
         - name: sounds
           {{- if .Values.sounds.existingClaim }}
           persistentVolumeClaim:

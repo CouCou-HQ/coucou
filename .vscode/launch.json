@@ -13,7 +13,7 @@
       "buildFlags": "-tags dev",
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
-      "args": []
+      "args": ["-config", "${workspaceFolder}/config.toml"]
     },
     {
       "name": "coucou (dev build, race detector)",
@@ -24,7 +24,7 @@
       "buildFlags": "-tags dev -race",
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
-      "args": []
+      "args": ["-config", "${workspaceFolder}/config.toml"]
     },
     {
       // Everything under internal/, with the dev tag so the build-tagged files compile too.
