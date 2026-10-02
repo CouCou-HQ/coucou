@@ -130,6 +130,7 @@ var manageGuild = discord.PermissionManageGuild
 // Command names, shared by the definitions and the dispatcher.
 const (
 	cmdNamePlay        = "play"
+	cmdNameSounds      = "sounds"
 	cmdNameLeave       = "leave"
 	cmdNameChance      = "chance"
 	cmdNameQuiet       = "quiet"
@@ -188,6 +189,7 @@ const (
 	optSchedule = "schedule"
 	optRule     = "rrule"
 	optOff      = "off"
+	optPage     = "page"
 	periodAll   = "all"
 	hourRange   = "Hour 0-23"
 	fieldFrom   = "from"
@@ -233,6 +235,12 @@ var definitions = []discord.ApplicationCommandCreate{
 		Name: cmdNamePlay, Description: "Play a sound in your voice channel",
 		Options: []discord.ApplicationCommandOption{
 			discord.ApplicationCommandOptionString{Name: "sound", Description: "Which one", Autocomplete: true},
+		},
+	},
+	discord.SlashCommandCreate{
+		Name: cmdNameSounds, Description: "Every sound you can ask /play for",
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionInt{Name: optPage, Description: "Default: 1", MinValue: ptr(1)},
 		},
 	},
 	discord.SlashCommandCreate{Name: cmdNameLeave, Description: "Make the bot leave voice"},
@@ -436,6 +444,7 @@ type cmdFunc func(context.Context, *events.ApplicationCommandInteractionCreate, 
 func (c *Commands) handlers() map[string]cmdFunc {
 	return map[string]cmdFunc{
 		cmdNamePlay:        c.cmdPlay,
+		cmdNameSounds:      c.cmdSounds,
 		cmdNameLeave:       c.cmdLeave,
 		cmdNameChance:      c.cmdChance,
 		cmdNameQuiet:       c.cmdQuiet,
@@ -533,20 +542,61 @@ const maxChoices = 25
 
 // matchSounds filters names by what has been typed so far. Both sides are folded, and the query may
 // match the file name or what is shown for it: "good b" and "good_b" both find good_boy.
-func matchSounds(names []string, q string) []discord.AutocompleteChoice {
+func matchSounds(names []string, label func(string) string, q string) []discord.AutocompleteChoice {
 	q = strings.ToLower(q)
 	var choices []discord.AutocompleteChoice
 	for _, n := range names {
-		shown := sounds.Display(n)
-		if !strings.Contains(strings.ToLower(n), q) && !strings.Contains(strings.ToLower(shown), q) {
+		if !strings.Contains(strings.ToLower(n), q) && !strings.Contains(strings.ToLower(sounds.Display(n)), q) {
 			continue
 		}
-		choices = append(choices, discord.AutocompleteChoiceString{Name: shown, Value: n})
+		choices = append(choices, discord.AutocompleteChoiceString{Name: label(n), Value: n})
 		if len(choices) == maxChoices {
 			break
 		}
 	}
 	return choices
+}
+
+// soundsPerPage keeps a page under Discord's 4096 even when every name is clipped at soundsNameMax:
+// 50 lines of 51 runes, two markers, backticks and a newline is 2900.
+const (
+	soundsPerPage = 50
+	soundsNameMax = 50
+)
+
+// clipped is a sound's label with the name cut short and the markers kept, inside a code span.
+func clipped(name string, marks func(string) string) string {
+	return "`" + truncate(sounds.Display(name), soundsNameMax) + marks(name) + "`"
+}
+
+// soundsPage is one page of /sounds: what /play would take, shown the way its autocomplete shows it.
+func soundsPage(names []string, marks func(string) string, page int) discord.Embed {
+	const title = "Sounds"
+	pages := (len(names) + soundsPerPage - 1) / soundsPerPage
+	switch {
+	case len(names) == 0:
+		return none(title, "Nothing you can ask for here.")
+	case page > pages:
+		return bad(fmt.Sprintf("No page %d", page), fmt.Sprintf("The last one is %d.", pages))
+	}
+	var sb strings.Builder
+	for _, n := range names[(page-1)*soundsPerPage : min(page*soundsPerPage, len(names))] {
+		sb.WriteString(clipped(n, marks) + "\n")
+	}
+	foot := plural(len(names), "sound", "sounds")
+	if pages > 1 {
+		foot += fmt.Sprintf(" · page %d of %d", page, pages)
+	}
+	return info(title, sb.String()).WithFooterText(foot)
+}
+
+// cmdSounds lists what the autocomplete would, past its 25: nsfw follows the caller's voice channel.
+func (c *Commands) cmdSounds(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
+	page, ok := data.OptInt(optPage)
+	if !ok {
+		page = 1
+	}
+	return e.CreateMessage(say(soundsPage(c.sounds.Names(c.adultChannel(&guild, e.User().ID)), c.sounds.Marks, page)))
 }
 
 // autocompleteWait is how long typing has to stop before the bot answers. Discord sends one
@@ -641,7 +691,7 @@ func (c *cooldown) take(guild, user snowflake.ID) (time.Time, bool) {
 func (c *Commands) onAutocomplete(e *events.AutocompleteInteractionCreate) {
 	c.autocomplete.do(e.User().ID, autocompleteWait, func() {
 		defer logPanic("autocomplete")
-		if err := e.AutocompleteResult(matchSounds(c.sounds.Names(c.adultChannel(e.GuildID(), e.User().ID)), e.Data.String("sound"))); err != nil {
+		if err := e.AutocompleteResult(matchSounds(c.sounds.Names(c.adultChannel(e.GuildID(), e.User().ID)), c.sounds.Label, e.Data.String("sound"))); err != nil {
 			slog.Error("autocomplete", slog.Any("err", err))
 		}
 	})
@@ -701,7 +751,7 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 		return e.CreateMessage(say(bad("Slow down", fmt.Sprintf("The next play is allowed <t:%d:R>.", next.Unix()))))
 	}
 	name, _ := c.self(guild)
-	body := nowPlaying(sounds.Display(sound)) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
+	body := nowPlaying(sounds.Display(sound), c.sounds.Marks(sound)) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
 	if err := e.CreateMessage(say(info("Playing", body))); err != nil {
 		return err
 	}
@@ -751,7 +801,7 @@ const helpLimits = "**Keeping the bot out**\n" +
 	"`/optout for <hours>` is the same with an end to it, `/optout schedule` repeats it every week, " +
 	"and `/optout off` ends any of them.\n\n" +
 	"**Browsing sounds**\n" +
-	"Run `/play` and leave the sound blank — the autocomplete lists everything loaded."
+	"`/sounds` lists everything `/play` will take from you, a page at a time. The autocomplete stops at 25."
 
 func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
@@ -1136,11 +1186,11 @@ func pct(v *float64) string {
 	return fmt.Sprintf("%.0f%%", *v*100)
 }
 
-func orNone(s *string) string {
+func (c *Commands) orNone(s *string) string {
 	if s == nil {
 		return noneYet
 	}
-	return "`" + sounds.Display(*s) + "`"
+	return "`" + c.sounds.Label(*s) + "`"
 }
 
 func (c *Commands) cmdStats(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
@@ -1180,7 +1230,7 @@ func (c *Commands) statsBot(ctx context.Context, e *events.ApplicationCommandInt
 		WithTimestamp(time.Now()).
 		AddField("Plays (24h)", strconv.Itoa(s.Plays24h), true).
 		AddField("Servers (24h)", strconv.Itoa(s.Guilds24h), true).
-		AddField("Top sound (7 days)", orNone(s.TopSound), false))...)
+		AddField("Top sound (7 days)", c.orNone(s.TopSound), false))...)
 }
 
 func hourAt(h store.PlayHour) time.Time { return h.Hour }
@@ -1370,7 +1420,7 @@ func (c *Commands) userReport(ctx context.Context, guild, user snowflake.ID, w c
 	em := info(title, rt+userBody(meters, w, hours, zone, global)).
 		WithTimestamp(time.Now()).
 		AddField("Last caught", last, false).
-		AddField("Collected", fmt.Sprintf("%d/%d · %d/%d rare", col.Got, col.Total, col.GotRare, col.TotalRare), false)
+		AddField("Collected", fmt.Sprintf("%d/%d · %d/%d rare %s", col.Got, col.Total, col.GotRare, col.TotalRare, sounds.MarkRare), false)
 	return ranked(em, rt), false, nil
 }
 
@@ -1461,7 +1511,7 @@ func (c *Commands) statsGuild(ctx context.Context, e *events.ApplicationCommandI
 		AddField("All time", plural(s.PlaysAll, "play", "plays"), true).
 		AddField("Avg listeners", avg, true).
 		AddField("Fail rate (7d)", pct(s.FailRate7d), true).
-		AddField("Top sound", orNone(s.TopSound), true).
+		AddField("Top sound", c.orNone(s.TopSound), true).
 		AddField("Peak hour", hour, true).
 		AddField("Busiest day", day, true), rt))...)
 }
@@ -1512,7 +1562,7 @@ func (c *Commands) cmdLeaderboard(ctx context.Context, e *events.ApplicationComm
 		foot += " · requested by " + e.User().EffectiveName()
 	}
 	return c.edit(e, boardEmbed(boardTitles[board], foot, rows, func(r store.Row) string {
-		return label(board, r.Key)
+		return c.label(board, r.Key)
 	}))
 }
 
@@ -1528,10 +1578,11 @@ func window(period string) (days int, span string) {
 }
 
 // label renders one leaderboard key for its board: a sound name, a channel link, or a user mention.
-func label(board, key string) string {
+// A sound is clipped here rather than by boardEmbed, which would cut its markers off first.
+func (c *Commands) label(board, key string) string {
 	switch board {
 	case boardSounds:
-		return "`" + sounds.Display(key) + "`"
+		return clipped(key, c.sounds.Marks)
 	case boardChannels:
 		return "<#" + key + ">"
 	}

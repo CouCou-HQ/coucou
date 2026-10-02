@@ -563,6 +563,24 @@ func TestDisplay(t *testing.T) {
 	}
 }
 
+// Markers come from the loaded file's tags, rare before nsfw; a name no longer loaded has no file
+// to read them from, so it shows bare.
+func TestLabel(t *testing.T) {
+	r := newFixed(t, "nice_dog", "perfect_fart.rare", "hush.nsfw", "both.nsfw.rare")
+	tests := map[string]string{
+		"nice_dog":     "Nice Dog",
+		"perfect_fart": "Perfect Fart " + MarkRare,
+		"hush":         "Hush " + MarkNSFW,
+		"both":         "Both " + MarkRare + " " + MarkNSFW,
+		"deleted_one":  "Deleted One",
+	}
+	for in, want := range tests {
+		if got := r.Label(in); got != want {
+			t.Errorf("Label(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // /play also takes a typed name, and people type what the list showed them.
 func TestLookupTakesTheRenderedName(t *testing.T) {
 	r := New(t.TempDir())

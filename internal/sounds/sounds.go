@@ -151,6 +151,32 @@ func Display(name string) string {
 	return strings.Join(words, " ")
 }
 
+// The tag markers. They carry meaning, so every place a sound is shown to people uses them.
+const (
+	MarkRare = "✨"
+	MarkNSFW = "🔞"
+)
+
+// Marks is the markers for name's tags, each with a leading space, rare first. A name no longer
+// loaded has none: its tags were in a file name that is gone.
+func (r *Registry) Marks(name string) string {
+	e, ok := r.lookup(name)
+	if !ok {
+		return ""
+	}
+	var out string
+	if e.rare() {
+		out += " " + MarkRare
+	}
+	if e.tags&tagNSFW != 0 {
+		out += " " + MarkNSFW
+	}
+	return out
+}
+
+// Label is how a sound is shown to people: its Display name and its tag markers.
+func (r *Registry) Label(name string) string { return Display(name) + r.Marks(name) }
+
 // Names lists what can be asked for by name where nsfw says whether nsfw sounds may play: rares are
 // left out, so they only ever arrive by roll, and nsfw sounds are left out where they may not play.
 func (r *Registry) Names(nsfw bool) []string {

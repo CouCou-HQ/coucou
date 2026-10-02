@@ -90,6 +90,11 @@ limit for a gimmick.
   server sees it, letter-spaced: coucou is the application, never the character.
 - **Avatar** — the bot's avatar as a thumbnail on `/help`, `/about` and `/invite`,
   the replies that say who the bot is. Identity, not decoration, so nowhere else.
+- **Sound markers** — ✨ rare, 🔞 nsfw, after the name in that order: "Perfect Fart ✨",
+  "Both ✨ 🔞". Meaning, not decoration, so they go everywhere a sound is shown — `/sounds`,
+  the `/play` reply and autocomplete, the top-sounds board, `/stats` — and nowhere else.
+  They come from the loaded file's tags, so a sound no longer loaded shows bare. A clip cuts
+  the name, never a marker, and a fence counts each as two columns.
 
 ## Colour inside blocks (ANSI)
 

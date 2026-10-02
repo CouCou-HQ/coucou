@@ -246,7 +246,8 @@ Tags are in the filename, between the name and `.ogg`, in any order: `<name>.rar
 `<name>.nsfw.ogg`, and `<name>.rare.nsfw.ogg` (the same as `<name>.nsfw.rare.ogg`) all load as the
 sound `<name>`, so tagging or untagging one is a rename and its history stays under one name.
 `scripts/sound` keeps the tags a source already has (`-r`/`--rare`, `-x`/`--nsfw` add them) and
-always writes them as `.rare.nsfw`.
+always writes them as `.rare.nsfw`. Wherever a sound is shown, its tags follow the name as ✨ for
+rare and 🔞 for nsfw: `perfect_fart.rare.ogg` is **Perfect Fart ✨**.
 
 - **rare** turns up a tenth as often, only by roll: it is left out of `/play`'s autocomplete and
   cannot be asked for by name.
@@ -267,6 +268,7 @@ now and can play in this server. `/play` does not count toward it.
 | command | who | does |
 |---|---|---|
 | `/play [sound]` | anyone | play now in your channel; autocompletes over the live registry |
+| `/sounds [page]` | anyone | every sound `/play` will take from you, 50 a page, past the autocomplete's 25 (only you see it) |
 | `/leave` | anyone | cut a play short |
 | `/help` | anyone | the command list, and which switch actually keeps the bot out |
 | `/about` | anyone | who the bot is: its tagline, lore and traits from the profile (only you see it) |

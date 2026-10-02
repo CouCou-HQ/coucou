@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/sounds"
 )
 
 // The width budget is the whole layout decision: code blocks do not wrap on Discord, they scroll
@@ -22,7 +23,8 @@ func TestBlocksFitThePhone(t *testing.T) {
 		),
 		"hour strip":    hourStrip(22, 7),
 		"help wordmark": wordmark(longest),
-		"now playing":   nowPlaying(longest),
+		"now playing":   nowPlaying(longest, ""),
+		"marked":        nowPlaying(longest, bothMarks),
 		"single meter":  block(meter("failures", 1, "100%")),
 	}
 	for name, b := range blocks {
@@ -39,9 +41,37 @@ func TestBlocksFitThePhone(t *testing.T) {
 // A fence closed early spills the rest of the embed as raw markdown, and sound names come off the
 // filesystem rather than from anything that validated them.
 func TestNowPlayingCannotCloseTheFence(t *testing.T) {
-	out := nowPlaying("evil```name")
+	out := nowPlaying("evil```name", "")
 	if strings.Count(out, "```") != 2 {
 		t.Errorf("a backticked name broke the fence: %q", out)
+	}
+}
+
+const bothMarks = " " + sounds.MarkRare + " " + sounds.MarkNSFW
+
+// A fence draws an emoji two columns wide, so a marker counted as one lets a line overrun the phone.
+func TestColsCountsEmojiTwice(t *testing.T) {
+	tests := []struct {
+		in   string
+		want int
+	}{
+		{"plain", 5},
+		{"█░", 2},
+		{sounds.MarkRare, 2},
+		{sounds.MarkNSFW, 2},
+		{"x" + bothMarks, 7},
+	}
+	for _, tt := range tests {
+		if got := cols(tt.in); got != tt.want {
+			t.Errorf("cols(%q) = %d, want %d", tt.in, got, tt.want)
+		}
+	}
+}
+
+// Clipping a long name has to cut the name, never the markers after it.
+func TestNowPlayingKeepsTheMarkers(t *testing.T) {
+	if out := nowPlaying(strings.Repeat("w", 80), bothMarks); !strings.Contains(out, "…"+bothMarks+"\n") {
+		t.Errorf("markers lost to the clip: %q", out)
 	}
 }
 

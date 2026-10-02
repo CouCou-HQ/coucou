@@ -5,9 +5,9 @@ import (
 	"math"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/be-sandaa/coucou/internal/settings"
+	"github.com/be-sandaa/coucou/internal/sounds"
 )
 
 //#region Tokens
@@ -89,7 +89,20 @@ var ansiRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
 // cols is the width a line actually occupies: escapes are zero-width, so anything that measures a
 // drawn line has to take them off first or every coloured row looks three times too long.
-func cols(s string) int { return utf8.RuneCountInString(ansiRE.ReplaceAllString(s, "")) }
+func cols(s string) int {
+	n := 0
+	for _, r := range ansiRE.ReplaceAllString(s, "") {
+		n++
+		if wide(r) {
+			n++
+		}
+	}
+	return n
+}
+
+// wide is an emoji, which a fence draws two columns wide.
+// ponytail: the emoji planes plus the rare marker, the one BMP emoji drawn; a width table if names grow CJK.
+func wide(r rune) bool { return r >= 0x1F000 || string(r) == sounds.MarkRare }
 
 // frac is a/b guarded against the empty denominator, which is the normal state of a fresh server
 // rather than an edge case.
@@ -185,9 +198,9 @@ func wordmark(name string) string {
 // nowPlaying strips backticks from the name — it is a filename off disk, and one containing a
 // backtick would close the fence and spill the rest of the embed as markdown — then clips it to
 // what is left of the 40-column budget after the speaker.
-func nowPlaying(sound string) string {
+func nowPlaying(sound, marks string) string {
 	const speaker = " |   |)))  "
-	name := truncate(strings.ReplaceAll(sound, "`", ""), blockWidth-len(speaker)-1) // -1 for the ellipsis truncate adds
+	name := truncate(strings.ReplaceAll(sound, "`", ""), blockWidth-len(speaker)-1-cols(marks)) + marks // -1 for the ellipsis truncate adds
 	return "```\n" +
 		"  .-.\n" +
 		speaker + name + "\n" +

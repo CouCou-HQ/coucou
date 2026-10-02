@@ -42,6 +42,8 @@ scripts/sound --nsfw "Ufufu.wav"                    # -> profile/sounds/ufufu.ns
 - **18+ sounds** are named `<name>.nsfw.ogg`. They only play where Discord has both the server and
   the voice channel age-restricted, and nowhere else can anyone roll, see or ask for them. Tags
   combine in any order: `<name>.rare.nsfw.ogg` is both.
+- **Markers** follow a tagged name wherever Discord shows it: ✨ for rare, 🔞 for 18+, so
+  `perfect_fart.rare.ogg` shows as **Perfect Fart ✨**.
 - **Keep them short.** A drop-in is one clip and gone; a few seconds lands better than a song.
 
 Without the script, this is the command it runs. `-vn` matters: an mp3's embedded cover art would
@@ -105,6 +107,7 @@ active voice. Set `0` to make servers opt in with `/chance`.
 | Command | Who | Does |
 |---|---|---|
 | `/play [sound]` | anyone | play a sound in your channel now |
+| `/sounds [page]` | anyone | every sound `/play` will take from you, 50 a page |
 | `/leave` | anyone | cut a play short |
 | `/help` | anyone | the command list, and which switch actually keeps the bot out |
 | `/optout` | anyone, for themselves | stop being picked: indefinitely, for some hours, or on a schedule |

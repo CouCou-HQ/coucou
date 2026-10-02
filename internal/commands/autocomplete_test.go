@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/disgoorg/disgo/discord"
+
+	"github.com/be-sandaa/coucou/internal/sounds"
 )
 
 // stringChoices reads the choices back out, failing if anything but a string choice came through.
@@ -60,18 +62,19 @@ func TestMatchSoundsFoldsCase(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := choiceValues(t, matchSounds(loaded, tt.q)); !slices.Equal(got, tt.want) {
+			if got := choiceValues(t, matchSounds(loaded, sounds.Display, tt.q)); !slices.Equal(got, tt.want) {
 				t.Errorf("matchSounds(_, %q) = %v, want %v", tt.q, got, tt.want)
 			}
 		})
 	}
 }
 
-// The list shows the rendered name and plays the file name: Discord sends back the value, which
-// has to resolve in the registry as-is.
+// The list shows the label, markers and all, and plays the file name: Discord sends back the value,
+// which has to resolve in the registry as-is.
 func TestMatchSoundsShowsTheRenderedName(t *testing.T) {
-	const file, shown = "marta_moan_2", "Marta Moan 2"
-	got := stringChoices(t, matchSounds([]string{file}, ""))
+	const file, shown = "marta_moan_2", "Marta Moan 2" + bothMarks
+	label := func(n string) string { return sounds.Display(n) + bothMarks }
+	got := stringChoices(t, matchSounds([]string{file}, label, ""))
 	if len(got) != 1 || got[0].Name != shown || got[0].Value != file {
 		t.Errorf("matchSounds = %+v, want Name %q Value %q", got, shown, file)
 	}
@@ -82,7 +85,7 @@ func TestMatchSoundsStopsAtDiscordsCap(t *testing.T) {
 	for i := range loaded {
 		loaded[i] = "sound" + strconv.Itoa(i)
 	}
-	if got := matchSounds(loaded, ""); len(got) != maxChoices {
+	if got := matchSounds(loaded, sounds.Display, ""); len(got) != maxChoices {
 		t.Errorf("got %d choices, want the cap of %d", len(got), maxChoices)
 	}
 }
