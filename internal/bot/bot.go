@@ -175,10 +175,11 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, opt *op
 		metrics.VoiceActive.Inc()
 		defer metrics.VoiceActive.Dec()
 
+		nsfw := voice.AgeRestricted(c, e.Guild, e.Channel)
 		sound := e.Sound
 		if sound == "" {
 			var ok bool
-			if sound, ok = reg.Pick(); !ok {
+			if sound, ok = reg.Pick(nsfw); !ok {
 				return
 			}
 		}
@@ -189,7 +190,7 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, opt *op
 		if err := play(ctx, c, b, e, sound, file); !encoreDue(e, err) {
 			return
 		}
-		if next, ok := reg.PickOther(sound); ok {
+		if next, ok := reg.PickOther(sound, nsfw); ok {
 			v.again(&PlayRequest{Guild: e.Guild, Channel: e.Channel, Sound: next, Trigger: string(ev.TriggerEncore)})
 		}
 	}

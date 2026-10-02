@@ -222,6 +222,7 @@ in snake_case for you:
 ```sh
 scripts/sound "Wet Fart 3.mp3" ~/Downloads/farts/   # -> profile/sounds/wet_fart_3.ogg, ...
 scripts/sound --rare "Perfect Fart.wav"             # -> profile/sounds/perfect_fart.rare.ogg
+scripts/sound --nsfw --rare "Ufufu.wav"             # -> profile/sounds/ufufu.rare.nsfw.ogg
 scripts/sound -o /srv/lenore/sounds -n ~/Downloads/farts/  # dry run into another profile
 ```
 
@@ -241,13 +242,25 @@ shows it as **Marta Moan 2** — underscores become spaces and each word gets a 
 is the sound's identity in the stats, so renaming a file starts a new history; migration 00018
 moved the old `Marta Moan 2` / `good-boy` spellings over once.
 
-Rarity is in the filename: `<name>.rare.ogg` loads as the rare sound `<name>`, so promoting or
-demoting one is a rename and its history stays under one name. A rare turns up a tenth as often,
-only by roll: it is left out of `/play`'s autocomplete and cannot be asked for by name. Any other
-middle segment is part of the name (`foo.v2.ogg` is `foo.v2`). If both `foo.ogg` and
-`foo.rare.ogg` exist, the rare one wins and the other is ignored with a warning. `/stats scope:user`
-shows your collection: the distinct sounds the bot's own visits have caught you with, out of what
-is loaded now. `/play` does not count toward it.
+Tags are in the filename, between the name and `.ogg`, in any order: `<name>.rare.ogg`,
+`<name>.nsfw.ogg`, and `<name>.rare.nsfw.ogg` (the same as `<name>.nsfw.rare.ogg`) all load as the
+sound `<name>`, so tagging or untagging one is a rename and its history stays under one name.
+`scripts/sound` keeps the tags a source already has (`-r`/`--rare`, `-x`/`--nsfw` add them) and
+always writes them as `.rare.nsfw`.
+
+- **rare** turns up a tenth as often, only by roll: it is left out of `/play`'s autocomplete and
+  cannot be asked for by name.
+- **nsfw** plays only where Discord has both the server and the voice channel age-restricted (a
+  server at the *age-restricted* or *explicit* level). Everywhere else it is never rolled, never in
+  the autocomplete, and cannot be asked for by name. There is no bot setting for it; `/help` says
+  whether it is on in a server. A sound tagged both follows both rules.
+
+Any other segment is part of the name (`foo.v2.ogg` is `foo.v2`), and one that looks like a typo of
+a tag (`foo.nswf.ogg`) loads that way with a warning. Tags do not make a name unique: if several
+files back one name, the most-tagged one wins (`nsfw` outranks `rare`), the others are ignored with
+a warning, and deleting the winner falls back to the next. `/stats scope:user` shows your
+collection: the distinct sounds the bot's own visits have caught you with, out of what is loaded
+now and can play in this server. `/play` does not count toward it.
 
 ## Commands
 

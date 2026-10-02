@@ -32,12 +32,16 @@ repository turns any audio file into one, named the way the bot wants (it needs 
 ```sh
 scripts/sound "Wet Fart 3.mp3" ~/Downloads/farts/   # -> profile/sounds/wet_fart_3.ogg, ...
 scripts/sound --rare "Perfect Fart.wav"             # -> profile/sounds/perfect_fart.rare.ogg
+scripts/sound --nsfw "Ufufu.wav"                    # -> profile/sounds/ufufu.nsfw.ogg
 ```
 
 - **Names** are lowercase snake_case. `wet_fart_3.ogg` shows in Discord as **Wet Fart 3**. The file
   name is the sound's identity in the stats, so renaming a file starts a new history.
 - **Rares** are named `<name>.rare.ogg`. They turn up a tenth as often, only by chance, and can't be
   asked for with `/play`. Catching someone with one counts towards their collection in `/stats`.
+- **18+ sounds** are named `<name>.nsfw.ogg`. They only play where Discord has both the server and
+  the voice channel age-restricted, and nowhere else can anyone roll, see or ask for them. Tags
+  combine in any order: `<name>.rare.nsfw.ogg` is both.
 - **Keep them short.** A drop-in is one clip and gone; a few seconds lands better than a song.
 
 Without the script, this is the command it runs. `-vn` matters: an mp3's embedded cover art would

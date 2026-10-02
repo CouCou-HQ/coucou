@@ -4,6 +4,7 @@ package sounds
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -27,16 +28,41 @@ const (
 )
 
 const (
-	ext      = ".ogg"
-	tierRare = "rare"
+	ext = ".ogg"
 
 	weightNormal = 10
 	weightRare   = 1
 )
 
+// tags are the known segments between a sound's name and ".ogg". The values double as the clash
+// rank: of two files for one name, the higher value wins.
+type tags uint8
+
+const (
+	tagRare tags = 1 << iota
+	tagNSFW
+)
+
+const (
+	nameRare = "rare"
+	nameNSFW = "nsfw"
+)
+
+var tagNames = map[string]tags{nameRare: tagRare, nameNSFW: tagNSFW}
+
 type entry struct {
 	path string
-	rare bool
+	tags tags
+}
+
+func (e entry) rare() bool { return e.tags&tagRare != 0 }
+
+// allowed reports whether e may play where nsfw says whether nsfw sounds may.
+func (e entry) allowed(nsfw bool) bool { return nsfw || e.tags&tagNSFW == 0 }
+
+// rank orders two files for one name, best first: more tags, then by path so the choice is stable.
+func rank(a, b entry) int {
+	return cmp.Or(cmp.Compare(b.tags, a.tags), strings.Compare(a.path, b.path))
 }
 
 type Registry struct {
@@ -65,17 +91,54 @@ func New(dir string) *Registry {
 	}
 }
 
-// parse splits a file name into the sound name and whether it is rare: "foo.rare.ogg" is the rare
-// "foo", and a middle segment that is not a tier stays in the name.
-func parse(file string) (name string, rare, ok bool) {
+// parse splits a file name into the sound name and its tags, peeled off the end in any order:
+// "foo.nsfw.rare.ogg" is "foo" tagged both, and the first segment that is not a tag stays in the name.
+func parse(file string) (name string, t tags, ok bool) {
 	base, ok := strings.CutSuffix(file, ext)
 	if !ok || base == "" {
-		return "", false, false
+		return "", 0, false
 	}
-	if i := strings.LastIndex(base, "."); i > 0 && base[i+1:] == tierRare {
-		return base[:i], true, true
+	for {
+		i := strings.LastIndex(base, ".")
+		if i <= 0 {
+			return base, t, true
+		}
+		tag, known := tagNames[base[i+1:]]
+		if !known {
+			return base, t, true
+		}
+		t |= tag
+		base = base[:i]
 	}
-	return base, false, true
+}
+
+// typo returns the tag a name's last segment looks like a misspelling of: one letter off ("rate")
+// or the right letters in the wrong order ("nswf").
+// ponytail: catches substitutions and swaps only; a dropped or doubled letter goes unwarned.
+func typo(name string) string {
+	i := strings.LastIndex(name, ".")
+	if i <= 0 {
+		return ""
+	}
+	seg := name[i+1:]
+	for tag := range tagNames {
+		if len(seg) != len(tag) || seg == tag {
+			continue
+		}
+		diff := 0
+		for j := range seg {
+			if seg[j] != tag[j] {
+				diff++
+			}
+		}
+		a, b := []byte(seg), []byte(tag)
+		slices.Sort(a)
+		slices.Sort(b)
+		if diff == 1 || slices.Equal(a, b) {
+			return tag
+		}
+	}
+	return ""
 }
 
 // Display renders a snake_case sound name for people: "marta_moan_2" is "Marta Moan 2".
@@ -88,13 +151,14 @@ func Display(name string) string {
 	return strings.Join(words, " ")
 }
 
-// Names lists what can be asked for by name: rares are left out, so they only ever arrive by roll.
-func (r *Registry) Names() []string {
+// Names lists what can be asked for by name where nsfw says whether nsfw sounds may play: rares are
+// left out, so they only ever arrive by roll, and nsfw sounds are left out where they may not play.
+func (r *Registry) Names(nsfw bool) []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]string, 0, len(r.files))
 	for n, e := range r.files {
-		if !e.rare {
+		if !e.rare() && e.allowed(nsfw) {
 			out = append(out, n)
 		}
 	}
@@ -128,20 +192,21 @@ func (r *Registry) Path(name string) (string, bool) {
 	return e.path, ok
 }
 
-// Playable reports whether name may be asked for by name, which a rare may not.
-func (r *Registry) Playable(name string) bool {
+// Playable reports whether name may be asked for by name, which a rare may not and an nsfw sound
+// may not where nsfw is false.
+func (r *Registry) Playable(name string, nsfw bool) bool {
 	e, ok := r.lookup(name)
-	return ok && !e.rare
+	return ok && !e.rare() && e.allowed(nsfw)
 }
 
 // Pick draws a weighted sound and re-draws once when that repeats the last one: enough to make a
 // repeat rare without skewing the weights the way excluding the last clip outright would.
-func (r *Registry) Pick() (string, bool) {
+func (r *Registry) Pick(nsfw bool) (string, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	name, ok := r.draw()
+	name, ok := r.draw(nsfw)
 	if ok && name == r.last {
-		name, ok = r.draw()
+		name, ok = r.draw(nsfw)
 	}
 	if ok {
 		r.last = name
@@ -151,10 +216,13 @@ func (r *Registry) Pick() (string, bool) {
 
 // draw walks the names in sorted order so a seeded intN gives the same sequence every run.
 // Callers hold r.mu.
-func (r *Registry) draw() (string, bool) {
+func (r *Registry) draw(nsfw bool) (string, bool) {
 	names := make([]string, 0, len(r.files))
 	total := 0
 	for n, e := range r.files {
+		if !e.allowed(nsfw) {
+			continue
+		}
 		names = append(names, n)
 		total += weight(e)
 	}
@@ -172,33 +240,39 @@ func (r *Registry) draw() (string, bool) {
 }
 
 func weight(e entry) int {
-	if e.rare {
+	if e.rare() {
 		return weightRare
 	}
 	return weightNormal
 }
 
 // Collection is how much of the live registry heard (distinct names) covers, per tier. A name no
-// longer loaded counts for nothing, so deleting a file cannot leave anyone past the total.
+// longer loaded counts for nothing, so deleting a file cannot leave anyone past the total, and
+// where nsfw is false nsfw sounds count for nothing either, so the total is one that can be finished.
 type Collection struct {
 	Got, Total, GotRare, TotalRare int
 }
 
-func (r *Registry) Collection(heard []string) Collection {
+func (r *Registry) Collection(heard []string, nsfw bool) Collection {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var c Collection
 	for _, e := range r.files {
-		if e.rare {
+		switch {
+		case !e.allowed(nsfw):
+		case e.rare():
 			c.TotalRare++
-		} else {
+		default:
 			c.Total++
 		}
 	}
 	for _, n := range heard {
-		if e, ok := r.files[n]; ok && e.rare {
+		e, ok := r.files[n]
+		switch {
+		case !ok || !e.allowed(nsfw):
+		case e.rare():
 			c.GotRare++
-		} else if ok {
+		default:
 			c.Got++
 		}
 	}
@@ -206,8 +280,8 @@ func (r *Registry) Collection(heard []string) Collection {
 }
 
 // PickOther is Pick without one name, for an encore that must not repeat the visit before it.
-func (r *Registry) PickOther(name string) (string, bool) {
-	names := slices.DeleteFunc(r.Names(), func(n string) bool { return n == name })
+func (r *Registry) PickOther(name string, nsfw bool) (string, bool) {
+	names := slices.DeleteFunc(r.Names(nsfw), func(n string) bool { return n == name })
 	if len(names) == 0 {
 		return "", false
 	}
@@ -281,8 +355,8 @@ func (r *Registry) scan() {
 	want := r.wanted(entries)
 	r.mu.RLock()
 	var stale []string
-	for name, path := range want {
-		if r.files[name].path != path {
+	for name, e := range want {
+		if r.files[name].path != e.path {
 			stale = append(stale, name)
 		}
 	}
@@ -305,22 +379,39 @@ func (r *Registry) scan() {
 	}
 }
 
-// wanted maps each name to the file that should back it: the rare one when both are there.
-func (r *Registry) wanted(entries []os.DirEntry) map[string]string {
-	want := map[string]string{}
-	for _, e := range entries {
-		if e.IsDir() {
+// wanted maps each name to the file that should back it: the most-tagged one when several are there.
+func (r *Registry) wanted(entries []os.DirEntry) map[string]entry {
+	want := map[string]entry{}
+	for _, de := range entries {
+		if de.IsDir() {
 			continue
 		}
-		name, rare, ok := parse(e.Name())
+		name, t, ok := parse(de.Name())
 		if !ok {
 			continue
 		}
-		if _, dup := want[name]; !dup || rare {
-			want[name] = filepath.Join(r.dir, e.Name())
+		e := entry{path: filepath.Join(r.dir, de.Name()), tags: t}
+		if cur, dup := want[name]; !dup || rank(e, cur) < 0 {
+			want[name] = e
 		}
 	}
 	return want
+}
+
+// candidates lists every file backing name, best first.
+func (r *Registry) candidates(name string) []entry {
+	entries, err := os.ReadDir(r.dir)
+	if err != nil {
+		return nil
+	}
+	var out []entry
+	for _, de := range entries {
+		if n, t, ok := parse(de.Name()); ok && n == name && !de.IsDir() {
+			out = append(out, entry{path: filepath.Join(r.dir, de.Name()), tags: t})
+		}
+	}
+	slices.SortFunc(out, rank)
+	return out
 }
 
 // Debounce per file: editors and scp fire several events per write.
@@ -336,24 +427,24 @@ func (r *Registry) schedule(name string) {
 	}))
 }
 
-// consider settles which file backs name, if any. It looks at both candidates on every call, so
+// consider settles which file backs name, if any. It looks at every candidate on every call, so
 // deleting foo.rare.ogg next to foo.ogg falls back to the normal one rather than dropping foo.
 func (r *Registry) consider(name string) {
-	rare := filepath.Join(r.dir, name+"."+tierRare+ext)
-	normal := filepath.Join(r.dir, name+ext)
-	// "foo.rare" names no normal file: foo.rare.ogg is the rare "foo".
-	hasNormal := !strings.HasSuffix(name, "."+tierRare)
+	if tag := typo(name); tag != "" {
+		slog.Warn("sounds: name ends in what looks like a misspelt tag, loading it as part of the name",
+			slog.String("name", name), slog.String("tag", tag))
+	}
 	var e entry
 	var ok bool
-	switch {
-	case r.valid(rare):
-		e, ok = entry{path: rare, rare: true}, true
-		if _, err := os.Stat(normal); hasNormal && err == nil {
-			slog.Warn("sounds: two files for one name, keeping the rare one",
-				slog.String("name", name), slog.String("dropped", filepath.Base(normal)))
+	for _, c := range r.candidates(name) {
+		switch {
+		case ok:
+			slog.Warn("sounds: two files for one name, keeping the most-tagged one",
+				slog.String("name", name), slog.String("kept", filepath.Base(e.path)),
+				slog.String("dropped", filepath.Base(c.path)))
+		case r.valid(c.path):
+			e, ok = c, true
 		}
-	case hasNormal && r.valid(normal):
-		e, ok = entry{path: normal}, true
 	}
 	r.mu.Lock()
 	_, existed := r.files[name]

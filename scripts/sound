@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
-# Encode audio into sounds coucou can play: Ogg Opus, snake_case names, optionally rare.
+# Encode audio into sounds coucou can play: Ogg Opus, snake_case names, optionally rare or nsfw.
 set -euo pipefail
 
 usage() {
 	cat <<'EOF'
-usage: scripts/sound [-r] [-f] [-n] [-o DIR] FILE|FOLDER...
+usage: scripts/sound [-r] [-x] [-f] [-n] [-o DIR] FILE|FOLDER...
 
 Encodes each audio file into DIR as Ogg Opus (64k, 48 kHz, stereo), named in snake_case:
 "Wet Fart 3.mp3" becomes wet_fart_3.ogg. A folder is searched recursively for audio files.
 
-  -r, --rare       name the output <name>.rare.ogg: a tenth as often, never by /play
+  -r, --rare       tag the output .rare: a tenth as often, never by /play
+  -x, --nsfw       tag the output .nsfw: only where the server and voice channel are age-restricted
   -o, --out DIR    where to write (default: profile/sounds, the checkout's profile)
   -f, --force      overwrite an existing output instead of skipping it
   -n, --dry-run    print what would be written, encode nothing
   -h, --help       this text
 
-A source already named <name>.rare.<ext> stays rare without -r.
+A source already named <name>.rare.<ext> or <name>.nsfw.<ext> keeps those tags without the flags.
+Tags are always written as <name>.rare.nsfw.ogg, in that order.
 EOF
 }
 
-rare=0 force=0 dry=0 out="profile/sounds"
+rare=0 nsfw=0 force=0 dry=0 out="profile/sounds"
 inputs=()
 while (($#)); do
 	case $1 in
 	-r | --rare) rare=1 ;;
+	-x | --nsfw) nsfw=1 ;;
 	-f | --force) force=1 ;;
 	-n | --dry-run) dry=1 ;;
 	-o | --out)
@@ -73,12 +76,18 @@ seen=$'\n'
 for f in "${files[@]}"; do
 	base=$(basename "$f")
 	base=${base%.*}
-	tier=""
-	if [[ $(printf '%s' "$base" | tr '[:upper:]' '[:lower:]') == *.rare ]]; then
+	is_rare=$rare is_nsfw=$nsfw
+	while :; do
+		case $(printf '%s' "$base" | tr '[:upper:]' '[:lower:]') in
+		*?.rare) is_rare=1 ;;
+		*?.nsfw) is_nsfw=1 ;;
+		*) break ;;
+		esac
 		base=${base%.*}
-		tier=.rare
-	fi
-	((rare)) && tier=.rare
+	done
+	tier=""
+	((is_rare)) && tier+=.rare
+	((is_nsfw)) && tier+=.nsfw
 	name=$(snake "$base")
 	if [[ -z $name ]]; then
 		echo "skip  $f (no letters or digits left to name it by)" >&2

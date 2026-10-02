@@ -235,3 +235,36 @@ func TestHumansSkipsTheDeafened(t *testing.T) {
 		})
 	}
 }
+
+// Both Discord switches have to be on: an age-restricted server alone, or an age-restricted channel
+// in a server that is not, keeps nsfw sounds off.
+func TestAgeRestricted(t *testing.T) {
+	tests := []struct {
+		name  string
+		level discord.NSFWLevel
+		nsfw  bool
+		want  bool
+	}{
+		{"both", discord.NSFWLevelAgeRestricted, true, true},
+		{"explicit server", discord.NSFWLevelExplicit, true, true},
+		{"server only", discord.NSFWLevelAgeRestricted, false, false},
+		{"channel only, default server", discord.NSFWLevelDefault, true, false},
+		{"channel only, safe server", discord.NSFWLevelSafe, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newClient(t, nil)
+			c.Caches.AddGuild(discord.Guild{ID: guildID, NSFWLevel: tt.level})
+			var ch discord.GuildVoiceChannel
+			raw := fmt.Sprintf(`{"id":"%s","guild_id":"%s","type":%d,"name":"ch","nsfw":%v}`,
+				openID, guildID, discord.ChannelTypeGuildVoice, tt.nsfw)
+			if err := json.Unmarshal([]byte(raw), &ch); err != nil {
+				t.Fatal(err)
+			}
+			c.Caches.AddChannel(ch)
+			if got := AgeRestricted(c, guildID, openID); got != tt.want {
+				t.Errorf("AgeRestricted = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

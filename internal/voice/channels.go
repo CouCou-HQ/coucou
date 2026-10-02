@@ -33,6 +33,24 @@ func Humans(c *bot.Client, guild, channel snowflake.ID) []snowflake.ID {
 	return out
 }
 
+// AgeRestrictedGuild reports whether Discord has the server as age-restricted. EXPLICIT counts too:
+// it is the other level that marks a server's content as adult, where DEFAULT and SAFE do not.
+func AgeRestrictedGuild(c *bot.Client, guild snowflake.ID) bool {
+	g, ok := c.Caches.Guild(guild)
+	return ok && (g.NSFWLevel == discord.NSFWLevelAgeRestricted || g.NSFWLevel == discord.NSFWLevelExplicit)
+}
+
+// AgeRestricted reports whether nsfw sounds may play in channel: the server and the voice channel
+// both have to be age-restricted, so there is no setting of the bot's own to forget.
+func AgeRestricted(c *bot.Client, guild, channel snowflake.ID) bool {
+	ch, ok := c.Caches.Channel(channel)
+	if !ok {
+		return false
+	}
+	m, ok := ch.(discord.GuildMessageChannel)
+	return ok && m.NSFW() && AgeRestrictedGuild(c, guild)
+}
+
 // Usable reports the humans in ch when the bot could join it and there is somebody to join, and
 // nil otherwise. The two conditions are one answer because every caller needs both.
 //

@@ -641,10 +641,19 @@ func (c *cooldown) take(guild, user snowflake.ID) (time.Time, bool) {
 func (c *Commands) onAutocomplete(e *events.AutocompleteInteractionCreate) {
 	c.autocomplete.do(e.User().ID, autocompleteWait, func() {
 		defer logPanic("autocomplete")
-		if err := e.AutocompleteResult(matchSounds(c.sounds.Names(), e.Data.String("sound"))); err != nil {
+		if err := e.AutocompleteResult(matchSounds(c.sounds.Names(c.adultChannel(e.GuildID(), e.User().ID)), e.Data.String("sound"))); err != nil {
 			slog.Error("autocomplete", slog.Any("err", err))
 		}
 	})
+}
+
+// adultChannel reports whether the voice channel user sits in may hear nsfw sounds.
+func (c *Commands) adultChannel(guild *snowflake.ID, user snowflake.ID) bool {
+	if guild == nil {
+		return false
+	}
+	vs, ok := c.client.Caches.VoiceState(*guild, user)
+	return ok && vs.ChannelID != nil && voice.AgeRestricted(c.client, *guild, *vs.ChannelID)
 }
 
 // playChannel resolves where a /play from user would land: the channel, or the embed saying why
@@ -675,13 +684,14 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 	if refusal != nil {
 		return e.CreateMessage(say(*refusal))
 	}
+	nsfw := voice.AgeRestricted(c.client, guild, channel)
 	sound, given := data.OptString("sound")
 	if !given {
 		var ok bool
-		if sound, ok = c.sounds.Pick(); !ok {
+		if sound, ok = c.sounds.Pick(nsfw); !ok {
 			return e.CreateMessage(say(bad("No sounds loaded", "There is nothing to play.")))
 		}
-	} else if !c.sounds.Playable(sound) {
+	} else if !c.sounds.Playable(sound, nsfw) {
 		return e.CreateMessage(say(bad("No such sound", "Pick one from the autocomplete.")))
 	}
 	if voice.Busy(guild) {
@@ -746,8 +756,17 @@ const helpLimits = "**Keeping the bot out**\n" +
 func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
 	body := wordmark(name) + "\n**Commands**\n" + commandList() + "\n" + helpLimits +
-		siblingsHelp(c.siblings, c.client.ApplicationID, name)
+		adultHelp(voice.AgeRestrictedGuild(c.client, guild)) + siblingsHelp(c.siblings, c.client.ApplicationID, name)
 	return e.CreateMessage(say(info(withEmoji(c.profile.Emoji, name), body).WithThumbnail(avatar)))
+}
+
+// adultHelp says whether 18+ sounds can play in this server. Discord's age-restricted settings are
+// the only switch, so it names them rather than a command.
+func adultHelp(on bool) string {
+	if on {
+		return "\n\n**18+ sounds**\nOn here. Only in age-restricted voice channels."
+	}
+	return "\n\n**18+ sounds**\nOff here. They need the server and the voice channel both age-restricted in Discord."
 }
 
 // withEmoji puts the profile's emoji in front of a title, when it has one.
@@ -1341,7 +1360,7 @@ func (c *Commands) userReport(ctx context.Context, guild, user snowflake.ID, w c
 		last = fmt.Sprintf("<t:%d:R>", s.LastHeard.Unix())
 	}
 	top := max(s.Heard, s.Triggered, s.Fled)
-	col := c.sounds.Collection(heard)
+	col := c.sounds.Collection(heard, voice.AgeRestrictedGuild(c.client, guild))
 	rt := rankText(standings, of)
 	meters := []string{
 		meter("caught", frac(s.Heard, top), plural(s.Heard, "time", "times")),

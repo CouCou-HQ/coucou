@@ -14,7 +14,9 @@ import (
 // rejected rather than clipped, so /help growing too big would break it outright.
 const embedDescriptionLimit = 4096
 
-func helpBody() string { return "**Commands**\n" + commandList() + "\n" + helpLimits }
+func helpBody() string {
+	return "**Commands**\n" + commandList() + "\n" + helpLimits + adultHelp(false)
+}
 
 // The point of generating the list is that a command added to definitions shows up in /help
 // without anyone remembering to add it. This is the test that keeps that true.
