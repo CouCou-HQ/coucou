@@ -1,7 +1,7 @@
 # Notes
 
-Every API mismatch hit while making the reference implementation compile against the pinned library
-versions, and how it was resolved. Written so the next person does not repeat the archaeology.
+Every API mismatch hit while getting coucou to compile against its pinned library versions, and
+how it was resolved. Written so the next person does not repeat the archaeology.
 
 All findings come from reading the module cache
 (`$(go env GOMODCACHE)/github.com/disgoorg/disgo@v0.19.6`, `.../godave@v0.2.0`,
@@ -9,10 +9,10 @@ All findings come from reading the module cache
 
 ---
 
-## Hard constraint that could not be met: Go 1.25
+## Go 1.26 is the floor
 
-The brief asks for Go 1.25. The pinned dependency set makes that impossible — these all declare
-`go 1.26.0` in their own `go.mod`, so the main module's directive is forced to at least 1.26:
+The pinned dependency set rules out Go 1.25: these all declare `go 1.26.0` in their own `go.mod`, so
+the main module's directive is forced to at least 1.26:
 
 | module | requires |
 |---|---|
@@ -22,8 +22,8 @@ The brief asks for Go 1.25. The pinned dependency set makes that impossible — 
 | `golang.org/x/{crypto,sys,text,sync,mod,exp}` | go 1.26.0 |
 
 dave-go is mandatory (DAVE is required for voice), so there is no version of this bot that builds on
-Go 1.25. `go.mod` says `go 1.26.0` and the Dockerfile builds on `golang:1.26-alpine`. Everything
-else in §2 holds: `CGO_ENABLED=0`, static binary, `FROM scratch`, no cgo anywhere.
+Go 1.25. `go.mod` says `go 1.26.0` and the Dockerfile builds on `golang:1.26-alpine`. The build is
+still `CGO_ENABLED=0`, a static binary, `FROM scratch`, with no cgo anywhere.
 
 ---
 
@@ -31,7 +31,7 @@ else in §2 holds: `CGO_ENABLED=0`, static binary, `FROM scratch`, no cgo anywhe
 
 ### `voice.Conn` has no `DAVE()` method
 
-The reference called `conn.DAVE().Ready()` to wait out the MLS handshake. That method does not
+The obvious way to wait out the MLS handshake is `conn.DAVE().Ready()`. That method does not
 exist. disgo builds the DAVE session inside `voice.NewConn` (`voice/conn.go:79`) and hands it
 straight to the gateway and UDP conn; it is exposed nowhere on the `Conn` interface.
 
@@ -94,15 +94,14 @@ costs a stale row until the next boot, reconciling early deletes live ones.
 `bot/config.go:317` calls `GetGatewayBot()` during construction to learn the shard count, so
 `bot.New` is no longer pure setup — a bad token now fails there rather than at open.
 
-### Everything else in the brief's "known areas" list was already correct
+### Everything else compiled as written
 
 `ChannelsForGuild`, `VoiceStates`, `VoiceState`, `Member`, `SelfMember`,
 `MemberPermissionsInChannel`, `Guilds`, `Guild`, `Channel`; the cache policy signatures;
 `gateway.WithCompression(gateway.CompressionNone)` and `WithLargeThreshold`; `events.GuildsReady`,
 `events.GuildJoin`, `CacheGuild.JoinedAt`, `Guild.MemberCount`; `SlashCommandInteractionData`'s
 `String`/`OptString`/`Int`/`OptBool`/`SubCommandName`; `AutocompleteResult`; `Open`/`SetSpeaking`/
-`SetOpusFrameProvider`/`Close` on `voice.Conn`; `rest.UpdateInteractionResponse` — all compiled as
-written.
+`SetOpusFrameProvider`/`Close` on `voice.Conn`; `rest.UpdateInteractionResponse`.
 
 The member cache policy's forward reference to `b.Client` (assigned after `disgo.New` returns) is
 fine at runtime and neither `go vet` nor `staticcheck` objects, so it was left alone.
@@ -169,7 +168,7 @@ hand-written SQL in Go outside the lock/ping/tx helpers.
 
 ### One subscriber shared by every handler
 
-The reference's `SubscriberConstructor` returned the same subscriber for every handler. On gochannel
+The router's `SubscriberConstructor` returns the same subscriber for every handler. On gochannel
 that is correct and required — it fans out to all subscribers, so `GuildJoined`'s two handlers
 (`stats-guilds-join` and `guild-sync-join`) each see every event.
 
@@ -179,8 +178,8 @@ that is correct and required — it fans out to all subscribers, so `GuildJoined
 
 ## Testability seam
 
-`candidates` called `b.bestChannel` and `voice.Busy` directly, which made the §6 loop test
-("pure function; no Discord") impossible. It now takes a two-field `loopDeps{best, busy}`; `RunLoop`
+`candidates` called `b.bestChannel` and `voice.Busy` directly, which made a loop test without
+Discord impossible. It now takes a two-field `loopDeps{best, busy}`; `RunLoop`
 passes `b.deps()`. No interface, no struct field, no mock framework.
 
 ---
@@ -193,10 +192,9 @@ passes `b.deps()`. No interface, no struct field, no mock framework.
   smaller than `apk add tzdata` (~3 MB of files) and one less thing to go missing.
 - **No sqlc in the image build.** `internal/store/*/gen` is committed and CI fails if regenerating it
   produces a diff, so running sqlc again per image build only added a toolchain download.
-- **`docker/Dockerfile`, not a root `Containerfile`.** The image build follows the template's layout.
-  The template's own Dockerfile carries a credential helper, a `GOPRIVATE` build arg and a
-  `github_token` secret for fetching private modules; coucou depends on nothing private, so all of
-  that is gone, and the final stage is `scratch` rather than distroless because the binary is static.
+- **`docker/Dockerfile`, not a root `Containerfile`.** coucou depends on nothing private, so there
+  is no credential helper, `GOPRIVATE` build arg or `github_token` secret, and the final stage is
+  `scratch` rather than distroless because the binary is static.
 - **Size: 31.5 MiB, against a CI gate of 34.** It was 19.39 MiB (binary 20.15 MB) when this was first
   written, with `modernc.org/sqlite` about 3.8 MB of it. Telemetry moved it to 31; the gate was
   raised to match rather than the feature cut.
@@ -241,8 +239,7 @@ anything set there wins and a sync of the shared `makefile` has nothing of ours 
 
 ## Dependencies
 
-No new runtime dependencies beyond the permitted set (disgo, snowflake, dave-go, pgx/v5,
-modernc.org/sqlite, goose, fsnotify, omit, watermill). Both store backends are compiled in by
+Both store backends are compiled in by
 default and narrowed by build tag: `-tags pg` is 29.0 MB against the default 33.0 MB.
 sqlc is a `tool` directive in `go.mod`, so `make gen` needs no Docker daemon and no globally
 installed binary. `github.com/disgoorg/godave` is imported directly by `internal/voice/dave.go` —
