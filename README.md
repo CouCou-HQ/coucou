@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26"></a>
-  <a href="https://github.com/be-sandaa/coucou/releases/latest"><img src="https://img.shields.io/badge/release-v0.10.0-E4572E" alt="release v0.10.0"></a>
+  <a href="https://github.com/be-sandaa/coucou/releases/latest"><img src="https://img.shields.io/badge/release-v0.1.0-E4572E" alt="release v0.1.0"></a>
   <a href="https://github.com/be-sandaa/coucou/pkgs/container/coucou"><img src="https://img.shields.io/badge/image-ghcr.io%2Fbe-sandaa%2Fcoucou-2496ED?logo=docker&logoColor=white" alt="image ghcr.io/be-sandaa/coucou"></a>
   <a href="#memory"><img src="https://img.shields.io/badge/RSS%20target-25%20MB%20%40%201.6k%20guilds-4E5058" alt="RSS target 25 MB at 1.6k guilds"></a>
 </p>
@@ -70,7 +70,7 @@ Everything from here down is for running a bot on coucou yourself, or hacking on
 Every `v*` tag publishes static binaries for linux and macOS, amd64 and arm64:
 
 ```sh
-tag=v0.10.0
+tag=v0.1.0
 base=https://github.com/be-sandaa/coucou/releases/download/$tag
 curl -fsSLO "$base/coucou_${tag}_linux_amd64.tar.gz"
 curl -fsSLO "$base/coucou_${tag}_SHA256SUMS"
@@ -83,16 +83,16 @@ There is nothing to install beside it: CGO is off and the timezone database is e
 binary is the entire dependency.
 
 The same tag also publishes a multi-arch image, `linux/amd64` and `linux/arm64`. Image tags drop
-the leading `v`, so the git tag `v0.10.0` is the image tag `0.10.0`:
+the leading `v`, so the git tag `v0.1.0` is the image tag `0.1.0`:
 
 ```sh
-docker pull ghcr.io/be-sandaa/coucou:0.10.0
+docker pull ghcr.io/be-sandaa/coucou:0.1.0
 ```
 
 And the Helm chart, as an OCI artifact on the same registry and at the same version:
 
 ```sh
-helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.10.0
+helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.1.0
 ```
 
 For running it under compose or Kubernetes, see [deployment/](deployment).
