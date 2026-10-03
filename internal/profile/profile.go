@@ -10,8 +10,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
+	"github.com/disgoorg/disgo/discord"
 
 	"github.com/be-sandaa/coucou/internal/store"
 )
@@ -23,6 +25,7 @@ const (
 	MaxSuspense = 20
 	MaxFakeOut  = 50
 	MaxEncore   = 50
+	MaxStatus   = 128 // characters of status text, Discord's custom status limit
 )
 
 // defaultChance is the join chance a guild starts with when the profile does not say, as a
@@ -48,7 +51,29 @@ type Profile struct {
 	Lore     string
 	Traits   []string
 	Defaults store.Defaults
+	Status   Status
 }
+
+// Status is what the bot shows under its name in the member list. No Text: only the online state.
+type Status struct {
+	Text     string
+	Activity discord.ActivityType
+	Online   discord.OnlineStatus
+}
+
+const defaultActivity, defaultOnline = "custom", "online"
+
+// Streaming is left out: it needs a Twitch or YouTube URL to show as streaming.
+var (
+	activities = map[string]discord.ActivityType{
+		defaultActivity: discord.ActivityTypeCustom, "playing": discord.ActivityTypeGame,
+		"listening": discord.ActivityTypeListening, "watching": discord.ActivityTypeWatching,
+		"competing": discord.ActivityTypeCompeting,
+	}
+	onlines = map[string]discord.OnlineStatus{
+		defaultOnline: discord.OnlineStatusOnline, "idle": discord.OnlineStatusIdle, "dnd": discord.OnlineStatusDND,
+	}
+)
 
 // SoundsDir is where the character's sounds live: always beside its profile.toml.
 func (p Profile) SoundsDir() string { return filepath.Join(p.Dir, "sounds") }
@@ -68,6 +93,11 @@ type file struct {
 		FakeOut  int `toml:"fakeout"`
 		Encore   int `toml:"encore"`
 	} `toml:"defaults"`
+	Status struct {
+		Text     string `toml:"text"`
+		Activity string `toml:"activity"`
+		Online   string `toml:"online"`
+	} `toml:"status"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
@@ -79,6 +109,7 @@ func Load(dir string) (Profile, error) { return load(filepath.Join(dir, "profile
 func load(path, dir string) (Profile, error) {
 	var f file
 	f.Defaults.Chance = defaultChance
+	f.Status.Activity, f.Status.Online = defaultActivity, defaultOnline
 	md, err := toml.DecodeFile(path, &f)
 	if err != nil {
 		return Profile{}, err
@@ -114,11 +145,33 @@ func (f file) parse(dir string) (Profile, error) {
 	); err != nil {
 		return Profile{}, err
 	}
+	status, err := f.status()
+	if err != nil {
+		return Profile{}, err
+	}
 	return Profile{
 		Dir: dir, ID: f.ID, Nickname: strings.TrimSpace(f.Nickname), Emoji: f.Emoji, Color: color,
 		Tagline: f.Tagline, Lore: strings.TrimSpace(f.Lore), Traits: f.Traits,
 		Defaults: store.Defaults{Chance: d.Chance, Suspense: d.Suspense, FakeOut: d.FakeOut, Encore: d.Encore},
+		Status:   status,
 	}, nil
+}
+
+func (f file) status() (Status, error) {
+	st := f.Status
+	text := strings.TrimSpace(st.Text)
+	activity, ok := activities[st.Activity]
+	if !ok {
+		return Status{}, fmt.Errorf("status.activity %q: want custom, playing, listening, watching or competing", st.Activity)
+	}
+	online, ok := onlines[st.Online]
+	if !ok {
+		return Status{}, fmt.Errorf("status.online %q: want online, idle or dnd", st.Online)
+	}
+	if n := utf8.RuneCountInString(text); n > MaxStatus {
+		return Status{}, fmt.Errorf("status.text is %d characters, over %d", n, MaxStatus)
+	}
+	return Status{Text: text, Activity: activity, Online: online}, nil
 }
 
 // parseColor reads "#RRGGBB". Empty is the brand hue, not black: an unset accent should look like

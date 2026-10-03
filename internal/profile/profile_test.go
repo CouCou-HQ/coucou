@@ -4,7 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/disgoorg/disgo/discord"
 
 	"github.com/be-sandaa/coucou/internal/store"
 )
@@ -27,7 +30,10 @@ func TestMinimalProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	want := Profile{Dir: dir, ID: "gus", Color: DefaultColor, Defaults: store.Defaults{Chance: defaultChance}}
+	want := Profile{
+		Dir: dir, ID: "gus", Color: DefaultColor, Defaults: store.Defaults{Chance: defaultChance},
+		Status: Status{Activity: discord.ActivityTypeCustom, Online: discord.OnlineStatusOnline},
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
 	}
@@ -53,6 +59,11 @@ chance   = 0
 suspense = 20
 fakeout  = 50
 encore   = 50
+
+[status]
+text     = " 🖤 lurking "
+activity = "listening"
+online   = "dnd"
 `)
 	got, err := Load(dir)
 	if err != nil {
@@ -63,6 +74,7 @@ encore   = 50
 		Tagline: "Mean, nicely.", Lore: "Came anyway.", Traits: []string{"sits in silence", "leaves without a sound"},
 		// An explicit 0 chance is opt-in, not "unset": it must not fall back to 5.
 		Defaults: store.Defaults{Chance: 0, Suspense: MaxSuspense, FakeOut: MaxFakeOut, Encore: MaxEncore},
+		Status:   Status{Text: "🖤 lurking", Activity: discord.ActivityTypeListening, Online: discord.OnlineStatusDND},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
@@ -91,6 +103,9 @@ func TestInvalidProfiles(t *testing.T) {
 		{"suspense above 20", "id = \"x\"\n[defaults]\nsuspense = 21"},
 		{"fakeout above 50", "id = \"x\"\n[defaults]\nfakeout = 51"},
 		{"encore above 50", "id = \"x\"\n[defaults]\nencore = 51"},
+		{"unknown activity", "id = \"x\"\n[status]\nactivity = \"streaming\""},
+		{"unknown online state", "id = \"x\"\n[status]\nonline = \"invisible\""},
+		{"status text over 128 characters", "id = \"x\"\n[status]\ntext = \"" + strings.Repeat("🖤", MaxStatus+1) + "\""},
 		{"not toml", "id ="},
 	}
 	for _, tc := range tests {

@@ -176,6 +176,9 @@ pushed to Discord — the bot's username, avatar and banner stay whatever the de
 | `color` | `#E4572E` | embed accent for reports and confirmations, `#RRGGBB` |
 | `tagline`, `lore` | `""` | shown by `/about` |
 | `traits` | `[]` | character quirks, listed by `/about`. Something to read; they never change what the bot does |
+| `status.text` | `""` | shown under the bot's name, up to 128 characters. Emoji go in the text: bots get no separate emoji slot or server emoji |
+| `status.activity` | `custom` | `custom` shows the text as is; `playing`, `listening`, `watching`, `competing` prefix it the way Discord does |
+| `status.online` | `online` | `online`, `idle` or `dnd` |
 | `defaults.chance` | `5` | join chance a server starts with, 0–100 |
 | `defaults.suspense` | `0` | seconds of silence before the sound, 0–20 |
 | `defaults.fakeout` | `0` | % of visits that leave without a sound, 0–50 |

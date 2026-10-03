@@ -219,7 +219,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 		return nil, fmt.Errorf("sounds: start: %w", err)
 	}
 
-	client, err := bot.New(cfg.Token, cfg.ShardCount)
+	client, err := bot.New(cfg.Token, cfg.ShardCount, prof.Status)
 	if err != nil {
 		return nil, err
 	}

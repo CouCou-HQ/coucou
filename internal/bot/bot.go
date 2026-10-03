@@ -28,6 +28,7 @@ import (
 	"github.com/be-sandaa/coucou/internal/bus"
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/metrics"
+	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/tracing"
@@ -44,7 +45,7 @@ import (
 // shardCount of 0 leaves the count to Discord, which is what a deploy should normally do — disgo
 // asks GetGatewayBot for it and opens that many. Anything higher overrides it, and is the only way
 // to exercise more than one shard before the bot is big enough to be given them.
-func New(token string, shardCount int) (*bot.Client, error) {
+func New(token string, shardCount int, status profile.Status) (*bot.Client, error) {
 	var c *bot.Client
 
 	// A shard manager at every scale, rather than a lone gateway below some size and a manager
@@ -56,6 +57,8 @@ func New(token string, shardCount int) (*bot.Client, error) {
 			gateway.WithLargeThreshold(50),                   // smallest GUILD_CREATE Discord allows
 			gateway.WithCompression(gateway.CompressionNone), // no zlib inflate context per shard
 			gateway.WithAutoReconnect(true),
+			// Sent with every identify, so a reconnect keeps it without a presence update of our own.
+			gateway.WithPresenceOpts(presence(status)...),
 		),
 	}
 	if shardCount > 0 {
@@ -94,6 +97,20 @@ func New(token string, shardCount int) (*bot.Client, error) {
 	}
 	c = client
 	return client, nil
+}
+
+func presence(s profile.Status) []gateway.PresenceOpt {
+	opts := []gateway.PresenceOpt{gateway.WithOnlineStatus(s.Online)}
+	switch {
+	case s.Text == "":
+	case s.Activity == discord.ActivityTypeCustom:
+		opts = append(opts, gateway.WithCustomActivity(s.Text))
+	default:
+		opts = append(opts, func(p *gateway.MessageDataPresenceUpdate) {
+			p.Activities = []discord.Activity{{Name: s.Text, Type: s.Activity}}
+		})
+	}
+	return opts
 }
 
 // VoiceMembers re-caches the members a GUILD_CREATE carried. disgo adds them before its voice

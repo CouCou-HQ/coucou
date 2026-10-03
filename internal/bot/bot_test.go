@@ -1,11 +1,15 @@
 package bot
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/disgoorg/disgo/cache"
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/snowflake/v2"
+
+	"github.com/be-sandaa/coucou/internal/profile"
 )
 
 // Replays disgo's GUILD_CREATE order — members, then voice states — against the in-voice policy.
@@ -41,5 +45,32 @@ func TestRecacheMembersKeepsBotsAlreadyInVoice(t *testing.T) {
 	m, ok := c.Member(guild, idler)
 	if !ok || !m.User.Bot {
 		t.Fatalf("member after recache = %+v, %v; want the bot cached", m, ok)
+	}
+}
+
+// A custom status carries its text in state, the others in name; no text sends no activity at all.
+func TestPresence(t *testing.T) {
+	custom, listening := discord.ActivityTypeCustom, discord.ActivityTypeListening
+	text := "🖤 lurking"
+	tests := []struct {
+		name string
+		in   profile.Status
+		want []discord.Activity
+	}{
+		{"custom", profile.Status{Text: text, Activity: custom}, []discord.Activity{{Name: "Custom Status", Type: custom, State: &text}}},
+		{"listening", profile.Status{Text: text, Activity: listening}, []discord.Activity{{Name: text, Type: listening}}},
+		{"no text", profile.Status{Activity: custom}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.in.Online = discord.OnlineStatusIdle
+			var got gateway.MessageDataPresenceUpdate
+			for _, opt := range presence(tt.in) {
+				opt(&got)
+			}
+			if got.Status != discord.OnlineStatusIdle || !reflect.DeepEqual(got.Activities, tt.want) {
+				t.Errorf("presence = %s %+v, want idle %+v", got.Status, got.Activities, tt.want)
+			}
+		})
 	}
 }
