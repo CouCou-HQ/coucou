@@ -426,3 +426,7 @@ live in `makefile.local` so a template sync has nothing of ours to overwrite.
 
 [NOTES.md](NOTES.md) also records every library API mismatch found while getting this to compile,
 and why each was resolved the way it was.
+
+## License
+
+[MIT](LICENSE).
