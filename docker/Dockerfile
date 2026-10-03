@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 #
-# Adapted from the go-service-template Dockerfile, with the private-module plumbing removed —
 # coucou depends on nothing private, so there is no credential helper, no GOPRIVATE and no
 # github_token secret. The final stage is scratch rather than distroless: the binary is fully
 # static, so there is nothing left to carry.

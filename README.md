@@ -420,9 +420,9 @@ process. `GOMEMLIMIT` and `GOGC` are read from the environment.
 
 ## Provenance
 
-Generated from the `go-service-template` GitHub template, with everything private to that
-organisation removed — see the provenance section of [NOTES.md](NOTES.md). Per-service make targets
-live in `makefile.local` so a template sync has nothing of ours to overwrite.
+Started from a Go service template. The build plumbing (`makefile`, CI, lint config) still follows
+it, and coucou's own make targets live in `makefile.local` so a sync from the template has nothing of
+ours to overwrite.
 
 [NOTES.md](NOTES.md) also records every library API mismatch found while getting this to compile,
 and why each was resolved the way it was.
