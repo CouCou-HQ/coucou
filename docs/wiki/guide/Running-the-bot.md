@@ -81,18 +81,19 @@ and connects. There are no separate setup steps.
 **Slash commands can take up to an hour to appear** the first time, or after an update changes them.
 The registration is immediate; Discord's propagation isn't.
 
-A few settings worth knowing about. `config.example.toml` lists them all, and so does the
-[README](https://github.com/be-sandaa/coucou#configuration):
+A few settings worth knowing about. `config.example.toml` lists them all, and so does
+[Configuration](Configuration):
 
 | Key | Default | What |
 |---|---|---|
 | `owner_ids` | `[]` | your Discord user ID, in quotes; unlocks the leaderboard of servers |
 | `ops.log_level` | `info` | `debug`, `info`, `warn` or `error` |
+| `GOMEMLIMIT` (environment) | — | set `48MiB`; the bot is built to sit well under it |
 
 How often the bot visits a new server is the profile's `defaults.chance`: a percentage rolled every 5
 minutes while someone is in voice, so the default 5 works out to about one visit per 1.5–2 hours of
-active voice. Set `0` to make servers opt in with `/chance`.
-| `GOMEMLIMIT` (environment) | — | set `48MiB`; the bot is built to sit well under it |
+active voice. Set `0` to make servers opt in with `/chance`. Everything else a profile can say is in
+[Profile](Profile).
 
 ## Is it working?
 
@@ -104,19 +105,7 @@ active voice. Set `0` to make servers opt in with `/chance`.
 
 ## Commands
 
-| Command | Who | Does |
-|---|---|---|
-| `/play [sound]` | anyone | play a sound in your channel now |
-| `/sounds [page]` | anyone | every sound `/play` will take from you, 50 a page |
-| `/leave` | anyone | cut a play short |
-| `/help` | anyone | the command list, and which switch actually keeps the bot out |
-| `/optout` | anyone, for themselves | stop being picked: indefinitely, for some hours, or on a schedule |
-| `/chance <0-100>` | Manage Server | how often it visits; 0 is never |
-| `/quiet` | Manage Server | leave the server alone: indefinitely, for some hours, or on a schedule |
-| `/suspense <0-20>` | Manage Server | seconds of awkward silence before the sound |
-| `/status` | anyone | what the bot thinks about this server |
-| `/stats user\|guild\|bot` | anyone | play statistics, rankings and charts |
-| `/leaderboard` | anyone | who suffers the most |
+Every command, who may run it and what it does: [Commands](Commands).
 
 ## Running more than one
 

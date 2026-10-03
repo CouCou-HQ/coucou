@@ -6,16 +6,20 @@ coucou is the application behind Discord bots that pop into a busy voice channel
 sound and leave. It is not a character itself: the bot people meet has its own name, Discord app and
 sounds, and coucou is what runs it.
 
-Every 5 minutes a bot rolls the dice for each server that has given it a chance. When it wins, it
-slips into the busiest voice channel with a human in it, maybe sits there in suspicious silence for
-a few seconds, plays one short sound, and leaves before anyone can react. Then everybody blames
-each other.
+## Run your own
 
-## Running your own
+- **[Installation](Installation)**: the binary, the service, the container image, Compose or Helm.
+- **[Running the bot](Running-the-bot)**: create the Discord app, add sounds, start it, and check it
+  works.
 
-- **[Installation](Installation)**: get the binary, the container image or the Helm chart.
-- **[Running the bot](Running-the-bot)**: create the Discord app, add sounds, start it, and check
-  it works.
+## Reference
 
-The [README](https://github.com/be-sandaa/coucou#readme) is the reference: every flag, every
-command, and how a play happens inside.
+- **[Configuration](Configuration)**: every key in `config.toml`.
+- **[Profile](Profile)**: the character in `profile.toml`, its status, defaults, chains and links.
+- **[Sounds](Sounds)**: encoding, naming, rare and 18+ tags, and sound emojis.
+- **[Commands](Commands)**: every slash command and who may run it.
+
+## Hacking on coucou
+
+- **[Development](Development)**: building, testing, and the image.
+- **[Architecture](Architecture)**: how a play happens, the layout, the database, the bus and memory.

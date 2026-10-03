@@ -92,6 +92,12 @@ docker run --rm \
   ghcr.io/be-sandaa/coucou:0.1.0
 ```
 
+The image carries a minimal config at the default path, `/etc/coucou/config.toml` (from
+[`docker/config.toml`](https://github.com/be-sandaa/coucou/blob/main/docker/config.toml)): token and
+database from the environment, the profile at `/var/lib/coucou/profile`. Mount your own file over it
+for anything else. `/var/lib/coucou` belongs to the runtime user, so a volume there can hold the
+SQLite database too. Set `GOMEMLIMIT=48MiB`.
+
 The image is `FROM scratch` and runs as uid 65534, so the profile and its sounds must be world-readable. It
 has no shell and no `HEALTHCHECK`; health is on the bot's own HTTP port (see
 [Running the bot](Running-the-bot#is-it-working)).
