@@ -152,7 +152,6 @@ func serve(cfg config, prof profile.Profile, build Build) error {
 	r.Add(p.chaos.Run, nil)
 	r.Add(p.ranks.Run, nil)
 	r.Add(p.commands.RunEmojis, nil)
-	r.Add(p.commands.RunFriends, nil)
 	r.Add(p.rollup.Run, nil)
 	r.Add(p.loop.Run, nil)
 

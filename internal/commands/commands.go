@@ -71,7 +71,6 @@ type Commands struct {
 	autocomplete debouncer
 	plays        cooldown
 	emojis       emojis
-	friends      friends
 }
 
 // Sibling is another bot running on coucou that /help points people to: a different sound set run by the same
@@ -809,8 +808,7 @@ const helpLimits = "Three different switches, and they do not do the same thing:
 const helpSounds = "`/sounds` lists everything `/play` will take from you, a page at a time. The autocomplete stops at 25."
 
 // cmdHelp is one embed per subject, so each title is a heading someone scrolling on a phone can
-// find: the commands under the bot's own name and avatar, the switches, the sounds, then a card per
-// friend.
+// find: the commands under the bot's own name and avatar, the switches, the sounds, then its friends.
 func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
 	commands := info(withEmoji(c.profile.Emoji, name), commandList())
@@ -822,7 +820,7 @@ func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandIntera
 		info("Keeping the bot out", helpLimits),
 		info("Sounds", helpSounds+"\n\n"+adultHelp(voice.AgeRestrictedGuild(c.client, guild))),
 	}
-	return e.CreateMessage(say(fitHelp(fixed, friendCards(c.siblings, c.client.ApplicationID, name, c.friends.avatar))...))
+	return e.CreateMessage(say(fitHelp(fixed, friendsGrid(c.siblings, c.client.ApplicationID, name))...))
 }
 
 // adultHelp says whether 18+ sounds can play in this server. Discord's age-restricted label on a
@@ -834,10 +832,15 @@ func adultHelp(on bool) string {
 	return "**18+:** Off here. None of this server's voice channels is age-restricted in Discord."
 }
 
-// fitHelp drops friend cards from the end until the reply fits; the fixed embeds always go out.
+// fitHelp drops friends from the end of the grid until the reply fits, and the grid itself only
+// once it is down to one; the fixed embeds always go out.
 func fitHelp(fixed, friends []discord.Embed) []discord.Embed {
 	out := slices.Concat(fixed, friends)
 	for len(out) > len(fixed) && messageSize(out) > messageLimit {
+		if last := &out[len(out)-1]; len(last.Fields) > 1 {
+			last.Fields = last.Fields[:len(last.Fields)-1]
+			continue
+		}
 		out = out[:len(out)-1]
 	}
 	return out
@@ -927,30 +930,23 @@ func playAd(siblings []Sibling, self snowflake.ID, name string, intN func(int) i
 	return "\n*Psst... " + markdown.Replace(name) + " has friends. Try [" + s.Name + "](" + inviteURL(s.App) + ").*"
 }
 
-// maxFriendCards leaves room for /help's three fixed embeds under Discord's ten per message.
-const maxFriendCards = 7
+// maxFriends is Discord's cap on fields in one embed; a friend past it is left off rather than the
+// whole reply being rejected.
+const maxFriends = 25
 
-// friendCards is a card for every sibling but this bot: its avatar, name and invite on the author
-// line, and the invite again as link text a screen reader can name. Friends past maxFriendCards are
-// listed as links on the last card.
-func friendCards(siblings []Sibling, self snowflake.ID, name string, avatar func(snowflake.ID) string) []discord.Embed {
-	var cards []discord.Embed
-	var rest []string
+// friendsGrid is one "Friends of <name>" embed with a field per sibling but this bot: its name and
+// an invite, inline, so they sit side by side as a grid. Nothing when there is nobody else.
+func friendsGrid(siblings []Sibling, self snowflake.ID, name string) []discord.Embed {
+	grid := info("Friends of "+name, "")
 	for _, s := range siblings {
-		switch invite := inviteURL(s.App); {
-		case s.App == self:
-		case len(cards) == maxFriendCards:
-			rest = append(rest, "["+s.Name+"]("+invite+")")
-		default:
-			cards = append(cards, info("", "Friend of "+markdown.Replace(name)+". [Add "+s.Name+" to a server]("+invite+")").
-				WithAuthor(s.Name, invite, avatar(s.App)))
+		if s.App != self && len(grid.Fields) < maxFriends {
+			grid = grid.AddField(s.Name, "[Add to a server]("+inviteURL(s.App)+")", true)
 		}
 	}
-	if len(rest) > 0 {
-		last := &cards[len(cards)-1]
-		*last = last.WithDescription(last.Description + "\nAlso " + strings.Join(rest, ", ") + ".")
+	if len(grid.Fields) == 0 {
+		return nil
 	}
-	return cards
+	return []discord.Embed{grid}
 }
 
 // inviteURL is the OAuth2 link that adds the bot to a server, asking for voice.Needed and nothing

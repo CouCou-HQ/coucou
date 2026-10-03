@@ -114,6 +114,6 @@ database. Run one process per bot, and never two processes with the same token: 
 a second bot that joins the same channels and doubles every stats row.
 
 `siblings` in `config.toml` lets your bots advertise each other: a comma-separated list of `Name=application-id`.
-`/help` shows every one but itself as a card with its avatar and invite link, and now and then a
+`/help` shows every one but itself in a grid with its invite link, and now and then a
 `/play` reply plugs one. A Unicode emoji may lead a name (`🖤 Lenore=123…`) and shows with it.
 Give every bot the same list; each leaves itself out.

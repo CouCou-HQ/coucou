@@ -78,11 +78,14 @@ func TestHelpExplainsAllThreeLevers(t *testing.T) {
 // Every embed fits its own description cap, and with as many friends as fit, the reply stays inside
 // Discord's ten embeds and its 6000 characters across them.
 func TestHelpFits(t *testing.T) {
-	siblings := make([]Sibling, 0, maxFriendCards+3)
-	for i := range maxFriendCards + 3 {
+	siblings := make([]Sibling, 0, maxFriends)
+	for i := range maxFriends {
 		siblings = append(siblings, Sibling{Name: strings.Repeat("w", 80), App: snowflake.ID(100 + i)})
 	}
-	got := helpEmbeds(friendCards(siblings, 1, strings.Repeat("n", 32), noAvatar))
+	got := helpEmbeds(friendsGrid(siblings, 1, strings.Repeat("n", 32)))
+	if len(got) != 4 || len(got[3].Fields) == 0 || len(got[3].Fields) == maxFriends {
+		t.Errorf("/help kept %d embeds, want the grid trimmed rather than whole or gone", len(got))
+	}
 	if len(got) > 10 {
 		t.Errorf("/help is %d embeds, over Discord's 10", len(got))
 	}
@@ -96,7 +99,7 @@ func TestHelpFits(t *testing.T) {
 	}
 }
 
-// The fixed embeds always go out, however many friend cards have to give way.
+// The fixed embeds always go out, however much of the friends grid has to give way.
 func TestFitHelpDropsFriendsFirst(t *testing.T) {
 	huge := info("", strings.Repeat("x", messageLimit))
 	if got := helpEmbeds([]discord.Embed{huge, huge}); len(got) != 3 {

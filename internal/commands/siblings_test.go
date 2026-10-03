@@ -16,47 +16,34 @@ var (
 	siblingFixtures           = []Sibling{{Name: "Honk", App: siblingSelf}, {Name: narrator, App: siblingOther}}
 )
 
-func noAvatar(snowflake.ID) string { return "" }
-
-// /help has a card for every sibling but the bot answering, and none when that leaves nobody.
-func TestFriendCardsLeaveOutItself(t *testing.T) {
+// /help has a grid field for every sibling but the bot answering, and no grid when that leaves nobody.
+func TestFriendsGridLeavesOutItself(t *testing.T) {
 	self, other, siblings := siblingSelf, siblingOther, siblingFixtures
-	avatar := func(id snowflake.ID) string { return "https://cdn/" + id.String() }
 
-	got := friendCards(siblings, self, "Honk", avatar)
-	if len(got) != 1 {
-		t.Fatalf("friendCards = %d cards, want only The Narrator's", len(got))
+	got := friendsGrid(siblings, self, "Honk")
+	if len(got) != 1 || len(got[0].Fields) != 1 {
+		t.Fatalf("friendsGrid = %+v, want one embed with only The Narrator", got)
 	}
-	a := got[0].Author
-	if a == nil || a.Name != narrator || a.URL != inviteURL(other) || a.IconURL != avatar(other) {
-		t.Errorf("author = %+v, want The Narrator, its invite and its avatar", a)
+	f := got[0].Fields[0]
+	if f.Name != narrator || f.Value != "[Add to a server]("+inviteURL(other)+")" || f.Inline == nil || !*f.Inline {
+		t.Errorf("field = %+v, want The Narrator's invite, inline", f)
 	}
-	if !strings.Contains(got[0].Description, "[Add The Narrator to a server]("+inviteURL(other)+")") {
-		t.Errorf("description = %q, want the invite as link text", got[0].Description)
+	if got := friendsGrid(siblings[:1], self, "Honk"); got != nil {
+		t.Errorf("friendsGrid with only itself = %+v, want nothing", got)
 	}
-	if got := friendCards(siblings[:1], self, "Honk", avatar); len(got) != 0 {
-		t.Errorf("friendCards with only itself = %d cards, want none", len(got))
-	}
-	if got := friendCards(nil, self, "Honk", avatar); len(got) != 0 {
-		t.Errorf("friendCards(nil) = %d cards, want none", len(got))
+	if got := friendsGrid(nil, self, "Honk"); got != nil {
+		t.Errorf("friendsGrid(nil) = %+v, want nothing", got)
 	}
 }
 
-// Past maxFriendCards a friend still gets its invite, as a link on the last card.
-func TestFriendCardsOverflowOntoTheLast(t *testing.T) {
-	siblings := make([]Sibling, 0, maxFriendCards+2)
-	for i := range maxFriendCards + 2 {
+// Discord rejects an embed past 25 fields, so the grid stops there instead.
+func TestFriendsGridStopsAtTheFieldCap(t *testing.T) {
+	siblings := make([]Sibling, 0, maxFriends+5)
+	for i := range maxFriends + 5 {
 		siblings = append(siblings, Sibling{Name: fmt.Sprintf("Bot%d", i), App: snowflake.ID(100 + i)})
 	}
-	got := friendCards(siblings, siblingSelf, "Honk", noAvatar)
-	if len(got) != maxFriendCards {
-		t.Fatalf("friendCards = %d cards, want %d", len(got), maxFriendCards)
-	}
-	last := got[len(got)-1].Description
-	for _, s := range siblings[maxFriendCards:] {
-		if !strings.Contains(last, "["+s.Name+"]("+inviteURL(s.App)+")") {
-			t.Errorf("last card %q does not link %s", last, s.Name)
-		}
+	if got := friendsGrid(siblings, siblingSelf, "Honk"); len(got[0].Fields) != maxFriends {
+		t.Errorf("friendsGrid = %d fields, want %d", len(got[0].Fields), maxFriends)
 	}
 }
 
@@ -84,14 +71,5 @@ func TestPlayAd(t *testing.T) {
 				t.Errorf("playAd = %q, want one containing %q", got, tt.want)
 			}
 		})
-	}
-}
-
-// The name is a nickname any server admin can set, so it is escaped before it lands in the card,
-// where a stray ] or * would break the markdown around it.
-func TestFriendCardsEscapeTheName(t *testing.T) {
-	got := friendCards(siblingFixtures, siblingSelf, "*Mo]an_", noAvatar)
-	if !strings.Contains(got[0].Description, `Friend of \*Mo\]an\_.`) {
-		t.Errorf("description = %q, want the name escaped", got[0].Description)
 	}
 }

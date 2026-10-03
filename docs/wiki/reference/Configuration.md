@@ -22,7 +22,7 @@ also means numbers and booleans cannot come from the environment: write them out
 | `database_url` | — (required) | connection string; the scheme picks the backend |
 | `discord_token` | — (required) | bot token |
 | `owner_ids` | `[]` | user ids, as strings, that unlock the servers leaderboard |
-| `siblings` | `""` | `Name=application-id` pairs of other coucou bots, comma separated; `/help` shows each one but itself as a card with its avatar and invite, and about 1 in 100 `/play` replies plugs one at random. Put a Unicode emoji in the name (`🖤 Lenore=123…`) to show it with one |
+| `siblings` | `""` | `Name=application-id` pairs of other coucou bots, comma separated; `/help` shows each one but itself in a "Friends of" grid with its invite, and about 1 in 100 `/play` replies plugs one at random. Put a Unicode emoji in the name (`🖤 Lenore=123…`) to show it with one |
 | `profile` | `/var/lib/coucou/profile` | the character: a directory holding `profile.toml` and `sounds/`; see [Profile](Profile) |
 | `sounds.poll` | `0s` | rescan interval for the profile's `sounds/`; `0s` uses inotify |
 | `ops.http_addr` | `:9090` | `/healthz`, `/readyz` and `/metrics`; `""` disables them |
