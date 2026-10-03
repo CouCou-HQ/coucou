@@ -67,9 +67,16 @@ desktop.ini
 *~
 
 # ── AI tools ──────────────────────────────────────────────────────────────────
-.planning/                   # GSD planning artifacts
-.claude/settings.local.json  # Claude Code local overrides (settings.json is fine to commit)
-.aider*                      # Aider chat history and session files
-.cursor/                     # Cursor AI
-.continue/                   # Continue dev
-.cody/                       # Sourcegraph Cody
+# GSD planning artifacts
+.planning/
+# Claude Code local overrides and worktrees (settings.json is fine to commit)
+.claude/settings.local.json
+.claude/worktrees/
+# Aider chat history and session files
+.aider*
+# Cursor AI
+.cursor/
+# Continue dev
+.continue/
+# Sourcegraph Cody
+.cody/
