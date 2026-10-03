@@ -15,7 +15,7 @@ func TestBannerCarriesTheWholeStamp(t *testing.T) {
 	)
 
 	var sb strings.Builder
-	st := status{Name: "Moan", Shards: 4, Guilds: 12, Sounds: 1}
+	st := status{Name: "Honk", Shards: 4, Guilds: 12, Sounds: 1}
 	if err := banner(&sb, Build{Version: ver, Commit: commit, Date: date}, st); err != nil {
 		t.Fatalf("banner: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestBannerCarriesTheWholeStamp(t *testing.T) {
 // The font spells 26 letters. Anything else — a digit, an emoji, another script — prints as plain
 // text rather than as half a word.
 func TestWordmarkFallsBackOnUnspellableNames(t *testing.T) {
-	if _, ok := wordmark("Moan"); !ok {
+	if _, ok := wordmark("Honk"); !ok {
 		t.Error("wordmark refused a name it can spell")
 	}
 	for _, name := range []string{"Bot2000", "ばか", ""} {

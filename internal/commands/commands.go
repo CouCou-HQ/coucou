@@ -543,7 +543,7 @@ func (c *Commands) cmdSuspense(ctx context.Context, e *events.ApplicationCommand
 const maxChoices = 25
 
 // matchSounds filters names by what has been typed so far. Both sides are folded, and the query may
-// match the file name or what is shown for it: "good b" and "good_b" both find good_boy.
+// match the file name or what is shown for it: "big b" and "big_b" both find big_burp.
 func matchSounds(names []string, label func(string) string, q string) []discord.AutocompleteChoice {
 	q = strings.ToLower(q)
 	var choices []discord.AutocompleteChoice

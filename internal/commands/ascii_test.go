@@ -154,7 +154,7 @@ func TestBoardRowsAlign(t *testing.T) {
 // The wordmark is the bot's own name, letter-spaced over an underline of exactly its width, and a
 // backtick in a nickname cannot close the fence.
 func TestWordmark(t *testing.T) {
-	if got, want := wordmark("Moan"), "```\n  M O A N\n  -------\n```"; got != want {
+	if got, want := wordmark("Honk"), "```\n  H O N K\n  -------\n```"; got != want {
 		t.Errorf("wordmark = %q, want %q", got, want)
 	}
 	if got := wordmark("evil```name"); strings.Count(got, "```") != 2 {

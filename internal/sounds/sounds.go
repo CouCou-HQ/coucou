@@ -141,7 +141,7 @@ func typo(name string) string {
 	return ""
 }
 
-// Display renders a snake_case sound name for people: "marta_moan_2" is "Marta Moan 2".
+// Display renders a snake_case sound name for people: "wet_fart_2" is "Wet Fart 2".
 func Display(name string) string {
 	words := strings.FieldsFunc(name, func(r rune) bool { return r == '_' })
 	for i, w := range words {

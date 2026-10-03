@@ -548,8 +548,8 @@ func TestClashMostTaggedWins(t *testing.T) {
 
 func TestDisplay(t *testing.T) {
 	tests := map[string]string{
-		"good_boy":      "Good Boy",
-		"marta_moan_2":  "Marta Moan 2",
+		"big_burp":      "Big Burp",
+		"wet_fart_2":    "Wet Fart 2",
 		"ufufu":         "Ufufu",
 		"double__under": "Double Under",
 		"foo.v2":        "Foo.v2",
@@ -584,8 +584,8 @@ func TestLabel(t *testing.T) {
 // /play also takes a typed name, and people type what the list showed them.
 func TestLookupTakesTheRenderedName(t *testing.T) {
 	r := New(t.TempDir())
-	r.files["marta_moan_2"] = entry{path: "marta_moan_2.ogg"}
-	if _, ok := r.lookup("Marta Moan 2"); !ok {
-		t.Error(`lookup("Marta Moan 2") found nothing, want marta_moan_2`)
+	r.files["wet_fart_2"] = entry{path: "wet_fart_2.ogg"}
+	if _, ok := r.lookup("Wet Fart 2"); !ok {
+		t.Error(`lookup("Wet Fart 2") found nothing, want wet_fart_2`)
 	}
 }

@@ -1,7 +1,7 @@
 -- +goose Up
 -- Sound files are named in snake_case from here on and rendered with capitals and spaces, so a
--- play recorded as "Marta Moan 2" or "good-boy" is the same sound as marta_moan_2.ogg or
--- good_boy.ogg. Without this its history would split across the old and the new name.
+-- play recorded as "Wet Fart 2" or "big-burp" is the same sound as wet_fart_2.ogg or
+-- big_burp.ogg. Without this its history would split across the old and the new name.
 update stats.plays
 set sound = lower(replace(replace(sound, ' ', '_'), '-', '_'))
 where sound <> lower(replace(replace(sound, ' ', '_'), '-', '_'));

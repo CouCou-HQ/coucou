@@ -7,24 +7,24 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
-// The bot answering is Moan; The Narrator is the one other bot it can point at.
+// The bot answering is Honk; The Narrator is the one other bot it can point at.
 var (
 	siblingSelf, siblingOther = snowflake.ID(1), snowflake.ID(2)
-	siblingFixtures           = []Sibling{{Name: "Moan", App: siblingSelf}, {Name: "The Narrator", App: siblingOther}}
+	siblingFixtures           = []Sibling{{Name: "Honk", App: siblingSelf}, {Name: "The Narrator", App: siblingOther}}
 )
 
 // /help lists every sibling but the bot answering, and says nothing when that leaves nobody.
 func TestSiblingsHelpLeavesOutItself(t *testing.T) {
 	self, other, siblings := siblingSelf, siblingOther, siblingFixtures
 
-	got := siblingsHelp(siblings, self, "Moan")
-	if strings.Contains(got, "[Moan](") || !strings.Contains(got, "[The Narrator]("+inviteURL(other)+")") {
+	got := siblingsHelp(siblings, self, "Honk")
+	if strings.Contains(got, "[Honk](") || !strings.Contains(got, "[The Narrator]("+inviteURL(other)+")") {
 		t.Errorf("siblingsHelp = %q, want only The Narrator's invite", got)
 	}
-	if got := siblingsHelp(siblings[:1], self, "Moan"); got != "" {
+	if got := siblingsHelp(siblings[:1], self, "Honk"); got != "" {
 		t.Errorf("siblingsHelp with only itself = %q, want empty", got)
 	}
-	if got := siblingsHelp(nil, self, "Moan"); got != "" {
+	if got := siblingsHelp(nil, self, "Honk"); got != "" {
 		t.Errorf("siblingsHelp(nil) = %q, want empty", got)
 	}
 }
@@ -48,7 +48,7 @@ func TestPlayAd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := playAd(tt.siblings, self, "Moan", tt.intN)
+			got := playAd(tt.siblings, self, "Honk", tt.intN)
 			if (tt.want == "") != (got == "") || !strings.Contains(got, tt.want) {
 				t.Errorf("playAd = %q, want one containing %q", got, tt.want)
 			}

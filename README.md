@@ -237,10 +237,10 @@ ffmpeg -i in.mp3 -vn -map_metadata -1 -c:a libopus -b:a 64k -ar 48000 -ac 2 out.
 Drop the `.ogg` into the profile's `sounds/` and it is playable within ~1.5 s. No restart. Half-copied or
 non-Opus files are ignored until they are valid.
 
-Name files in lowercase snake_case: `marta_moan_2.ogg` is the sound `marta_moan_2`, and Discord
-shows it as **Marta Moan 2** — underscores become spaces and each word gets a capital. The file name
+Name files in lowercase snake_case: `wet_fart_2.ogg` is the sound `wet_fart_2`, and Discord
+shows it as **Wet Fart 2** — underscores become spaces and each word gets a capital. The file name
 is the sound's identity in the stats, so renaming a file starts a new history; migration 00018
-moved the old `Marta Moan 2` / `good-boy` spellings over once.
+moved the old `Wet Fart 2` / `big-burp` spellings over once.
 
 Tags are in the filename, between the name and `.ogg`, in any order: `<name>.rare.ogg`,
 `<name>.nsfw.ogg`, and `<name>.rare.nsfw.ogg` (the same as `<name>.nsfw.rare.ogg`) all load as the

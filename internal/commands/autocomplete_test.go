@@ -38,14 +38,14 @@ func choiceValues(t *testing.T, cs []discord.AutocompleteChoice) []string {
 const (
 	fartLoud  = "fart_loud"
 	fartQuiet = "fart_quiet"
-	moan      = "moan"
+	honk      = "honk"
 	boom      = "boom"
 )
 
 // The query is whatever was typed, against either the file name or what the list shows for it, so
 // a match cannot depend on case, or on typing a space where the file has an underscore.
 func TestMatchSoundsFoldsCase(t *testing.T) {
-	loaded := []string{fartLoud, fartQuiet, moan, boom}
+	loaded := []string{fartLoud, fartQuiet, honk, boom}
 
 	tests := []struct {
 		name string
@@ -54,7 +54,7 @@ func TestMatchSoundsFoldsCase(t *testing.T) {
 	}{
 		{"lowercase query", "fart", []string{fartLoud, fartQuiet}},
 		{"uppercase query", "BOOM", []string{boom}},
-		{"mixed case query", "mOaN", []string{moan}},
+		{"mixed case query", "hOnK", []string{honk}},
 		{"the shown name, with a space", "Fart L", []string{fartLoud}},
 		{"the file name, with an underscore", "fart_q", []string{fartQuiet}},
 		{"empty query offers everything", "", loaded},
@@ -72,7 +72,7 @@ func TestMatchSoundsFoldsCase(t *testing.T) {
 // The list shows the label, markers and all, and plays the file name: Discord sends back the value,
 // which has to resolve in the registry as-is.
 func TestMatchSoundsShowsTheRenderedName(t *testing.T) {
-	const file, shown = "marta_moan_2", "Marta Moan 2" + bothMarks
+	const file, shown = "wet_fart_2", "Wet Fart 2" + bothMarks
 	label := func(n string) string { return sounds.Display(n) + bothMarks }
 	got := stringChoices(t, matchSounds([]string{file}, label, ""))
 	if len(got) != 1 || got[0].Name != shown || got[0].Value != file {

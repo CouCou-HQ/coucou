@@ -15,7 +15,7 @@ func TestDebouncerAnswersOnlyTheLastOfABurst(t *testing.T) {
 	var d debouncer
 	const key = snowflake.ID(1)
 	got := make(chan string, 16)
-	const last = "marta"
+	const last = "wet"
 	for _, q := range []string{"m", "ma", "mar", "mart", last} {
 		d.do(key, 30*time.Millisecond, func() { got <- q })
 	}
