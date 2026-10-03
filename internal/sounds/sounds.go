@@ -79,6 +79,45 @@ type Registry struct {
 	files    map[string]entry
 	last     string   // the name Pick handed out last, so it is not handed out twice running
 	pending  sync.Map // name → *time.Timer (debounce)
+
+	// Set by Arrange before Start and only read after, like OnChange.
+	chains    map[string]Chain // by opener
+	followers map[string]bool  // later steps of a chain, never drawn as a first sound
+	links     Links
+}
+
+// Step is one sound of a chain and the silence before it, which the opener's step has none of.
+type Step struct {
+	Sound string
+	After time.Duration
+}
+
+// Chain is sounds that play in one visit. Steps[0] is the opener; Chance is the % of the time the
+// rest follow it.
+type Chain struct {
+	Chance int
+	Steps  []Step
+}
+
+// Links steers an encore: from a sound, to the sounds that may come back after it, by weight.
+type Links map[string]map[string]int
+
+// Clip is a step that will play: its name, its file, and the silence before it.
+type Clip struct {
+	Name  string
+	Path  string
+	After time.Duration
+}
+
+// Arrange sets the chains and links. Call it before Start.
+func (r *Registry) Arrange(chains []Chain, links Links) {
+	r.chains, r.followers, r.links = map[string]Chain{}, map[string]bool{}, links
+	for _, c := range chains {
+		r.chains[c.Steps[0].Sound] = c
+		for _, s := range c.Steps[1:] {
+			r.followers[s.Sound] = true
+		}
+	}
 }
 
 func New(dir string) *Registry {
@@ -246,7 +285,7 @@ func (r *Registry) draw(nsfw bool) (string, bool) {
 	names := make([]string, 0, len(r.files))
 	total := 0
 	for n, e := range r.files {
-		if !e.allowed(nsfw) {
+		if !e.allowed(nsfw) || r.followers[n] {
 			continue
 		}
 		names = append(names, n)
@@ -307,11 +346,66 @@ func (r *Registry) Collection(heard []string, nsfw bool) Collection {
 
 // PickOther is Pick without one name, for an encore that must not repeat the visit before it.
 func (r *Registry) PickOther(name string, nsfw bool) (string, bool) {
-	names := slices.DeleteFunc(r.Names(nsfw), func(n string) bool { return n == name })
+	names := slices.DeleteFunc(r.Names(nsfw), func(n string) bool { return n == name || r.followers[n] })
 	if len(names) == 0 {
 		return "", false
 	}
 	return names[rand.IntN(len(names))], true
+}
+
+// Follow rolls opener's chain and returns the steps that play after it: none without a chain or
+// when the roll fails. A step that is missing or may not play here is skipped, gap and all.
+func (r *Registry) Follow(opener string, nsfw bool) []Clip {
+	c, ok := r.chains[opener]
+	if !ok {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.intN(100) >= c.Chance {
+		return nil
+	}
+	var out []Clip
+	for _, s := range c.Steps[1:] {
+		if e, ok := r.files[s.Sound]; ok && e.allowed(nsfw) {
+			out = append(out, Clip{Name: s.Sound, Path: e.path, After: s.After})
+		}
+	}
+	return out
+}
+
+// Encore picks what comes back after name: one of its links by weight, or PickOther when none of
+// them can play here.
+func (r *Registry) Encore(name string, nsfw bool) (string, bool) {
+	if n, ok := r.linked(name, nsfw); ok {
+		return n, true
+	}
+	return r.PickOther(name, nsfw)
+}
+
+func (r *Registry) linked(name string, nsfw bool) (string, bool) {
+	to := r.links[name]
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	names := make([]string, 0, len(to))
+	total := 0
+	for n, w := range to {
+		if e, ok := r.files[n]; ok && e.allowed(nsfw) && n != name {
+			names = append(names, n)
+			total += w
+		}
+	}
+	if total == 0 {
+		return "", false
+	}
+	slices.Sort(names)
+	x := r.intN(total)
+	for _, n := range names {
+		if x -= to[n]; x < 0 {
+			return n, true
+		}
+	}
+	return "", false
 }
 
 func (r *Registry) Len() int { r.mu.RLock(); defer r.mu.RUnlock(); return len(r.files) }

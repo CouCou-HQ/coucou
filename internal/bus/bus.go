@@ -229,16 +229,6 @@ func Bounded[T any](b *Bus, n int64, fn func(ctx context.Context, ev *T)) Handle
 	}
 }
 
-// Timeout gives a handler body its own deadline, derived from the context it is handed — so the
-// parent's values, and any deadline already on it, still apply.
-func Timeout[T any](d time.Duration, fn func(ctx context.Context, ev *T)) func(context.Context, *T) {
-	return func(ctx context.Context, ev *T) {
-		ctx, cancel := context.WithTimeout(ctx, d)
-		defer cancel()
-		fn(ctx, ev)
-	}
-}
-
 // OnTopic registers a typed handler against a named topic on a subscriber the bus does not own.
 // It is how a source outside the bus — the gateway wrapper — reaches the same router, and so the
 // same correlation, tracing, metrics, recovery and retry as everything else.

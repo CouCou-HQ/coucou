@@ -208,6 +208,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	set, opt, quiet, cha := m.settings, m.optouts, m.quiet, m.chaos
 
 	reg := sounds.New(prof.SoundsDir())
+	reg.Arrange(prof.Chains, prof.Links)
 	log := ev.New(db)
 	eb, err := bus.New()
 	if err != nil {
@@ -232,7 +233,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	// WithoutCancel, not Background: the command's span is the trace root a play hangs off, and
 	// keeping it is what the bus used to buy by propagating trace context through message metadata.
 	// The cancellation has to go — the interaction's context dies when the handler returns, and a
-	// play outlives it by up to ninety seconds.
+	// play outlives it by ninety seconds or more.
 	play := func(ctx context.Context, guild, channel snowflake.ID, sound string, user snowflake.ID) {
 		ctx = context.WithoutCancel(ctx)
 		go func() {

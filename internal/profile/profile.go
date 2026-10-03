@@ -10,11 +10,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
 	"github.com/disgoorg/disgo/discord"
 
+	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/store"
 )
 
@@ -25,6 +27,7 @@ const (
 	MaxSuspense = 20
 	MaxFakeOut  = 50
 	MaxEncore   = 50
+	MaxAfter    = 20  // seconds of silence before a chain's step
 	MaxStatus   = 128 // characters of status text, Discord's custom status limit
 )
 
@@ -51,6 +54,8 @@ type Profile struct {
 	Lore     string
 	Traits   []string
 	Defaults store.Defaults
+	Chains   []sounds.Chain
+	Links    sounds.Links
 	Status   Status
 }
 
@@ -93,6 +98,17 @@ type file struct {
 		FakeOut  int `toml:"fakeout"`
 		Encore   int `toml:"encore"`
 	} `toml:"defaults"`
+	Chains []struct {
+		Chance *int `toml:"chance"` // nil is 100: a chain that never plays is not what leaving it out means
+		Steps  []struct {
+			Sound string `toml:"sound"`
+			After int    `toml:"after"`
+		} `toml:"steps"`
+	} `toml:"chains"`
+	Links []struct {
+		From string         `toml:"from"`
+		To   map[string]int `toml:"to"`
+	} `toml:"links"`
 	Status struct {
 		Text     string `toml:"text"`
 		Activity string `toml:"activity"`
@@ -145,6 +161,14 @@ func (f file) parse(dir string) (Profile, error) {
 	); err != nil {
 		return Profile{}, err
 	}
+	chains, err := f.chains()
+	if err != nil {
+		return Profile{}, err
+	}
+	links, err := f.links()
+	if err != nil {
+		return Profile{}, err
+	}
 	status, err := f.status()
 	if err != nil {
 		return Profile{}, err
@@ -153,8 +177,69 @@ func (f file) parse(dir string) (Profile, error) {
 		Dir: dir, ID: f.ID, Nickname: strings.TrimSpace(f.Nickname), Emoji: f.Emoji, Color: color,
 		Tagline: f.Tagline, Lore: strings.TrimSpace(f.Lore), Traits: f.Traits,
 		Defaults: store.Defaults{Chance: d.Chance, Suspense: d.Suspense, FakeOut: d.FakeOut, Encore: d.Encore},
-		Status:   status,
+		Chains:   chains, Links: links,
+		Status: status,
 	}, nil
+}
+
+// chains are checked against the profile alone: a sound with no file is fine, it may arrive later.
+func (f file) chains() ([]sounds.Chain, error) {
+	var out []sounds.Chain
+	openers := map[string]bool{}
+	for i, c := range f.Chains {
+		key := fmt.Sprintf("chains[%d]", i)
+		if len(c.Steps) < 2 {
+			return nil, fmt.Errorf("%s: want at least two steps", key)
+		}
+		chance := MaxChance
+		if c.Chance != nil {
+			chance = *c.Chance
+		}
+		if err := inRange(key+".chance", chance, MaxChance); err != nil {
+			return nil, err
+		}
+		steps := make([]sounds.Step, len(c.Steps))
+		for j, s := range c.Steps {
+			if s.Sound == "" {
+				return nil, fmt.Errorf("%s.steps[%d]: sound is empty", key, j)
+			}
+			if err := inRange(fmt.Sprintf("%s.steps[%d].after", key, j), s.After, MaxAfter); err != nil {
+				return nil, err
+			}
+			steps[j] = sounds.Step{Sound: s.Sound, After: time.Duration(s.After) * time.Second}
+		}
+		if openers[steps[0].Sound] {
+			return nil, fmt.Errorf("%s: %q already opens another chain", key, steps[0].Sound)
+		}
+		openers[steps[0].Sound] = true
+		out = append(out, sounds.Chain{Chance: chance, Steps: steps})
+	}
+	return out, nil
+}
+
+func (f file) links() (sounds.Links, error) {
+	var out sounds.Links
+	for i, l := range f.Links {
+		key := fmt.Sprintf("links[%d]", i)
+		switch {
+		case l.From == "":
+			return nil, fmt.Errorf("%s: from is empty", key)
+		case out[l.From] != nil:
+			return nil, fmt.Errorf("%s: %q is already linked from", key, l.From)
+		case len(l.To) == 0:
+			return nil, fmt.Errorf("%s: to is empty", key)
+		}
+		for n, w := range l.To {
+			if w <= 0 {
+				return nil, fmt.Errorf("%s.to.%s: weight %d, want more than 0", key, n, w)
+			}
+		}
+		if out == nil {
+			out = sounds.Links{}
+		}
+		out[l.From] = l.To
+	}
+	return out, nil
 }
 
 func (f file) status() (Status, error) {

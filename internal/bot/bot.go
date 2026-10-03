@@ -154,7 +154,7 @@ func Ready(c *bot.Client) bool {
 // NewPlayer returns the one way into a voice channel: join, wait, play, leave, publish the outcome.
 //
 // It is bounded rather than plain, and that is the point of it being one function. A play runs for
-// up to playTimeout, the loop can ask for a hundred in a tick, and the cap is on simultaneous voice
+// up to its timeout, the loop can ask for a hundred in a tick, and the cap is on simultaneous voice
 // connections across the whole bot — so it has to sit here, below every caller, rather than in each.
 // A full pool makes the caller wait, which is the backpressure; /play hands off to a goroutine at
 // the composition root so a gateway handler never does that waiting.
@@ -164,10 +164,7 @@ func Ready(c *bot.Client) bool {
 // b is also where PlayFinished goes, which is the only part of a play that is still an event. set and
 // quiet and opt are what an encore checks again before it comes back.
 func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
-	const (
-		concurrency = 8
-		playTimeout = 90 * time.Second
-	)
+	const concurrency = 8
 
 	var player func(context.Context, *PlayRequest) error
 	welcome := welcomer(
@@ -203,14 +200,23 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b
 		if !ok {
 			return // raced a deletion; nothing happened
 		}
-		if err := play(ctx, c, b, e, sound, file); !encoreDue(e, err) {
+		clips, last := []voice.Clip{{File: file}}, sound
+		if !e.FakeOut {
+			for _, f := range reg.Follow(sound, nsfw) {
+				clips = append(clips, voice.Clip{File: f.Path, Gap: f.After})
+				last = f.Name
+			}
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout(clips))
+		defer cancel()
+		if err := play(ctx, c, b, e, sound, clips); !encoreDue(e, err) {
 			return
 		}
-		if next, ok := reg.PickOther(sound, nsfw); ok {
+		if next, ok := reg.Encore(last, nsfw); ok {
 			v.again(&PlayRequest{Guild: e.Guild, Channel: e.Channel, Sound: next, Trigger: string(ev.TriggerEncore)})
 		}
 	}
-	pool := bus.Bounded(b, concurrency, bus.Timeout(playTimeout, one))
+	pool := bus.Bounded(b, concurrency, one)
 	player = func(ctx context.Context, e *PlayRequest) error {
 		// Bound to the caller's ctx, not the body's: Bounded strips the cancellation from that one,
 		// and an encore's wait still has to end on shutdown.
@@ -220,6 +226,16 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b
 		return pool(ctx, &visit{req: e, again: again})
 	}
 	return player
+}
+
+// timeout bounds a visit: ninety seconds for one clip, and each clip after it adds its gap and a
+// clip's own bound, so a chain is not cut short for being a chain.
+func timeout(clips []voice.Clip) time.Duration {
+	d := 90 * time.Second
+	for _, c := range clips[1:] {
+		d += c.Gap + voice.ClipTimeout
+	}
+	return d
 }
 
 // welcomer is the loop's checks, asked again for an encore. Opted-out people are subtracted the way

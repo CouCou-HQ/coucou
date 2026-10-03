@@ -279,36 +279,6 @@ func TestBoundedRefusesWhenCancelled(t *testing.T) {
 	}
 }
 
-// Timeout derives from the context it is handed, so an earlier parent deadline still wins.
-func TestTimeoutDerivesFromParent(t *testing.T) {
-	type key struct{}
-	got := make(chan time.Duration, 1)
-	seen := make(chan any, 1)
-
-	h := Timeout(time.Hour, func(ctx context.Context, _ *PlayFinished) {
-		seen <- ctx.Value(key{})
-		dl, ok := ctx.Deadline()
-		if !ok {
-			t.Error("body has no deadline")
-			got <- 0
-			return
-		}
-		got <- time.Until(dl)
-	})
-
-	parent, cancel := context.WithTimeout(context.WithValue(context.Background(), key{}, valCarried), 50*time.Millisecond)
-	defer cancel()
-	h(parent, &PlayFinished{})
-
-	if v := <-seen; v != valCarried {
-		t.Errorf("ctx value = %v, want the parent's %q", v, valCarried)
-	}
-	// The parent's 50ms must win over the wrapper's hour, or the wrapper is ignoring its parent.
-	if d := <-got; d > time.Minute {
-		t.Errorf("deadline is %s away, want the parent's ~50ms — Timeout ignored its parent", d)
-	}
-}
-
 // The bug this drain exists for: a play detached by Bounded outlives its delivery, so without the
 // wait the process could exit mid-clip and skip voice.Play's deferred conn.Close, leaving the bot
 // sitting in the channel until Discord timed the session out.

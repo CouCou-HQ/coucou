@@ -81,13 +81,14 @@ type PlayRequest struct {
 
 // play is one join→play→leave, reporting the outcome on the bus whatever happened — except when
 // the guild was already busy, where nothing happened and there is nothing to report. The error is
-// the visit's own, for deciding what follows it; the outcome has already been published.
-func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, sound, file string) error {
+// the visit's own, for deciding what follows it; the outcome has already been published. A chain's
+// clips all play inside the one visit, which is reported under sound, its opener.
+func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, sound string, clips []voice.Clip) error {
 	humans := voice.Humans(c, e.Guild, e.Channel)
 	started := time.Now()
 
 	var stayed []snowflake.ID
-	stage, err := voice.Play(ctx, c, e.Guild, e.Channel, file, voice.Opts{
+	stage, err := voice.Play(ctx, c, e.Guild, e.Channel, clips, voice.Opts{
 		Suspense:       e.Suspense,
 		Silent:         e.FakeOut,
 		StillPopulated: func() bool { return len(voice.Humans(c, e.Guild, e.Channel)) > 0 },

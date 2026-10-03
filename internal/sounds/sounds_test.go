@@ -589,3 +589,91 @@ func TestLookupTakesTheRenderedName(t *testing.T) {
 		t.Error(`lookup("Wet Fart 2") found nothing, want wet_fart_2`)
 	}
 }
+
+const (
+	knock = "knock"
+	drum  = "drum"
+	nsfwN = "n.nsfw"
+	who   = "who"
+	rim   = "rim"
+)
+
+func chained(t *testing.T, files ...string) *Registry {
+	t.Helper()
+	r := newFixed(t, files...)
+	r.Arrange([]Chain{{Chance: 50, Steps: []Step{{Sound: knock}, {Sound: "missing", After: time.Second}, {Sound: who, After: 2 * time.Second}, {Sound: "n"}}}},
+		Links{drum: {rim: 3, who: 1, "n": 5}})
+	return r
+}
+
+// The roll is intN(100) < Chance; a missing step and one that may not play here are skipped.
+func TestFollow(t *testing.T) {
+	whoClip := Clip{Name: who, After: 2 * time.Second}
+	tests := []struct {
+		name   string
+		opener string
+		nsfw   bool
+		roll   []int
+		want   []Clip
+	}{
+		{"no chain", drum, false, nil, nil},
+		{"the roll fails", knock, false, []int{50}, nil},
+		{"missing and nsfw steps skipped", knock, false, []int{49}, []Clip{whoClip}},
+		{"nsfw steps play where allowed", knock, true, []int{0}, []Clip{whoClip, {Name: "n"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := chained(t, knock, who, nsfwN, drum)
+			r.intN = scripted(t, tt.roll...)
+			got := r.Follow(tt.opener, tt.nsfw)
+			for i := range got {
+				got[i].Path = ""
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Follow(%s) = %v, want %v", tt.opener, got, tt.want)
+			}
+		})
+	}
+}
+
+// A follower is never drawn first, by Pick or by an encore's fallback.
+func TestFollowersAreNotDrawn(t *testing.T) {
+	r := chained(t, knock, who)
+	for range 50 {
+		if n, _ := r.Pick(false); n != knock {
+			t.Fatalf("Pick() = %q, want knock", n)
+		}
+		if n, ok := r.PickOther("x", false); n != knock || !ok {
+			t.Fatalf("PickOther(x) = %q, %v; want knock", n, ok)
+		}
+	}
+	if !slices.Contains(r.Names(false), who) {
+		t.Error("a follower dropped out of Names, so /play cannot reach it")
+	}
+}
+
+// Links sorted are n(5), rim(3), who(1): 0-4 n, 5-7 rim, 8 who; n only counts where nsfw may play.
+func TestEncore(t *testing.T) {
+	tests := []struct {
+		name  string
+		from  string
+		files []string
+		nsfw  bool
+		roll  []int
+		want  string
+	}{
+		{"weighted among links", drum, []string{drum, rim, who, nsfwN}, true, []int{5}, rim},
+		{"nsfw link left out", drum, []string{drum, rim, who, nsfwN}, false, []int{3}, who},
+		{"no link can play: any other", drum, []string{drum, "x"}, false, nil, "x"},
+		{"no links: any other", "x", []string{drum, "x"}, false, nil, drum},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := chained(t, tt.files...)
+			r.intN = scripted(t, tt.roll...)
+			if got, ok := r.Encore(tt.from, tt.nsfw); got != tt.want || !ok {
+				t.Errorf("Encore(%s) = %q, %v; want %q", tt.from, got, ok, tt.want)
+			}
+		})
+	}
+}

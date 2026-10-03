@@ -183,6 +183,8 @@ pushed to Discord — the bot's username, avatar and banner stay whatever the de
 | `defaults.suspense` | `0` | seconds of silence before the sound, 0–20 |
 | `defaults.fakeout` | `0` | % of visits that leave without a sound, 0–50 |
 | `defaults.encore` | `0` | % of visits that come back for a second sound, 0–50 |
+| `[[chains]]` | none | sounds played in one visit, `steps` in order with `after` seconds of silence (0–20) before each; `chance` % (default 100) that the rest follow the first |
+| `[[links]]` | none | what an encore plays after `from`: one of `to`, by weight, instead of any other sound |
 
 `defaults.chance` is a percentage rolled once every 5 minutes, and only on ticks where somebody is
 actually in a voice channel — so 5 works out to roughly one visit per 1.5–2 hours of active voice.

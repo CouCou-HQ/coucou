@@ -20,7 +20,8 @@ const (
 	// Healthy handshakes settled in under 1.5s in production; a stalled one never settles, so a
 	// longer wait only delays the rejoin that does get through.
 	daveTimeout = 3 * time.Second
-	playTimeout = 30 * time.Second
+	// ClipTimeout bounds one clip; a visit playing several gets one each.
+	ClipTimeout = 30 * time.Second
 )
 
 // The stage a play reached. Returned to the caller, which stores it as "<stage>_fail".
@@ -33,16 +34,23 @@ const (
 var (
 	ErrBusy         = errors.New("already connected in this guild")
 	ErrEveryoneLeft = errors.New("everyone left")
-	// ErrPlayTimeout is a clip that outran playTimeout. A sentinel rather than an inline error so
+	// ErrPlayTimeout is a clip that outran ClipTimeout. A sentinel rather than an inline error so
 	// the caller can tell a truncation apart from a stage that actually broke: the audio played, it
 	// just did not finish, and the fix is to re-encode the file rather than to look at the bot.
 	ErrPlayTimeout = errors.New("play timeout")
 	errDaveStalled = errors.New("dave handshake timeout")
 )
 
+// Clip is one file a visit plays and the silence before it, which the first clip's suspense covers.
+type Clip struct {
+	File string
+	Gap  time.Duration
+}
+
 type Opts struct {
 	Suspense time.Duration // silence between joining and playing
-	// StillPopulated is polled after suspense; return false to abort instead of playing to an empty room.
+	// StillPopulated is polled after suspense and before every later clip; return false to stop
+	// instead of playing to an empty room.
 	StillPopulated func() bool
 	// Silent leaves after suspense without playing: the fake-out.
 	Silent bool
@@ -93,9 +101,9 @@ func Shutdown(ctx context.Context) {
 	}
 }
 
-// Play joins, optionally sits in silence, plays one Ogg Opus file, leaves. Always leaves.
-// Returns the stage it failed in ("join", "suspense", "play") for the stats table.
-func Play(ctx context.Context, client *bot.Client, guild, channel snowflake.ID, file string, o Opts) (stage string, err error) { //nolint:gocyclo // one error branch per join/dave/suspense/play stage; splitting hides the sequence
+// Play joins, optionally sits in silence, plays each clip in turn on the one connection, leaves.
+// Always leaves. Returns the stage it failed in ("join", "suspense", "play") for the stats table.
+func Play(ctx context.Context, client *bot.Client, guild, channel snowflake.ID, clips []Clip, o Opts) (stage string, err error) { //nolint:gocyclo // one error branch per join/dave/suspense/play stage; splitting hides the sequence
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	if _, loaded := busy.LoadOrStore(guild, cancel); loaded {
@@ -115,10 +123,8 @@ func Play(ctx context.Context, client *bot.Client, guild, channel snowflake.ID, 
 
 	if o.Suspense > 0 {
 		stage = StageSuspense
-		select {
-		case <-time.After(o.Suspense):
-		case <-ctx.Done():
-			return stage, ctx.Err()
+		if err := sleep(ctx, o.Suspense); err != nil {
+			return stage, err
 		}
 		if o.StillPopulated != nil && !o.StillPopulated() {
 			return stage, ErrEveryoneLeft
@@ -129,28 +135,65 @@ func Play(ctx context.Context, client *bot.Client, guild, channel snowflake.ID, 
 	}
 
 	stage = StagePlay
+	if err = conn.SetSpeaking(ctx, voice.SpeakingFlagMicrophone); err != nil {
+		return stage, err
+	}
+	if err = playClips(ctx, conn, clips, o.StillPopulated); err != nil {
+		return stage, err
+	}
+	// let the last frame drain before tearing the UDP socket down
+	time.Sleep(100 * time.Millisecond)
+	return stage, nil
+}
+
+func playClips(ctx context.Context, conn voice.Conn, clips []Clip, stillPopulated func() bool) error {
+	for i, c := range clips {
+		if i > 0 {
+			if err := sleep(ctx, c.Gap); err != nil {
+				return err
+			}
+			// The first clip played, so an emptied room ends the visit early rather than failing it.
+			if stillPopulated != nil && !stillPopulated() {
+				return nil
+			}
+		}
+		if err := playClip(ctx, conn, c.File); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sleep(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	select {
+	case <-time.After(d):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// playClip returns once the file has been handed out. The provider stays set and plays silence
+// until the next clip replaces it, which is what holds a gap open without leaving.
+func playClip(ctx context.Context, conn voice.Conn, file string) error {
 	f, err := os.Open(file)
 	if err != nil {
-		return stage, err
+		return err
 	}
 	defer func() { _ = f.Close() }() //nolint:errcheck // read-only playback source
 
 	done := make(chan struct{})
-	provider := &notifyingProvider{inner: newOggOpusReader(f), done: done}
-	if err = conn.SetSpeaking(ctx, voice.SpeakingFlagMicrophone); err != nil {
-		return stage, err
-	}
-	conn.SetOpusFrameProvider(provider)
-
+	conn.SetOpusFrameProvider(&notifyingProvider{inner: newOggOpusReader(f), done: done})
 	select {
 	case <-done:
-		// let the last frame drain before tearing the UDP socket down
-		time.Sleep(100 * time.Millisecond)
-		return stage, nil
-	case <-time.After(playTimeout):
-		return stage, ErrPlayTimeout
+		return nil
+	case <-time.After(ClipTimeout):
+		return ErrPlayTimeout
 	case <-ctx.Done():
-		return stage, ctx.Err()
+		return ctx.Err()
 	}
 }
 

@@ -25,3 +25,19 @@ chance   = 5     # % per 5-minute tick, rolled only when someone is in voice; 0-
 suspense = 0     # max seconds of silence before the sound; 0-20
 fakeout  = 0     # % of visits that leave without a sound; 0-50
 encore   = 0     # % of visits that come back for a second sound; 0-50
+
+# Sounds that play together in one visit: the bot stays in the channel from the first step to the
+# last. The first step is picked like any sound; later ones are never picked first, but /play still
+# reaches them. A step's sound is its file name without tags or .ogg. Repeat [[chains]] per chain.
+[[chains]]
+chance = 80   # % of the time the rest follow the first step; 0-100, default 100
+steps  = [
+  { sound = "knock" },
+  { sound = "whos_there", after = 2 },   # seconds of silence before it, still in the channel; 0-20
+  { sound = "rimshot" },                 # no after: straight back to back
+]
+
+# What an encore comes back with after a sound, by weight, instead of any other sound.
+[[links]]
+from = "drumroll"
+to   = { rimshot = 70, sad_trombone = 30 }
