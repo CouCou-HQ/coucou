@@ -22,6 +22,9 @@ const (
 	daveTimeout = 3 * time.Second
 	// ClipTimeout bounds one clip; a visit playing several gets one each.
 	ClipTimeout = 30 * time.Second
+	// joinChime is how long Discord's join sound covers the start of a clip played straight after
+	// joining. Suspense counts towards it, so only a shorter one waits the difference.
+	joinChime = time.Second
 )
 
 // The stage a play reached. Returned to the caller, which stores it as "<stage>_fail".
@@ -135,6 +138,9 @@ func Play(ctx context.Context, client *bot.Client, guild, channel snowflake.ID, 
 	}
 
 	stage = StagePlay
+	if err = sleep(ctx, joinChime-o.Suspense); err != nil {
+		return stage, err
+	}
 	if err = conn.SetSpeaking(ctx, voice.SpeakingFlagMicrophone); err != nil {
 		return stage, err
 	}

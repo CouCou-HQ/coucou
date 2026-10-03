@@ -323,6 +323,7 @@ sequenceDiagram
     Worker->>Discord: join
     Discord-->>Worker: DAVE handshake complete
     Worker->>Worker: suspense, then re-check the room is populated
+    Worker->>Worker: wait out the join chime (1 s, less any suspense)
     Worker->>Discord: one Ogg Opus clip, then leave
     Worker->>Bus: PlayFinished
 ```
