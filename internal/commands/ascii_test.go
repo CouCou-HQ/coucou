@@ -20,11 +20,10 @@ func TestBlocksFitThePhone(t *testing.T) {
 			meter("suspense", 1, "≤20s"),
 			meter("earshot", 1, "500/500 rooms"), // Discord caps a guild at 500 channels
 		),
-		"hour strip":    hourStrip(clockCells(22, 7)),
-		"help wordmark": wordmark(longest),
-		"now playing":   nowPlaying(longest, ""),
-		"marked":        nowPlaying(longest, bothMarks),
-		"single meter":  block(meter("failures", 1, "100%")),
+		"hour strip":   hourStrip(clockCells(22, 7)),
+		"now playing":  nowPlaying(longest, ""),
+		"marked":       nowPlaying(longest, bothMarks),
+		"single meter": block(meter("failures", 1, "100%")),
 	}
 	for name, b := range blocks {
 		t.Run(name, func(t *testing.T) {
@@ -148,16 +147,5 @@ func TestBoardRowsAlign(t *testing.T) {
 		if got := utf8.RuneCountInString(span[1]); got != boardBarWidth+1+4 {
 			t.Errorf("span for n=%d is %d wide, want %d", n, got, boardBarWidth+5)
 		}
-	}
-}
-
-// The wordmark is the bot's own name, letter-spaced over an underline of exactly its width, and a
-// backtick in a nickname cannot close the fence.
-func TestWordmark(t *testing.T) {
-	if got, want := wordmark("Honk"), "```\n  H O N K\n  -------\n```"; got != want {
-		t.Errorf("wordmark = %q, want %q", got, want)
-	}
-	if got := wordmark("evil```name"); strings.Count(got, "```") != 2 {
-		t.Errorf("a backticked name broke the fence: %q", got)
 	}
 }

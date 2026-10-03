@@ -1,31 +1,62 @@
 package commands
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/disgoorg/snowflake/v2"
 )
 
+const narrator = "The Narrator"
+
 // The bot answering is Honk; The Narrator is the one other bot it can point at.
 var (
 	siblingSelf, siblingOther = snowflake.ID(1), snowflake.ID(2)
-	siblingFixtures           = []Sibling{{Name: "Honk", App: siblingSelf}, {Name: "The Narrator", App: siblingOther}}
+	siblingFixtures           = []Sibling{{Name: "Honk", App: siblingSelf}, {Name: narrator, App: siblingOther}}
 )
 
-// /help lists every sibling but the bot answering, and says nothing when that leaves nobody.
-func TestSiblingsHelpLeavesOutItself(t *testing.T) {
-	self, other, siblings := siblingSelf, siblingOther, siblingFixtures
+func noAvatar(snowflake.ID) string { return "" }
 
-	got := siblingsHelp(siblings, self, "Honk")
-	if strings.Contains(got, "[Honk](") || !strings.Contains(got, "[The Narrator]("+inviteURL(other)+")") {
-		t.Errorf("siblingsHelp = %q, want only The Narrator's invite", got)
+// /help has a card for every sibling but the bot answering, and none when that leaves nobody.
+func TestFriendCardsLeaveOutItself(t *testing.T) {
+	self, other, siblings := siblingSelf, siblingOther, siblingFixtures
+	avatar := func(id snowflake.ID) string { return "https://cdn/" + id.String() }
+
+	got := friendCards(siblings, self, "Honk", avatar)
+	if len(got) != 1 {
+		t.Fatalf("friendCards = %d cards, want only The Narrator's", len(got))
 	}
-	if got := siblingsHelp(siblings[:1], self, "Honk"); got != "" {
-		t.Errorf("siblingsHelp with only itself = %q, want empty", got)
+	a := got[0].Author
+	if a == nil || a.Name != narrator || a.URL != inviteURL(other) || a.IconURL != avatar(other) {
+		t.Errorf("author = %+v, want The Narrator, its invite and its avatar", a)
 	}
-	if got := siblingsHelp(nil, self, "Honk"); got != "" {
-		t.Errorf("siblingsHelp(nil) = %q, want empty", got)
+	if !strings.Contains(got[0].Description, "[Add The Narrator to a server]("+inviteURL(other)+")") {
+		t.Errorf("description = %q, want the invite as link text", got[0].Description)
+	}
+	if got := friendCards(siblings[:1], self, "Honk", avatar); len(got) != 0 {
+		t.Errorf("friendCards with only itself = %d cards, want none", len(got))
+	}
+	if got := friendCards(nil, self, "Honk", avatar); len(got) != 0 {
+		t.Errorf("friendCards(nil) = %d cards, want none", len(got))
+	}
+}
+
+// Past maxFriendCards a friend still gets its invite, as a link on the last card.
+func TestFriendCardsOverflowOntoTheLast(t *testing.T) {
+	siblings := make([]Sibling, 0, maxFriendCards+2)
+	for i := range maxFriendCards + 2 {
+		siblings = append(siblings, Sibling{Name: fmt.Sprintf("Bot%d", i), App: snowflake.ID(100 + i)})
+	}
+	got := friendCards(siblings, siblingSelf, "Honk", noAvatar)
+	if len(got) != maxFriendCards {
+		t.Fatalf("friendCards = %d cards, want %d", len(got), maxFriendCards)
+	}
+	last := got[len(got)-1].Description
+	for _, s := range siblings[maxFriendCards:] {
+		if !strings.Contains(last, "["+s.Name+"]("+inviteURL(s.App)+")") {
+			t.Errorf("last card %q does not link %s", last, s.Name)
+		}
 	}
 }
 
@@ -56,11 +87,11 @@ func TestPlayAd(t *testing.T) {
 	}
 }
 
-// The name is a nickname any server admin can set, so it is escaped before it lands in bold or in a
-// link label, where a stray ] or * would break the markdown around it.
-func TestSiblingsHelpEscapesTheName(t *testing.T) {
-	got := siblingsHelp(siblingFixtures, siblingSelf, "*Mo]an_")
-	if !strings.Contains(got, `**Friends of \*Mo\]an\_**`) {
-		t.Errorf("siblingsHelp = %q, want the name escaped inside the heading", got)
+// The name is a nickname any server admin can set, so it is escaped before it lands in the card,
+// where a stray ] or * would break the markdown around it.
+func TestFriendCardsEscapeTheName(t *testing.T) {
+	got := friendCards(siblingFixtures, siblingSelf, "*Mo]an_", noAvatar)
+	if !strings.Contains(got[0].Description, `Friend of \*Mo\]an\_.`) {
+		t.Errorf("description = %q, want the name escaped", got[0].Description)
 	}
 }

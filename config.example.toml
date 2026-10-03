@@ -11,7 +11,7 @@ discord_token = "${DISCORD_BOT_TOKEN}"
 database_url  = "${DATABASE_URL}"
 
 owner_ids = []          # user ids, as strings, that unlock the servers leaderboard
-siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated
+siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated; a Unicode emoji may lead the name
 
 # The character this bot plays: a directory holding profile.toml and sounds/. From a checkout,
 # "profile" (git-ignored; start it from profile.example.toml).

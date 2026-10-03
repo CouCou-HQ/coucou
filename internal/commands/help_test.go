@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/profile"
 )
@@ -14,8 +15,12 @@ import (
 // rejected rather than clipped, so /help growing too big would break it outright.
 const embedDescriptionLimit = 4096
 
-func helpBody() string {
-	return "**Commands**\n" + commandList() + "\n" + helpLimits + adultHelp(false)
+func helpEmbeds(friends []discord.Embed) []discord.Embed {
+	return fitHelp([]discord.Embed{
+		info("The Bot", commandList()),
+		info("Keeping the bot out", helpLimits),
+		info("Sounds", helpSounds+"\n\n"+adultHelp(false)),
+	}, friends)
 }
 
 // The point of generating the list is that a command added to definitions shows up in /help
@@ -58,7 +63,7 @@ func TestCommandListTagsTheGatedCommands(t *testing.T) {
 // The three levers are the reason /help exists — denying the wrong one is how an admin concludes
 // the bot is broken — so each has to actually be named.
 func TestHelpExplainsAllThreeLevers(t *testing.T) {
-	body := helpBody()
+	body := helpLimits
 	for _, want := range []string{"Connect", "Integrations", "/optout on"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("/help does not mention %q", want)
@@ -70,10 +75,32 @@ func TestHelpExplainsAllThreeLevers(t *testing.T) {
 	}
 }
 
-// One embed, so it has to fit in one embed.
-func TestHelpFitsOneEmbed(t *testing.T) {
-	if n := len([]rune(helpBody())); n > embedDescriptionLimit {
-		t.Errorf("help body is %d characters, over Discord's %d", n, embedDescriptionLimit)
+// Every embed fits its own description cap, and with as many friends as fit, the reply stays inside
+// Discord's ten embeds and its 6000 characters across them.
+func TestHelpFits(t *testing.T) {
+	siblings := make([]Sibling, 0, maxFriendCards+3)
+	for i := range maxFriendCards + 3 {
+		siblings = append(siblings, Sibling{Name: strings.Repeat("w", 80), App: snowflake.ID(100 + i)})
+	}
+	got := helpEmbeds(friendCards(siblings, 1, strings.Repeat("n", 32), noAvatar))
+	if len(got) > 10 {
+		t.Errorf("/help is %d embeds, over Discord's 10", len(got))
+	}
+	if n := messageSize(got); n > messageLimit {
+		t.Errorf("/help is %d characters, over Discord's %d", n, messageLimit)
+	}
+	for _, e := range got {
+		if n := utf8.RuneCountInString(e.Description); n > embedDescriptionLimit {
+			t.Errorf("%q is %d characters, over Discord's %d", e.Title, n, embedDescriptionLimit)
+		}
+	}
+}
+
+// The fixed embeds always go out, however many friend cards have to give way.
+func TestFitHelpDropsFriendsFirst(t *testing.T) {
+	huge := info("", strings.Repeat("x", messageLimit))
+	if got := helpEmbeds([]discord.Embed{huge, huge}); len(got) != 3 {
+		t.Errorf("fitHelp kept %d embeds, want the three fixed ones", len(got))
 	}
 }
 

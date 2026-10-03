@@ -302,10 +302,7 @@ func fit(em ...discord.Embed) []discord.Embed {
 		}
 	}
 	for {
-		total := 0
-		for _, e := range em {
-			total += embedSize(e)
-		}
+		total := messageSize(em)
 		big := mostColoured(em)
 		if total <= messageLimit || big < 0 {
 			return em
@@ -324,6 +321,9 @@ func embedSize(e discord.Embed) int {
 	}
 	if e.Footer != nil {
 		n += utf8.RuneCountInString(e.Footer.Text)
+	}
+	if e.Author != nil {
+		n += utf8.RuneCountInString(e.Author.Name)
 	}
 	return n
 }

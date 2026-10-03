@@ -85,12 +85,22 @@ limit for a gimmick.
 - Charts are headed by a one-line caption inside their fence, not a frame: their axes
   are frame enough. Trends are said in words beside them — "up 18% on the week
   before" — never as an arrow, which a screen reader announces as a triangle.
-- **Mascot** — the `/help` wordmark and the `/play` speaker. Decoration, and the
-  only two places decoration is allowed. A sound's emoji replaces the speaker, since a
-  custom emoji does not render inside a fence. The wordmark is the bot's own name as the
-  server sees it, letter-spaced: coucou is the application, never the character.
-- **Avatar** — the bot's avatar as a thumbnail on `/help`, `/about` and `/invite`,
-  the replies that say who the bot is. Identity, not decoration, so nowhere else.
+- **Mascot** — the `/play` speaker. Decoration, and the only place decoration is
+  allowed. A sound's emoji replaces it, since a custom emoji does not render inside a
+  fence.
+- **Avatar** — the bot's own avatar as a thumbnail on `/help`, `/about` and `/invite`,
+  the replies that say who the bot is; a friend's avatar as the author icon on its
+  `/help` card, the one place another bot is shown. The thumbnail always means this bot
+  and the author icon another, so the two never compete. Identity, not decoration, so
+  nowhere else.
+- **One subject per embed** — `/help` is several embeds, each titled with its subject, so
+  a title is a heading someone scrolling on a phone can find.
+- **Friend card** — another coucou bot on `/help`: its avatar, emoji and name on the
+  author line, linked to its invite, and "Friend of <name>. [Add <Friend> to a server]"
+  as link text a screen reader can name. One per friend, at most seven after the fixed
+  embeds; the rest are links on the last card. The emoji is part of its configured name
+  and must be Unicode: another app's emoji cannot be used, and an author line shows
+  `<:name:id>` as text.
 - **Sound markers** — ✨ rare, 🔞 nsfw, after the name in that order: "Perfect Fart ✨",
   "Both ✨ 🔞". Meaning, not decoration, so they go everywhere a sound is shown — `/sounds`,
   the `/play` reply and autocomplete, the top-sounds board, `/stats` — and nowhere else.

@@ -71,6 +71,7 @@ type Commands struct {
 	autocomplete debouncer
 	plays        cooldown
 	emojis       emojis
+	friends      friends
 }
 
 // Sibling is another bot running on coucou that /help points people to: a different sound set run by the same
@@ -385,10 +386,10 @@ func deny(title, body string) *discord.Embed { e := bad(title, body); return &e 
 
 func none(title, body string) discord.Embed { return embed(colMuted, title, body) }
 
-// say is the reply every command gives: one embed, ephemeral. A public leaderboard is the only
+// say is the reply every command gives: its embeds, ephemeral. A public leaderboard is the only
 // thing in here that reaches the channel, and it goes out through edit instead.
-func say(e discord.Embed) discord.MessageCreate {
-	return discord.NewMessageCreate().WithEmbeds(e).WithEphemeral(true)
+func say(es ...discord.Embed) discord.MessageCreate {
+	return discord.NewMessageCreate().WithEmbeds(es...).WithEphemeral(true)
 }
 
 // plural renders a count with its noun, because "1 channels" is how a bot looks unfinished.
@@ -796,32 +797,58 @@ func commandList() string {
 
 // The three ways to limit the bot, kept apart because conflating them is how an admin denies the
 // wrong thing and concludes the bot is broken. Static: none of it is derivable from definitions.
-const helpLimits = "**Keeping the bot out**\n" +
-	"Three different switches, and they do not do the same thing:\n" +
+const helpLimits = "Three different switches, and they do not do the same thing:\n" +
 	"• **Deny the bot Connect** on a voice channel (channel permissions) — it will never drop in there. " +
 	"This is the one that decides *where* it goes.\n" +
 	"• **Server Settings → Integrations** — decides *who* may run these commands. It does not stop drop-ins.\n" +
 	"• `/optout on` — per person: the bot stops counting you when it picks a channel, so a channel with " +
 	"only you in it is left alone. It still joins channels where other people are, and you will hear it there. " +
 	"`/optout for <hours>` is the same with an end to it, `/optout schedule` repeats it every week, " +
-	"and `/optout off` ends any of them.\n\n" +
-	"**Browsing sounds**\n" +
-	"`/sounds` lists everything `/play` will take from you, a page at a time. The autocomplete stops at 25."
+	"and `/optout off` ends any of them."
 
+const helpSounds = "`/sounds` lists everything `/play` will take from you, a page at a time. The autocomplete stops at 25."
+
+// cmdHelp is one embed per subject, so each title is a heading someone scrolling on a phone can
+// find: the commands under the bot's own name and avatar, the switches, the sounds, then a card per
+// friend.
 func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
-	body := wordmark(name) + "\n**Commands**\n" + commandList() + "\n" + helpLimits +
-		adultHelp(voice.AgeRestrictedGuild(c.client, guild)) + siblingsHelp(c.siblings, c.client.ApplicationID, name)
-	return e.CreateMessage(say(info(withEmoji(c.profile.Emoji, name), body).WithThumbnail(avatar)))
+	commands := info(withEmoji(c.profile.Emoji, name), commandList())
+	if avatar != "" {
+		commands = commands.WithThumbnail(avatar)
+	}
+	fixed := []discord.Embed{
+		commands,
+		info("Keeping the bot out", helpLimits),
+		info("Sounds", helpSounds+"\n\n"+adultHelp(voice.AgeRestrictedGuild(c.client, guild))),
+	}
+	return e.CreateMessage(say(fitHelp(fixed, friendCards(c.siblings, c.client.ApplicationID, name, c.friends.avatar))...))
 }
 
 // adultHelp says whether 18+ sounds can play in this server. Discord's age-restricted settings are
 // the only switch, so it names them rather than a command.
 func adultHelp(on bool) string {
 	if on {
-		return "\n\n**18+ sounds**\nOn here. Only in age-restricted voice channels."
+		return "**18+:** On here. Only in age-restricted voice channels."
 	}
-	return "\n\n**18+ sounds**\nOff here. They need the server and the voice channel both age-restricted in Discord."
+	return "**18+:** Off here. They need the server and the voice channel both age-restricted in Discord."
+}
+
+// fitHelp drops friend cards from the end until the reply fits; the fixed embeds always go out.
+func fitHelp(fixed, friends []discord.Embed) []discord.Embed {
+	out := slices.Concat(fixed, friends)
+	for len(out) > len(fixed) && messageSize(out) > messageLimit {
+		out = out[:len(out)-1]
+	}
+	return out
+}
+
+func messageSize(es []discord.Embed) int {
+	n := 0
+	for _, e := range es {
+		n += embedSize(e)
+	}
+	return n
 }
 
 // withEmoji puts the profile's emoji in front of a title, when it has one.
@@ -900,19 +927,30 @@ func playAd(siblings []Sibling, self snowflake.ID, name string, intN func(int) i
 	return "\n*Psst... " + markdown.Replace(name) + " has friends. Try [" + s.Name + "](" + inviteURL(s.App) + ").*"
 }
 
-// siblingsHelp is the "Friends of <name>" part of /help: an invite link for every sibling but this
-// bot itself, or nothing at all when there are none.
-func siblingsHelp(siblings []Sibling, self snowflake.ID, name string) string {
-	var b strings.Builder
+// maxFriendCards leaves room for /help's three fixed embeds under Discord's ten per message.
+const maxFriendCards = 7
+
+// friendCards is a card for every sibling but this bot: its avatar, name and invite on the author
+// line, and the invite again as link text a screen reader can name. Friends past maxFriendCards are
+// listed as links on the last card.
+func friendCards(siblings []Sibling, self snowflake.ID, name string, avatar func(snowflake.ID) string) []discord.Embed {
+	var cards []discord.Embed
+	var rest []string
 	for _, s := range siblings {
-		if s.App != self {
-			b.WriteString("\n• [" + s.Name + "](" + inviteURL(s.App) + ")")
+		switch invite := inviteURL(s.App); {
+		case s.App == self:
+		case len(cards) == maxFriendCards:
+			rest = append(rest, "["+s.Name+"]("+invite+")")
+		default:
+			cards = append(cards, info("", "Friend of "+markdown.Replace(name)+". [Add "+s.Name+" to a server]("+invite+")").
+				WithAuthor(s.Name, invite, avatar(s.App)))
 		}
 	}
-	if b.Len() == 0 {
-		return ""
+	if len(rest) > 0 {
+		last := &cards[len(cards)-1]
+		*last = last.WithDescription(last.Description + "\nAlso " + strings.Join(rest, ", ") + ".")
 	}
-	return "\n\n**Friends of " + markdown.Replace(name) + "**" + b.String()
+	return cards
 }
 
 // inviteURL is the OAuth2 link that adds the bot to a server, asking for voice.Needed and nothing

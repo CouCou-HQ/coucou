@@ -7,7 +7,7 @@ discord_token = "${DISCORD_BOT_TOKEN}"
 database_url  = "${DATABASE_URL}"
 
 owner_ids = []          # user ids, as strings, that unlock the servers leaderboard
-siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated
+siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated; a Unicode emoji may lead the name
 
 # profile is left at its default, /var/lib/coucou/profile, where compose.yaml mounts PROFILE_DIR.
 
