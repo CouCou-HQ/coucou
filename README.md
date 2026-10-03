@@ -263,6 +263,19 @@ a warning, and deleting the winner falls back to the next. `/stats scope:user` s
 collection: the distinct sounds the bot's own visits have caught you with, out of what is loaded
 now and can play in this server. `/play` does not count toward it.
 
+#### Sound emojis
+
+An app emoji named exactly like a sound is that sound's emoji: upload `perfect_fart` under the
+application's **Emojis** in the developer portal and the sound `perfect_fart` shows it, tags and all
+(the emoji is named after the sound, never after `.rare` or `.nsfw`). It is shown in the `/play` reply
+in place of the speaker, before the top sound in `/stats`, and on the `/leaderboard` sounds board.
+`/sounds` and the autocomplete stay text: fifty mentions would overrun a page, and autocomplete
+cannot render one.
+
+A sound with no emoji of its name is shown exactly as before, so they can be added one at a time.
+Discord tells the bot nothing when an app emoji is added or deleted, so it lists them every ten
+minutes. A new emoji appears within that, and a deleted one may still be mentioned until then.
+
 ## Commands
 
 | command | who | does |

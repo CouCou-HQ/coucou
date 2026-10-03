@@ -38,8 +38,7 @@ func TestBoardShape(t *testing.T) {
 	}
 }
 
-// Medals for the top three, numbers after, and a name too wide to be safe is clipped rather than
-// risking the whole embed being rejected.
+// Medals for the top three, numbers after, and each label as its board drew it.
 func TestBoardRows(t *testing.T) {
 	rows := testRows()
 	em := boardEmbed(titleSounds, testSpan, rows, func(r store.Row) string { return r.Key })
@@ -56,8 +55,9 @@ func TestBoardRows(t *testing.T) {
 	if !strings.HasPrefix(lines[3], "4. ") {
 		t.Errorf("fourth row = %q, want a numbered rank", lines[3])
 	}
-	if !strings.HasSuffix(lines[3], strings.Repeat("x", 60)+"…") {
-		t.Errorf("long name was not clipped: %q", lines[3])
+	// Labels arrive clipped: a cut here could split a sound's emoji mention.
+	if !strings.HasSuffix(lines[3], strings.Repeat("x", 100)) {
+		t.Errorf("board clipped a label: %q", lines[3])
 	}
 	// The last row is one twelfth of the top one and still has to show something: an empty bar
 	// beside a non-zero count reads as a rendering fault.

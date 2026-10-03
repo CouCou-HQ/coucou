@@ -151,6 +151,7 @@ func serve(cfg config, prof profile.Profile, build Build) error {
 	r.Add(p.quiet.Run, nil)
 	r.Add(p.chaos.Run, nil)
 	r.Add(p.ranks.Run, nil)
+	r.Add(p.commands.RunEmojis, nil)
 	r.Add(p.rollup.Run, nil)
 	r.Add(p.loop.Run, nil)
 
@@ -176,6 +177,7 @@ type parts struct {
 	rollup   *rollup.Refresher
 	settings *settings.Store
 	sounds   *sounds.Registry
+	commands *commands.Commands
 }
 
 // mem is the tables the bot answers from memory.
@@ -302,6 +304,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 		rollup:   rollup.New(db),
 		settings: set,
 		sounds:   reg,
+		commands: cmds,
 	}, nil
 }
 

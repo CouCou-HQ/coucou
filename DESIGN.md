@@ -86,7 +86,8 @@ limit for a gimmick.
   are frame enough. Trends are said in words beside them — "up 18% on the week
   before" — never as an arrow, which a screen reader announces as a triangle.
 - **Mascot** — the `/help` wordmark and the `/play` speaker. Decoration, and the
-  only two places decoration is allowed. The wordmark is the bot's own name as the
+  only two places decoration is allowed. A sound's emoji replaces the speaker, since a
+  custom emoji does not render inside a fence. The wordmark is the bot's own name as the
   server sees it, letter-spaced: coucou is the application, never the character.
 - **Avatar** — the bot's avatar as a thumbnail on `/help`, `/about` and `/invite`,
   the replies that say who the bot is. Identity, not decoration, so nowhere else.
@@ -95,6 +96,10 @@ limit for a gimmick.
   the `/play` reply and autocomplete, the top-sounds board, `/stats` — and nowhere else.
   They come from the loaded file's tags, so a sound no longer loaded shows bare. A clip cuts
   the name, never a marker, and a fence counts each as two columns.
+- **Sound emoji** — the app emoji named like the sound, before its name: in the `/play`
+  reply, `/stats` and the top-sounds board. Identity, like the avatar: a sound without one
+  shows as text. Never inside a fence or a code span, where it shows as `<:name:id>`, and not
+  in `/sounds`, where fifty would overrun the page.
 
 ## Colour inside blocks (ANSI)
 

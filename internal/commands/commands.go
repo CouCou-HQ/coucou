@@ -70,6 +70,7 @@ type Commands struct {
 	// Zero value works, so New never has to mention it and a test can build a Commands literal.
 	autocomplete debouncer
 	plays        cooldown
+	emojis       emojis
 }
 
 // Sibling is another bot running on coucou that /help points people to: a different sound set run by the same
@@ -592,6 +593,15 @@ func soundsPage(names []string, marks func(string) string, page int) discord.Emb
 	return info(title, sb.String()).WithFooterText(foot)
 }
 
+// nowPlaying is the /play reply's sound: its emoji in place of the speaker when the app has one.
+// A custom emoji does not render inside a code fence, so it cannot go in the speaker's block.
+func (c *Commands) nowPlaying(sound string) string {
+	if icon := c.emojis.icon(sound); icon != "" {
+		return icon + "`" + c.sounds.Label(sound) + "`"
+	}
+	return nowPlaying(sounds.Display(sound), c.sounds.Marks(sound))
+}
+
 // cmdSounds lists what the autocomplete would, past its 25: nsfw follows the caller's voice channel.
 func (c *Commands) cmdSounds(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
 	page, ok := data.OptInt(optPage)
@@ -753,7 +763,7 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 		return e.CreateMessage(say(bad("Slow down", fmt.Sprintf("The next play is allowed <t:%d:R>.", next.Unix()))))
 	}
 	name, _ := c.self(guild)
-	body := nowPlaying(sounds.Display(sound), c.sounds.Marks(sound)) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
+	body := c.nowPlaying(sound) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
 	if err := e.CreateMessage(say(info("Playing", body))); err != nil {
 		return err
 	}
@@ -1239,7 +1249,7 @@ func (c *Commands) orNone(s *string) string {
 	if s == nil {
 		return noneYet
 	}
-	return "`" + c.sounds.Label(*s) + "`"
+	return c.emojis.icon(*s) + "`" + c.sounds.Label(*s) + "`"
 }
 
 func (c *Commands) cmdStats(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
@@ -1631,7 +1641,7 @@ func window(period string) (days int, span string) {
 func (c *Commands) label(board, key string) string {
 	switch board {
 	case boardSounds:
-		return clipped(key, c.sounds.Marks)
+		return c.emojis.icon(key) + clipped(key, c.sounds.Marks)
 	case boardChannels:
 		return "<#" + key + ">"
 	}
@@ -1653,7 +1663,7 @@ func (c *Commands) cmdTopGuilds(ctx context.Context, e *events.ApplicationComman
 	if len(rows) == 0 {
 		return c.edit(e, none(title, "Nothing yet. Give it time.").WithFooterText(span))
 	}
-	return c.edit(e, boardEmbed(title, span, rows, func(r store.Row) string { return c.guildName(r.Key) }))
+	return c.edit(e, boardEmbed(title, span, rows, func(r store.Row) string { return truncate(c.guildName(r.Key), 60) }))
 }
 
 // guildName resolves a guild id to its cached name, falling back to the raw id.
@@ -1681,7 +1691,7 @@ func boardEmbed(title, footer string, rows []store.Row, label func(store.Row) st
 	width := len(strconv.Itoa(top))
 	var sb strings.Builder
 	for i, r := range rows {
-		sb.WriteString(boardRow(i, frac(r.N, top), r.N, width, truncate(label(r), 60)) + "\n")
+		sb.WriteString(boardRow(i, frac(r.N, top), r.N, width, label(r)) + "\n")
 	}
 	return embed(colBoard, title, sb.String()).WithFooterText(footer).WithTimestamp(time.Now())
 }
