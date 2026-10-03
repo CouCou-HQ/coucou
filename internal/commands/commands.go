@@ -716,7 +716,7 @@ func (c *Commands) adultChannel(guild *snowflake.ID, user snowflake.ID) bool {
 		return false
 	}
 	vs, ok := c.client.Caches.VoiceState(*guild, user)
-	return ok && vs.ChannelID != nil && voice.AgeRestricted(c.client, *guild, *vs.ChannelID)
+	return ok && vs.ChannelID != nil && voice.AgeRestricted(c.client, *vs.ChannelID)
 }
 
 // playChannel resolves where a /play from user would land: the channel, or the embed saying why
@@ -747,7 +747,7 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 	if refusal != nil {
 		return e.CreateMessage(say(*refusal))
 	}
-	nsfw := voice.AgeRestricted(c.client, guild, channel)
+	nsfw := voice.AgeRestricted(c.client, channel)
 	sound, given := data.OptString("sound")
 	if !given {
 		var ok bool
@@ -825,13 +825,13 @@ func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandIntera
 	return e.CreateMessage(say(fitHelp(fixed, friendCards(c.siblings, c.client.ApplicationID, name, c.friends.avatar))...))
 }
 
-// adultHelp says whether 18+ sounds can play in this server. Discord's age-restricted settings are
-// the only switch, so it names them rather than a command.
+// adultHelp says whether 18+ sounds can play in this server. Discord's age-restricted label on a
+// voice channel is the only switch, so it names that rather than a command.
 func adultHelp(on bool) string {
 	if on {
 		return "**18+:** On here. Only in age-restricted voice channels."
 	}
-	return "**18+:** Off here. They need the server and the voice channel both age-restricted in Discord."
+	return "**18+:** Off here. None of this server's voice channels is age-restricted in Discord."
 }
 
 // fitHelp drops friend cards from the end until the reply fits; the fixed embeds always go out.

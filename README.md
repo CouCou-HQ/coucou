@@ -256,10 +256,11 @@ rare and 🔞 for nsfw: `perfect_fart.rare.ogg` is **Perfect Fart ✨**.
 
 - **rare** turns up a tenth as often, only by roll: it is left out of `/play`'s autocomplete and
   cannot be asked for by name.
-- **nsfw** plays only where Discord has both the server and the voice channel age-restricted (a
-  server at the *age-restricted* or *explicit* level). Everywhere else it is never rolled, never in
-  the autocomplete, and cannot be asked for by name. There is no bot setting for it; `/help` says
-  whether it is on in a server. A sound tagged both follows both rules.
+- **nsfw** plays only in voice channels Discord has labelled age-restricted, which is where its
+  rules put adult content; the server's own level does not matter. Everywhere else it is never
+  rolled, never in the autocomplete, and cannot be asked for by name. There is no bot setting for
+  it; `/help` says whether a server has such a channel. A sound tagged both follows both rules. A
+  bot listed in Discord's App Directory may carry no nsfw sounds at all.
 
 Any other segment is part of the name (`foo.v2.ogg` is `foo.v2`), and one that looks like a typo of
 a tag (`foo.nswf.ogg`) loads that way with a warning. Tags do not make a name unique: if several

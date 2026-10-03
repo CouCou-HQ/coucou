@@ -236,8 +236,8 @@ func TestHumansSkipsTheDeafened(t *testing.T) {
 	}
 }
 
-// Both Discord switches have to be on: an age-restricted server alone, or an age-restricted channel
-// in a server that is not, keeps nsfw sounds off.
+// The channel's label decides, as it does for Discord: the server's own level neither opens nor
+// closes it, and a server counts as having nsfw sounds as soon as one voice channel is labelled.
 func TestAgeRestricted(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -245,11 +245,11 @@ func TestAgeRestricted(t *testing.T) {
 		nsfw  bool
 		want  bool
 	}{
-		{"both", discord.NSFWLevelAgeRestricted, true, true},
-		{"explicit server", discord.NSFWLevelExplicit, true, true},
-		{"server only", discord.NSFWLevelAgeRestricted, false, false},
-		{"channel only, default server", discord.NSFWLevelDefault, true, false},
-		{"channel only, safe server", discord.NSFWLevelSafe, true, false},
+		{"labelled channel, default server", discord.NSFWLevelDefault, true, true},
+		{"labelled channel, safe server", discord.NSFWLevelSafe, true, true},
+		{"labelled channel, age-restricted server", discord.NSFWLevelAgeRestricted, true, true},
+		{"unlabelled channel, age-restricted server", discord.NSFWLevelAgeRestricted, false, false},
+		{"unlabelled channel, explicit server", discord.NSFWLevelExplicit, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -262,8 +262,11 @@ func TestAgeRestricted(t *testing.T) {
 				t.Fatal(err)
 			}
 			c.Caches.AddChannel(ch)
-			if got := AgeRestricted(c, guildID, openID); got != tt.want {
+			if got := AgeRestricted(c, openID); got != tt.want {
 				t.Errorf("AgeRestricted = %v, want %v", got, tt.want)
+			}
+			if got := AgeRestrictedGuild(c, guildID); got != tt.want {
+				t.Errorf("AgeRestrictedGuild = %v, want %v", got, tt.want)
 			}
 		})
 	}

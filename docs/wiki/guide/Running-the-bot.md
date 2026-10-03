@@ -39,8 +39,8 @@ scripts/sound --nsfw "Ufufu.wav"                    # -> profile/sounds/ufufu.ns
   name is the sound's identity in the stats, so renaming a file starts a new history.
 - **Rares** are named `<name>.rare.ogg`. They turn up a tenth as often, only by chance, and can't be
   asked for with `/play`. Catching someone with one counts towards their collection in `/stats`.
-- **18+ sounds** are named `<name>.nsfw.ogg`. They only play where Discord has both the server and
-  the voice channel age-restricted, and nowhere else can anyone roll, see or ask for them. Tags
+- **18+ sounds** are named `<name>.nsfw.ogg`. They only play in voice channels Discord has labelled
+  age-restricted, and nowhere else can anyone roll, see or ask for them. Tags
   combine in any order: `<name>.rare.nsfw.ogg` is both.
 - **Markers** follow a tagged name wherever Discord shows it: ✨ for rare, 🔞 for 18+, so
   `perfect_fart.rare.ogg` shows as **Perfect Fart ✨**.

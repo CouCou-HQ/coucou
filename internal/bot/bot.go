@@ -188,7 +188,7 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b
 		metrics.VoiceActive.Inc()
 		defer metrics.VoiceActive.Dec()
 
-		nsfw := voice.AgeRestricted(c, e.Guild, e.Channel)
+		nsfw := voice.AgeRestricted(c, e.Channel)
 		sound := e.Sound
 		if sound == "" {
 			var ok bool
