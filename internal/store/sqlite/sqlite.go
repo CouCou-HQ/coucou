@@ -127,7 +127,7 @@ func (s *Store) ListSettings(ctx context.Context) ([]store.Settings, error) {
 	}
 	out := make([]store.Settings, len(rows))
 	for i, r := range rows {
-		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore)}
+		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore), NSFW: r.Nsfw}
 	}
 	return out, nil
 }
@@ -140,7 +140,7 @@ func (s *Store) UpsertSettings(ctx context.Context, st store.Settings) error {
 		func(q *gen.Queries) (map[string]any, error) { return getRow(q.GetSettings(ctx, id)) },
 		func(q *gen.Queries) error {
 			return q.UpsertSettings(ctx, gen.UpsertSettingsParams{
-				GuildID: id, JoinChance: int64(st.Chance), Tz: st.TZ, Suspense: int64(st.Suspense), Fakeout: int64(st.FakeOut), Encore: int64(st.Encore),
+				GuildID: id, JoinChance: int64(st.Chance), Tz: st.TZ, Suspense: int64(st.Suspense), Fakeout: int64(st.FakeOut), Encore: int64(st.Encore), Nsfw: st.NSFW,
 				UpdatedBy: nullID(st.UpdatedBy),
 			})
 		})

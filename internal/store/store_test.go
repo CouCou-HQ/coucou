@@ -115,18 +115,24 @@ func find(t *testing.T, s store.Store, g snowflake.ID) store.Settings {
 	return store.Settings{}
 }
 
+// nsfwDefault is the mode a guild has before anyone sets one; the column refuses an empty one.
+const (
+	nsfwDefault = "restricted"
+	nsfwOn      = "on"
+)
+
 func TestSettingsRoundTrip(t *testing.T) {
 	run(t, "settings", func(t *testing.T, s store.Store) {
 		g := guildID(t)
 
 		if err := s.UpsertSettings(context.Background(), store.Settings{
-			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20,
+			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn,
 		}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
 		got := find(t, s, g)
-		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || !is(got.TZ, tzBrussels) {
+		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) {
 			t.Errorf("got %+v", got)
 		}
 	})
@@ -138,11 +144,11 @@ func TestUpsertSettingsClearsTheZone(t *testing.T) {
 	run(t, "clear-zone", func(t *testing.T, s store.Store) {
 		ctx := context.Background()
 		g := guildID(t)
-		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7}); err != nil {
+		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, NSFW: nsfwDefault}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
-		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 5}); err != nil {
+		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 5, NSFW: nsfwDefault}); err != nil {
 			t.Fatalf("upsert nil zone: %v", err)
 		}
 		got := find(t, s, g)
@@ -555,7 +561,7 @@ func TestSeedSettingsDoesNotOverwrite(t *testing.T) {
 			t.Fatal(err)
 		}
 		// This guild has already chosen its own chance; seeding must leave it alone.
-		if err := s.UpsertSettings(ctx, store.Settings{Guild: configured, Chance: 90, TZ: new(tzBrussels)}); err != nil {
+		if err := s.UpsertSettings(ctx, store.Settings{Guild: configured, Chance: 90, TZ: new(tzBrussels), NSFW: nsfwDefault}); err != nil {
 			t.Fatal(err)
 		}
 

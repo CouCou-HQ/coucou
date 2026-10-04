@@ -28,6 +28,7 @@ type Settings struct {
 	Suspense  int
 	FakeOut   int
 	Encore    int
+	NSFW      string
 	UpdatedBy snowflake.ID
 }
 

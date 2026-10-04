@@ -120,6 +120,11 @@ func (c *Commands) isOwner(user snowflake.ID) bool { return slices.Contains(c.ow
 // anything, and a dropped command is "the application did not respond" in the user's face. Each
 // already carries its own 10s deadline, and Discord throttles interactions long before the
 // goroutines are worth counting. Autocomplete needs no goroutine here — the debounce timer is one.
+// Listeners is every gateway listener this package owns: commands, autocomplete and buttons.
+func (c *Commands) Listeners() []bot.EventListener {
+	return []bot.EventListener{c.OnCommand(), c.OnAutocomplete(), c.OnComponent()}
+}
+
 func (c *Commands) OnCommand() bot.EventListener {
 	return bot.NewListenerFunc(func(e *events.ApplicationCommandInteractionCreate) { go c.onCommand(e) })
 }
@@ -317,6 +322,17 @@ var definitions = []discord.ApplicationCommandCreate{
 			discord.ApplicationCommandOptionInt{Name: optFakeOut, Description: "% of visits that leave without a sound (0 = off)", MinValue: ptr(0), MaxValue: ptr(maxFakeOut)},
 		},
 	},
+	discord.SlashCommandCreate{
+		Name: cmdNameNSFW, Description: "Where 18+ sounds may play here; shows the setting without a mode",
+		DefaultMemberPermissions: omit.NewPtr(manageGuild),
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionString{Name: optMode, Description: "Leave out to see the current one", Choices: []discord.ApplicationCommandOptionChoiceString{
+				{Name: "off: never", Value: string(settings.NSFWOff)},
+				{Name: "restricted: only where Discord has age-restricted the server or channel", Value: string(settings.NSFWRestricted)},
+				{Name: "on: every voice channel, asks to confirm first", Value: string(settings.NSFWOn)},
+			}},
+		},
+	},
 	discord.SlashCommandCreate{Name: cmdNameStatus, Description: "What the bot thinks about this server"},
 	discord.SlashCommandCreate{
 		Name: cmdNameStats, Description: "Play statistics: yours, this server's, or bot-wide",
@@ -453,6 +469,7 @@ func (c *Commands) handlers() map[string]cmdFunc {
 		cmdNameQuiet:       c.cmdQuiet,
 		cmdNameChaos:       c.cmdChaos,
 		cmdNameSuspense:    c.cmdSuspense,
+		cmdNameNSFW:        c.cmdNSFW,
 		cmdNameStatus:      c.cmdStatus,
 		cmdNameStats:       c.cmdStats,
 		cmdNameLeaderboard: c.cmdLeaderboard,
@@ -715,7 +732,7 @@ func (c *Commands) adultChannel(guild *snowflake.ID, user snowflake.ID) bool {
 		return false
 	}
 	vs, ok := c.client.Caches.VoiceState(*guild, user)
-	return ok && vs.ChannelID != nil && voice.AgeRestricted(c.client, *vs.ChannelID)
+	return ok && vs.ChannelID != nil && c.settings.Get(*guild).NSFW.Allows(voice.AgeRestricted(c.client, *guild, *vs.ChannelID))
 }
 
 // playChannel resolves where a /play from user would land: the channel, or the embed saying why
@@ -746,7 +763,7 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 	if refusal != nil {
 		return e.CreateMessage(say(*refusal))
 	}
-	nsfw := voice.AgeRestricted(c.client, channel)
+	nsfw := c.settings.Get(guild).NSFW.Allows(voice.AgeRestricted(c.client, guild, channel))
 	sound, given := data.OptString("sound")
 	if !given {
 		var ok bool
@@ -805,6 +822,11 @@ const helpLimits = "Three different switches, and they do not do the same thing:
 	"`/optout for <hours>` is the same with an end to it, `/optout schedule` repeats it every week, " +
 	"and `/optout off` ends any of them."
 
+// helpNSFW is the three /nsfw modes, for the admins reading /help to find where 18+ sounds are set.
+const helpNSFW = "Admins choose where with `/nsfw`: **off**, **restricted** (wherever Discord has " +
+	"age-restricted the server or the voice channel, the default) or **on** (every voice channel; it " +
+	"asks first and records who turned it on)."
+
 const helpSounds = "`/sounds` lists everything `/play` will take from you, a page at a time. The autocomplete stops at 25."
 
 // cmdHelp is one embed per subject, so each title is a heading someone scrolling on a phone can
@@ -818,18 +840,23 @@ func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandIntera
 	fixed := []discord.Embed{
 		commands,
 		info("Keeping the bot out", helpLimits),
-		info("Sounds", helpSounds+"\n\n"+adultHelp(voice.AgeRestrictedGuild(c.client, guild))),
+		info("Sounds", helpSounds+"\n\n"+adultHelp(c.settings.Get(guild).NSFW, voice.AgeRestrictedGuild(c.client, guild))+"\n"+helpNSFW),
 	}
 	return e.CreateMessage(say(fitHelp(fixed, friendsGrid(c.siblings, c.client.ApplicationID, name))...))
 }
 
-// adultHelp says whether 18+ sounds can play in this server. Discord's age-restricted label on a
-// voice channel is the only switch, so it names that rather than a command.
-func adultHelp(on bool) string {
-	if on {
-		return "**18+:** On here. Only in age-restricted voice channels."
+// adultHelp says whether and where 18+ sounds can play in this server: the mode /nsfw sets, and
+// under restricted, whether any voice channel carries Discord's age-restricted label.
+func adultHelp(mode settings.NSFW, labelled bool) string {
+	switch {
+	case mode == settings.NSFWOff:
+		return "**18+:** Off here. An admin turned them off with `/nsfw`."
+	case mode == settings.NSFWOn:
+		return "**18+:** On in every voice channel here. An admin turned that on with `/nsfw`."
+	case labelled:
+		return "**18+:** On here, wherever Discord has age-restricted the server or the voice channel."
 	}
-	return "**18+:** Off here. None of this server's voice channels is age-restricted in Discord."
+	return "**18+:** Off here. Neither the server nor any of its voice channels is age-restricted in Discord."
 }
 
 // fitHelp drops friends from the end of the grid until the reply fits, and the grid itself only
@@ -1503,7 +1530,7 @@ func (c *Commands) userReport(ctx context.Context, guild, user snowflake.ID, w c
 		last = fmt.Sprintf("<t:%d:R>", s.LastHeard.Unix())
 	}
 	top := max(s.Heard, s.Triggered, s.Fled)
-	col := c.sounds.Collection(heard, voice.AgeRestrictedGuild(c.client, guild))
+	col := c.sounds.Collection(heard, c.settings.Get(guild).NSFW.Allows(voice.AgeRestrictedGuild(c.client, guild)))
 	rt := rankText(standings, of)
 	meters := []string{
 		meter("caught", frac(s.Heard, top), plural(s.Heard, "time", "times")),

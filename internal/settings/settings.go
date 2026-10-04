@@ -19,6 +19,30 @@ type Settings struct {
 	Suspense int
 	FakeOut  int
 	Encore   int
+	NSFW     NSFW
+}
+
+// NSFW is where a guild's nsfw sounds may play.
+type NSFW string
+
+const (
+	NSFWOff        NSFW = "off"
+	NSFWRestricted NSFW = "restricted" // only where Discord has age-restricted the server or the channel
+	NSFWOn         NSFW = "on"         // anywhere: the guild's admins have taken that on themselves
+)
+
+// Allows reports whether nsfw sounds may play in a channel, given whether Discord has it
+// age-restricted, itself or by its server. Unset is restricted, what a guild had before it could
+// choose.
+func (n NSFW) Allows(labelled bool) bool {
+	switch n {
+	case NSFWOff:
+		return false
+	case NSFWOn:
+		return true
+	case NSFWRestricted:
+	}
+	return labelled
 }
 
 type Store struct {
@@ -36,7 +60,7 @@ func (s *Store) Load(ctx context.Context) error {
 	}
 	m := make(map[snowflake.ID]Settings, len(rows))
 	for _, r := range rows {
-		m[r.Guild] = Settings{Chance: r.Chance, TZ: r.TZ, Suspense: r.Suspense, FakeOut: r.FakeOut, Encore: r.Encore}
+		m[r.Guild] = Settings{Chance: r.Chance, TZ: r.TZ, Suspense: r.Suspense, FakeOut: r.FakeOut, Encore: r.Encore, NSFW: NSFW(r.NSFW)}
 	}
 	s.mu.Lock()
 	s.m = m
@@ -77,7 +101,10 @@ func (s *Store) Configured() map[snowflake.ID]Settings {
 func (s *Store) Update(ctx context.Context, guild, by snowflake.ID, fn func(*Settings)) (Settings, error) {
 	next := s.Get(guild)
 	fn(&next)
-	if err := s.db.UpsertSettings(ctx, store.Settings{Guild: guild, Chance: next.Chance, TZ: next.TZ, Suspense: next.Suspense, FakeOut: next.FakeOut, Encore: next.Encore, UpdatedBy: by}); err != nil {
+	if next.NSFW == "" {
+		next.NSFW = NSFWRestricted // a guild without a row yet; the column refuses an empty mode
+	}
+	if err := s.db.UpsertSettings(ctx, store.Settings{Guild: guild, Chance: next.Chance, TZ: next.TZ, Suspense: next.Suspense, FakeOut: next.FakeOut, Encore: next.Encore, NSFW: string(next.NSFW), UpdatedBy: by}); err != nil {
 		return next, err
 	}
 	s.mu.Lock()

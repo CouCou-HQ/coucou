@@ -65,6 +65,7 @@ type GuildsSetting struct {
 	UpdatedBy  *int64
 	Fakeout    int16
 	Encore     int16
+	Nsfw       string
 }
 
 type StatsListen struct {

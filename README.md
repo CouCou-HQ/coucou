@@ -42,7 +42,7 @@ before anyone can react. Then everybody blames each other.
 | 🔁 **Encores** | Comes back for a second sound, and a sound can name what follows it. |
 | ⛓️ **Chains** | *Knock knock… who's there… rimshot*, all in one visit. |
 | ✨ **Rares** | A tenth as often, never on request, and collected in `/stats`. |
-| 🔞 **18+ sounds** | Only in voice channels Discord has labelled age-restricted. |
+| 🔞 **18+ sounds** | Where Discord has age-restricted the server or channel, or wherever a server's admins choose with `/nsfw`. |
 | 📊 **Stats** | Charts, heatmaps and leaderboards of who suffers most. |
 | 🙈 **Escape hatches** | `/optout` for a person, `/quiet` for a server, both on a schedule if you like. |
 

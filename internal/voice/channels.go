@@ -33,8 +33,19 @@ func Humans(c *bot.Client, guild, channel snowflake.ID) []snowflake.ID {
 	return out
 }
 
-// AgeRestrictedGuild reports whether the server has a voice channel nsfw sounds may play in.
+// AgeRestrictedServer reports whether Discord has the whole server age-restricted. EXPLICIT counts
+// too: it is the other level that marks a server's content as adult, where DEFAULT and SAFE do not.
+func AgeRestrictedServer(c *bot.Client, guild snowflake.ID) bool {
+	g, ok := c.Caches.Guild(guild)
+	return ok && (g.NSFWLevel == discord.NSFWLevelAgeRestricted || g.NSFWLevel == discord.NSFWLevelExplicit)
+}
+
+// AgeRestrictedGuild reports whether the server has anywhere age-restricted for nsfw sounds: the
+// whole server, or at least one voice channel.
 func AgeRestrictedGuild(c *bot.Client, guild snowflake.ID) bool {
+	if AgeRestrictedServer(c, guild) {
+		return true
+	}
 	for ch := range c.Caches.ChannelsForGuild(guild) {
 		if ageRestricted(ch) {
 			return true
@@ -43,10 +54,12 @@ func AgeRestrictedGuild(c *bot.Client, guild snowflake.ID) bool {
 	return false
 }
 
-// AgeRestricted reports whether nsfw sounds may play in channel: Discord's age-restricted label on
-// the channel, the one place its rules put adult content, so there is no setting of the bot's own to
-// forget. The server's own level does not matter, as it does not to Discord.
-func AgeRestricted(c *bot.Client, channel snowflake.ID) bool {
+// AgeRestricted reports whether Discord has channel age-restricted: the whole server is, which
+// covers every channel in it, or the channel itself carries the label.
+func AgeRestricted(c *bot.Client, guild, channel snowflake.ID) bool {
+	if AgeRestrictedServer(c, guild) {
+		return true
+	}
 	ch, ok := c.Caches.Channel(channel)
 	return ok && ageRestricted(ch)
 }

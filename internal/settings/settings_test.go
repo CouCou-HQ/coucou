@@ -109,3 +109,24 @@ func TestLocaleZonesAreValid(t *testing.T) {
 		}
 	}
 }
+
+// Off and on ignore Discord's labels; restricted, and a guild that never chose, follow them.
+func TestNSFWAllows(t *testing.T) {
+	tests := []struct {
+		mode     NSFW
+		labelled bool
+		want     bool
+	}{
+		{NSFWOff, true, false},
+		{NSFWOn, false, true},
+		{NSFWRestricted, true, true},
+		{NSFWRestricted, false, false},
+		{"", true, true},
+		{"", false, false},
+	}
+	for _, tt := range tests {
+		if got := tt.mode.Allows(tt.labelled); got != tt.want {
+			t.Errorf("%q.Allows(%v) = %v, want %v", tt.mode, tt.labelled, got, tt.want)
+		}
+	}
+}

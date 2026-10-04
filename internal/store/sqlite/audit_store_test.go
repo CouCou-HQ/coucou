@@ -74,27 +74,33 @@ func TestSettingsAreAudited(t *testing.T) {
 	ctx := context.Background()
 
 	for _, st := range []store.Settings{
-		{Guild: 100, Chance: 5, TZ: new(tzBrussels)},                              // seeded by the bot
-		{Guild: 100, Chance: 5, TZ: new(tzBrussels)},                              // the same row again
-		{Guild: 100, Chance: 40, Suspense: 3, TZ: new(tzBrussels), UpdatedBy: 42}, // a human
+		{Guild: 100, Chance: 5, TZ: new(tzBrussels), NSFW: nsfwOnly},                              // seeded by the bot
+		{Guild: 100, Chance: 5, TZ: new(tzBrussels), NSFW: nsfwOnly},                              // the same row again
+		{Guild: 100, Chance: 40, Suspense: 3, TZ: new(tzBrussels), NSFW: nsfwOnly, UpdatedBy: 42}, // a human
+		{Guild: 100, Chance: 40, Suspense: 3, TZ: new(tzBrussels), NSFW: nsfwOn, UpdatedBy: 43},   // /nsfw on, by whom
 	} {
 		if err := s.UpsertSettings(ctx, st); err != nil {
 			t.Fatalf("upsert %+v: %v", st, err)
 		}
 	}
 
-	// Two records, not three: rewriting a row with the values it already had is not a change.
+	// Three records, not four: rewriting a row with the values it already had is not a change. The
+	// last is who turned 18+ sounds on everywhere, which is the record /nsfw on owes the server.
 	want := []logRow{
 		{Schema: schemaGuilds, Table: tableSettings, Op: opInsert, PkColumn: colGuildID, Pk: 100, By: nil, Change: map[string]map[string]any{
 			colJoinChance: moved(nil, float64(5)),
 			colSuspense:   moved(nil, float64(0)),
 			colFakeOut:    moved(nil, float64(0)),
 			colEncore:     moved(nil, float64(0)),
+			colNSFW:       moved(nil, nsfwOnly),
 			colTZ:         moved(nil, tzBrussels),
 		}},
 		{Schema: schemaGuilds, Table: tableSettings, Op: opUpdate, PkColumn: colGuildID, Pk: 100, By: id(42), Change: map[string]map[string]any{
 			colJoinChance: moved(float64(5), float64(40)),
 			colSuspense:   moved(float64(0), float64(3)),
+		}},
+		{Schema: schemaGuilds, Table: tableSettings, Op: opUpdate, PkColumn: colGuildID, Pk: 100, By: id(43), Change: map[string]map[string]any{
+			colNSFW: moved(nsfwOnly, nsfwOn),
 		}},
 	}
 	if got := logs(t, ps); !reflect.DeepEqual(got, want) {

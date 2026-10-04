@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"time"
 
 	dbot "github.com/disgoorg/disgo/bot"
@@ -226,7 +227,7 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	}
 	// The player is built before the two things that use it — the loop and /play — because it is
 	// the shared cap on simultaneous voice connections, not a per-caller one.
-	player := bot.NewPlayer(client, reg, quiet, opt, eb)
+	player := bot.NewPlayer(client, reg, set, quiet, opt, eb)
 	// /play hands off rather than calling straight through: a full pool makes the caller wait, and
 	// the caller here is a gateway handler.
 	//
@@ -258,12 +259,8 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	// everything else. Interactions are the exception and stay synchronous — three seconds is not
 	// enough for a delivery that retries.
 	gw := bot.NewGateway()
-	client.AddEventListeners(append(append(gw.Listeners(), bot.VoiceMembers()...),
-		ready.OnReady(),
-		pulse.OnHeartbeatAck(),
-		cmds.OnCommand(),
-		cmds.OnAutocomplete(),
-	)...)
+	client.AddEventListeners(slices.Concat(gw.Listeners(), bot.VoiceMembers(), cmds.Listeners(),
+		[]dbot.EventListener{ready.OnReady(), pulse.OnHeartbeatAck()})...)
 
 	// And everything going the other way. The two blocks together are every edge of the system:
 	// gateway in above, bus out below.

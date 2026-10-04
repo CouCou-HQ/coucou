@@ -9,6 +9,7 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/profile"
+	"github.com/be-sandaa/coucou/internal/settings"
 )
 
 // embedDescriptionLimit is Discord's cap on an embed description. Past it the whole message is
@@ -19,7 +20,7 @@ func helpEmbeds(friends []discord.Embed) []discord.Embed {
 	return fitHelp([]discord.Embed{
 		info("The Bot", commandList()),
 		info("Keeping the bot out", helpLimits),
-		info("Sounds", helpSounds+"\n\n"+adultHelp(false)),
+		info("Sounds", helpSounds+"\n\n"+adultHelp(settings.NSFWRestricted, false)+"\n"+helpNSFW),
 	}, friends)
 }
 

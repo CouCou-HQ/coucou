@@ -62,6 +62,7 @@ type GuildsSetting struct {
 	UpdatedBy  *int64  `json:"updated_by"`
 	Fakeout    int64   `json:"fakeout"`
 	Encore     int64   `json:"encore"`
+	Nsfw       string  `json:"nsfw"`
 }
 
 type StatsPlay struct {

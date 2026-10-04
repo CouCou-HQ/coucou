@@ -29,6 +29,7 @@ import (
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/metrics"
 	"github.com/be-sandaa/coucou/internal/profile"
+	"github.com/be-sandaa/coucou/internal/settings"
 	"github.com/be-sandaa/coucou/internal/silence"
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/tracing"
@@ -163,7 +164,7 @@ func Ready(c *bot.Client) bool {
 // with Bus.Close's drain are exactly what a play needs, and none of that was ever about delivery.
 // b is also where PlayFinished goes, which is the only part of a play that is still an event. set and
 // quiet and opt are what an encore checks again before it comes back.
-func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
+func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, quiet, opt *silence.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
 	const concurrency = 8
 
 	var player func(context.Context, *PlayRequest) error
@@ -188,7 +189,7 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, quiet, opt *silence.Store, b
 		metrics.VoiceActive.Inc()
 		defer metrics.VoiceActive.Dec()
 
-		nsfw := voice.AgeRestricted(c, e.Channel)
+		nsfw := set.Get(e.Guild).NSFW.Allows(voice.AgeRestricted(c, e.Guild, e.Channel))
 		sound := e.Sound
 		if sound == "" {
 			var ok bool

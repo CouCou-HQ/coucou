@@ -10,7 +10,7 @@ import (
 )
 
 const listSettings = `-- name: ListSettings :many
-select guild_id, join_chance, tz, suspense, fakeout, encore
+select guild_id, join_chance, tz, suspense, fakeout, encore, nsfw
 from guilds.settings
 `
 
@@ -21,6 +21,7 @@ type ListSettingsRow struct {
 	Suspense   int16
 	Fakeout    int16
 	Encore     int16
+	Nsfw       string
 }
 
 func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
@@ -39,6 +40,7 @@ func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
 			&i.Suspense,
 			&i.Fakeout,
 			&i.Encore,
+			&i.Nsfw,
 		); err != nil {
 			return nil, err
 		}
@@ -51,14 +53,15 @@ func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
 }
 
 const upsertSettings = `-- name: UpsertSettings :exec
-insert into guilds.settings (guild_id, join_chance, tz, suspense, fakeout, encore, updated_by)
-values ($1, $2, $3, $4, $5, $6, nullif($7::bigint, 0))
+insert into guilds.settings (guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, updated_by)
+values ($1, $2, $3, $4, $5, $6, $7, nullif($8::bigint, 0))
 on conflict (guild_id) do update set
   join_chance = excluded.join_chance,
   tz          = excluded.tz,
   suspense    = excluded.suspense,
   fakeout     = excluded.fakeout,
   encore      = excluded.encore,
+  nsfw        = excluded.nsfw,
   updated_by  = excluded.updated_by,
   updated_at  = now()
 `
@@ -70,6 +73,7 @@ type UpsertSettingsParams struct {
 	Suspense   int16
 	Fakeout    int16
 	Encore     int16
+	Nsfw       string
 	UpdatedBy  int64
 }
 
@@ -83,6 +87,7 @@ func (q *Queries) UpsertSettings(ctx context.Context, arg UpsertSettingsParams) 
 		arg.Suspense,
 		arg.Fakeout,
 		arg.Encore,
+		arg.Nsfw,
 		arg.UpdatedBy,
 	)
 	return err
