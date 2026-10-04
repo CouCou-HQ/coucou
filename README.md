@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26"></a>
-  <a href="https://github.com/be-sandaa/coucou/releases/latest"><img src="https://img.shields.io/badge/release-v0.2.0-E4572E" alt="release v0.2.0"></a>
+  <a href="https://github.com/be-sandaa/coucou/releases/latest"><img src="https://img.shields.io/badge/release-v0.3.0-E4572E" alt="release v0.3.0"></a>
   <a href="https://github.com/be-sandaa/coucou/pkgs/container/coucou"><img src="https://img.shields.io/badge/image-ghcr.io%2Fbe-sandaa%2Fcoucou-2496ED?logo=docker&logoColor=white" alt="image ghcr.io/be-sandaa/coucou"></a>
   <a href="docs/wiki/dev/Architecture.md#memory"><img src="https://img.shields.io/badge/RSS%20target-25%20MB%20%40%201.6k%20guilds-4E5058" alt="RSS target 25 MB at 1.6k guilds"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-F2B705" alt="MIT license"></a>
@@ -82,7 +82,7 @@ docker run --rm \
   -e DATABASE_URL=sqlite:///var/lib/coucou/coucou.db \
   -v coucou-data:/var/lib/coucou \
   -v "$PWD/profile:/var/lib/coucou/profile:ro" \
-  ghcr.io/be-sandaa/coucou:0.2.0
+  ghcr.io/be-sandaa/coucou:0.3.0
 ```
 
 That needs a Discord application and a profile folder first; [Running the bot](docs/wiki/guide/Running-the-bot.md)
