@@ -11,6 +11,11 @@ updates:
     labels:
       - "dependencies"
       - "go"
+    groups:
+      # Released together and required at one version: one PR, not four.
+      otel:
+        patterns:
+          - "go.opentelemetry.io/*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
