@@ -30,7 +30,6 @@ const (
 	avatarRateLimited = "AVATAR_RATE_LIMIT"
 	// ponytail: polled, since Discord sends no event when another bot's avatar changes.
 	appAvatarRefresh = time.Hour
-	appAvatarSize    = 512
 	maxAvatarBytes   = 10 << 20
 )
 
@@ -99,11 +98,11 @@ type appAvatar struct {
 	icon *discord.Icon
 }
 
-// downloadAvatar is a static PNG even of an animated avatar. Not User.AvatarURL: for an a_ hash it
-// returns the GIF whatever format is asked, and that runs to megabytes.
+// downloadAvatar is the file as uploaded, a GIF for an animated avatar. No size: any size is a
+// re-encode, and an upscaled GIF runs to megabytes where the original is a few hundred KB.
 func downloadAvatar(ctx context.Context, user snowflake.ID, hash string) (*discord.Icon, error) {
-	url := fmt.Sprintf("%s/avatars/%s/%s.png?size=%d", discord.CDN, user, hash, appAvatarSize)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	url := discord.User{ID: user, Avatar: &hash}.AvatarURL()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, *url, nil)
 	if err != nil {
 		return nil, err
 	}

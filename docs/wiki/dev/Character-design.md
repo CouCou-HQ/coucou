@@ -64,7 +64,7 @@ The embed accent (`color`) on replies is the default character's. Status is acco
 is the default character's too. Everything else a reply shows comes from the server's character.
 
 `avatar.png` beside `profile.toml` is the per-server avatar. Without it, a character with an
-`application_id` other than the bot's own wears that bot's avatar, as a static PNG, checked again
+`application_id` other than the bot's own wears that bot's avatar, animated ones as the GIF, checked again
 every hour. Without either, the server shows the bot's own avatar.
 
 ## Per server
