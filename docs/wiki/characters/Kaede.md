@@ -18,4 +18,4 @@ Kaede is the loudest person in the esports room and the worst liar on campus. Sh
 |---|---|---|
 | `kaede` | 🎮 in ranked. Don't talk to me. | `#E2492F` |
 
-**[Add Kaede to your server](https://discord.com/oauth2/authorize?client_id=1555574920900120767&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.
+**[Add Kaede to your server](https://discord.com/oauth2/authorize?client_id=1555574920900120767&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.

@@ -14,10 +14,11 @@ starts it. Get the binary or image first: see [Installation](Installation).
 4. Invite it with this link, putting in your application ID from **General Information**:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot+applications.commands&permissions=3146752
+   https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot+applications.commands&permissions=3165184
    ```
 
-   `3146752` is View Channels, Connect and Speak, which is everything the bot does.
+   `3165184` is View Channels, Connect and Speak to play, plus Send Messages and Embed Links for the
+   one introduction it posts when it joins a server.
 
 ## 2. Make the character and its sounds
 

@@ -30,7 +30,7 @@ body:
     attributes:
       label: Invite link
       description: The OAuth2 URL from your own Discord application.
-      placeholder: https://discord.com/oauth2/authorize?client_id=...&scope=bot+applications.commands&permissions=3146752
+      placeholder: https://discord.com/oauth2/authorize?client_id=...&scope=bot+applications.commands&permissions=3165184
     validations:
       required: true
 
