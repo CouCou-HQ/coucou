@@ -11,6 +11,8 @@ The same binary runs coucou with every character and each character as its own b
 The bots the maintainer of this repository runs. Data requests for these go through the
 [Remove my data](https://github.com/be-sandaa/coucou/issues/new?template=remove_my_data.yml) issue;
 any other bot built on coucou is run by someone else, and only they can reach its data.
+Who they are: CouCou and the [characters](../characters/README.md) she becomes, and the
+[standalone bots](../standalone/README.md).
 
 | Bot | ID |
 |---|---|

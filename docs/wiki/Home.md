@@ -14,7 +14,8 @@ sounds, and coucou is what runs it.
 
 ## Characters
 
-- **[Characters](characters/README.md)**: the characters run from here, each in short.
+- **[Characters](characters/README.md)**: who CouCou, the bot run from here, can become.
+- **[Standalone bots](standalone/README.md)**: the bots run from here only as themselves.
 
 ## Reference
 
