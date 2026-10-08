@@ -1,8 +1,8 @@
 # 🕶️ Proxy
 
-![Proxy's banner](../../assets/characters/proxy/banner.webp)
+![Proxy's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/proxy/banner.webp)
 
-<img src="../../assets/characters/proxy/profile.webp" alt="Proxy" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/proxy/profile.webp" alt="Proxy" width="128" align="right">
 
 > You didn't see me. A privacy engineer slips into your voice channel, warns you about your password, and vanishes without a trace.
 

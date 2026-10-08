@@ -1,8 +1,8 @@
 # 🍺 Lorelei
 
-![Lorelei's banner](../../assets/characters/lorelei/banner.webp)
+![Lorelei's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/lorelei/banner.webp)
 
-<img src="../../assets/characters/lorelei/profile.webp" alt="Lorelei" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/lorelei/profile.webp" alt="Lorelei" width="128" align="right">
 
 > Servus, Schatzi! Lorelei drops into your busiest voice channel with a cheeky line or sound, then leaves you blushing.
 

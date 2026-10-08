@@ -1,8 +1,8 @@
 # 💼 Sloane
 
-![Sloane's banner](../../assets/characters/sloane/banner.webp)
+![Sloane's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/sloane/banner.webp)
 
-<img src="../../assets/characters/sloane/profile.webp" alt="Sloane" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/sloane/profile.webp" alt="Sloane" width="128" align="right">
 
 > Let's make a deal. A New York exec takes a call in your voice channel, names her price, and leaves you wanting to sign.
 

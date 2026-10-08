@@ -1,8 +1,8 @@
 # 😳 Moan
 
-![Moan's banner](../../assets/standalone/moan/banner.webp)
+![Moan's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/standalone/moan/banner.webp)
 
-<img src="../../assets/standalone/moan/profile.webp" alt="Moan" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/standalone/moan/profile.webp" alt="Moan" width="128" align="right">
 
 > Drops into your busiest voice channel, lets out one very unfortunate moan, and vanishes before anyone can explain it.
 

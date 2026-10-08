@@ -8,7 +8,7 @@
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26"></a>
   <a href="https://github.com/be-sandaa/coucou/releases/latest"><img src="https://img.shields.io/badge/release-v0.4.2-E4572E" alt="release v0.4.2"></a>
   <a href="https://github.com/be-sandaa/coucou/pkgs/container/coucou"><img src="https://img.shields.io/badge/image-ghcr.io%2Fbe-sandaa%2Fcoucou-2496ED?logo=docker&logoColor=white" alt="image ghcr.io/be-sandaa/coucou"></a>
-  <a href="docs/wiki/dev/Architecture.md#memory"><img src="https://img.shields.io/badge/RSS%20target-25%20MB%20%40%201.6k%20guilds-4E5058" alt="RSS target 25 MB at 1.6k guilds"></a>
+  <a href="https://github.com/be-sandaa/coucou/wiki/Architecture#memory"><img src="https://img.shields.io/badge/RSS%20target-25%20MB%20%40%201.6k%20guilds-4E5058" alt="RSS target 25 MB at 1.6k guilds"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-F2B705" alt="MIT license"></a>
 </p>
 
@@ -57,11 +57,11 @@ she drops into your voice channel as them.
 
 Each server picks who she becomes with `/character`: a florist who asks who you were talking to, a
 tsundere who insults your aim, a beer-garden waitress with two Maß in each hand, a privacy engineer
-who warns you about your password… → [all of them](docs/wiki/characters/README.md). Want more than one
+who warns you about your password… → [all of them](https://github.com/be-sandaa/coucou/wiki/Characters). Want more than one
 in the same server? Each also runs as a bot of its own, and a couple, like Gus 💨, only ever run as
-themselves → [standalone bots](docs/wiki/standalone/README.md).
+themselves → [standalone bots](https://github.com/be-sandaa/coucou/wiki/Standalone-bots).
 
-**[Add CouCou to your server](https://discord.com/oauth2/authorize?client_id=1557651122460557384&scope=bot+applications.commands&permissions=3146752)**, or any character on her own from [her page](docs/wiki/characters/README.md).
+**[Add CouCou to your server](https://discord.com/oauth2/authorize?client_id=1557651122460557384&scope=bot+applications.commands&permissions=3146752)**, or any character on her own from [her page](https://github.com/be-sandaa/coucou/wiki/Characters).
 
 A few things she will not tell you:
 
@@ -75,11 +75,11 @@ The project, coucou, isn't a character; CouCou is just the one run from here. Gi
 Discord app, your sounds.
 
 1. **Write the character.** A `profile.toml`: a name, an emoji, a status, lore for `/about`, and how
-   a server starts out. → [Profile](docs/wiki/reference/Profile.md)
+   a server starts out. → [Profile](https://github.com/be-sandaa/coucou/wiki/Profile)
 2. **Make the sounds.** `scripts/sound ~/Downloads/noises/` encodes a folder of clips and names them
-   for you. → [Sounds](docs/wiki/reference/Sounds.md)
+   for you. → [Sounds](https://github.com/be-sandaa/coucou/wiki/Sounds)
 3. **Run it.** A release binary, the container image, Compose or the Helm chart, with a token from
-   your own Discord application. → [Installation](docs/wiki/guide/Installation.md)
+   your own Discord application. → [Installation](https://github.com/be-sandaa/coucou/wiki/Installation)
 4. **Get it listed.** Open a [**List my bot**](https://github.com/be-sandaa/coucou/issues/new?template=list_my_bot.yml)
    issue and it joins the table below.
 
@@ -91,8 +91,8 @@ follows Discord's [Terms of Service](https://discord.com/terms) and
 
 | Bot | What it does | Maintainer | |
 |---|---|---|---|
-| 💨 [Gus](docs/wiki/standalone/Gus.md) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=3146752) |
-| 😳 [Moan](docs/wiki/standalone/Moan.md) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=3146752) |
+| 💨 [Gus](https://github.com/be-sandaa/coucou/wiki/Gus) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=3146752) |
+| 😳 [Moan](https://github.com/be-sandaa/coucou/wiki/Moan) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=3146752) |
 | *yours here* | | | |
 
 ## 🚀 Quick start
@@ -106,22 +106,22 @@ docker run --rm \
   ghcr.io/be-sandaa/coucou:0.4.2
 ```
 
-That needs a Discord application and a profile folder first; [Running the bot](docs/wiki/guide/Running-the-bot.md)
+That needs a Discord application and a profile folder first; [Running the bot](https://github.com/be-sandaa/coucou/wiki/Running-the-bot)
 walks through both in three steps.
 
 ## 📚 Documentation
 
 | | Page | For |
 |---|---|---|
-| 📦 | [Installation](docs/wiki/guide/Installation.md) | binary, systemd, container, Compose, Helm |
-| ▶️ | [Running the bot](docs/wiki/guide/Running-the-bot.md) | the Discord app, sounds, first start, "is it working?" |
-| ⚙️ | [Configuration](docs/wiki/reference/Configuration.md) | every key in `config.toml` |
-| 🪞 | [Characters](docs/wiki/characters/README.md) | who CouCou can become, and the standalone bots |
-| 🎭 | [Profile](docs/wiki/reference/Profile.md) | the character, its status, defaults, chains and links |
-| 🔊 | [Sounds](docs/wiki/reference/Sounds.md) | encoding, naming, tags, sound emojis |
-| 💬 | [Commands](docs/wiki/reference/Commands.md) | every slash command and who may run it |
-| 🛠️ | [Development](docs/wiki/dev/Development.md) | building, testing, the image |
-| 🧭 | [Architecture](docs/wiki/dev/Architecture.md) | how a play happens, the database, the bus, memory |
+| 📦 | [Installation](https://github.com/be-sandaa/coucou/wiki/Installation) | binary, systemd, container, Compose, Helm |
+| ▶️ | [Running the bot](https://github.com/be-sandaa/coucou/wiki/Running-the-bot) | the Discord app, sounds, first start, "is it working?" |
+| ⚙️ | [Configuration](https://github.com/be-sandaa/coucou/wiki/Configuration) | every key in `config.toml` |
+| 🪞 | [Characters](https://github.com/be-sandaa/coucou/wiki/Characters) | who CouCou can become, and the standalone bots |
+| 🎭 | [Profile](https://github.com/be-sandaa/coucou/wiki/Profile) | the character, its status, defaults, chains and links |
+| 🔊 | [Sounds](https://github.com/be-sandaa/coucou/wiki/Sounds) | encoding, naming, tags, sound emojis |
+| 💬 | [Commands](https://github.com/be-sandaa/coucou/wiki/Commands) | every slash command and who may run it |
+| 🛠️ | [Development](https://github.com/be-sandaa/coucou/wiki/Development) | building, testing, the image |
+| 🧭 | [Architecture](https://github.com/be-sandaa/coucou/wiki/Architecture) | how a play happens, the database, the bus, memory |
 
 ## 🛠️ Hacking on it
 
@@ -132,7 +132,7 @@ make help    # everything else
 ```
 
 Go 1.26, no CGO, both SQLite and PostgreSQL in one binary. Start with
-[Architecture](docs/wiki/dev/Architecture.md), and [CONTRIBUTING.md](CONTRIBUTING.md) before a PR.
+[Architecture](https://github.com/be-sandaa/coucou/wiki/Architecture), and [CONTRIBUTING.md](CONTRIBUTING.md) before a PR.
 
 ## 📄 License
 
