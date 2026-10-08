@@ -11,3 +11,5 @@ Gus is the weird uncle, in his 50s, give or take a decade. Gus as in *gas*. He t
 | Profile id | Status | Colour |
 |---|---|---|
 | `fart` | 💨 on your couch, eating your chips | `#8DB255` |
+
+**[Add Gus to your server](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=3146752)** as a bot of its own.

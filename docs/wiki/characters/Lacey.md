@@ -17,3 +17,5 @@ Lacey is a ranch girl from the Texas hill country in her mid 20s: sun-kissed, lo
 | Profile id | Status | Colour |
 |---|---|---|
 | `lacey` | 🤠 fixin' the fence, back by supper | `#3B6EA5` |
+
+**[Add Lacey to your server](https://discord.com/oauth2/authorize?client_id=1556024956297421002&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.

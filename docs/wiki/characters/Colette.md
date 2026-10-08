@@ -17,3 +17,5 @@ Colette is a Parisian in her early 20s, and her friends call her Coco, after her
 | Profile id | Status | Colour |
 |---|---|---|
 | `colette` | 💋 sipping an espresso, judging your outfit | `#D9467A` |
+
+**[Add Colette to your server](https://discord.com/oauth2/authorize?client_id=1555471582368108596&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.

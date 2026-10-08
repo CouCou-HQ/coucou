@@ -17,3 +17,5 @@ Aimi is a florist in her mid 20s with a sunny smile, a heart-shaped lunchbox and
 | Profile id | Status | Colour |
 |---|---|---|
 | `aimi` | 💌 waiting for you to come online | `#A8326E` |
+
+**[Add Aimi to your server](https://discord.com/oauth2/authorize?client_id=1556017620321439744&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.

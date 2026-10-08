@@ -17,3 +17,5 @@ Lenore is mid 20s, goth, and she can barely be bothered with you, and she'd like
 | Profile id | Status | Colour |
 |---|---|---|
 | `lenore` | 🖤 ignoring you, on purpose | `#4A3B5C` |
+
+**[Add Lenore to your server](https://discord.com/oauth2/authorize?client_id=1555149085244260382&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.

@@ -17,3 +17,5 @@ Penny is the quietest person on campus and its most scandalous author. She's a P
 | Profile id | Status | Colour |
 |---|---|---|
 | `penny` | 📚 on the night desk. Shh. | `#B5655A` |
+
+**[Add Penny to your server](https://discord.com/oauth2/authorize?client_id=1555574159516504165&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.

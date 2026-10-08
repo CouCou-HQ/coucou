@@ -61,6 +61,8 @@ who warns you about your password… → [all of them](docs/wiki/characters/READ
 in the same server? Each also runs as a bot of its own, and a couple, like Gus 💨, only ever run as
 themselves → [standalone bots](docs/wiki/standalone/README.md).
 
+**[Add CouCou to your server](https://discord.com/oauth2/authorize?client_id=1557651122460557384&scope=bot+applications.commands&permissions=3146752)**, or any character on her own from [her page](docs/wiki/characters/README.md).
+
 A few things she will not tell you:
 
 - Her eyes are gold and violet. She claims they were both gold once, and won't say what happened.
@@ -89,8 +91,8 @@ follows Discord's [Terms of Service](https://discord.com/terms) and
 
 | Bot | What it does | Maintainer | |
 |---|---|---|---|
-| 💨 [Gus](docs/wiki/standalone/Gus.md) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | |
-| 😳 [Moan](docs/wiki/standalone/Moan.md) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | |
+| 💨 [Gus](docs/wiki/standalone/Gus.md) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=3146752) |
+| 😳 [Moan](docs/wiki/standalone/Moan.md) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=3146752) |
 | *yours here* | | | |
 
 ## 🚀 Quick start
