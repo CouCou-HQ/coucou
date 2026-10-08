@@ -4,6 +4,8 @@ package events
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -52,11 +54,13 @@ const (
 )
 
 type Log struct {
-	db    store.Store
-	mu    sync.Mutex
-	plays []store.Play
-	misc  []store.Misc
-	kick  chan struct{}
+	db store.Store
+	mu sync.Mutex
+	// flushing holds a flush and a Forget apart, so a batch in flight cannot land after a Forget.
+	flushing sync.Mutex
+	plays    []store.Play
+	misc     []store.Misc
+	kick     chan struct{}
 }
 
 func New(db store.Store) *Log { return &Log{db: db, kick: make(chan struct{}, 1)} }
@@ -157,25 +161,48 @@ func (l *Log) Run(ctx context.Context) {
 }
 
 func (l *Log) Flush(ctx context.Context) {
+	l.flushing.Lock()
+	defer l.flushing.Unlock()
+	if err := l.flush(ctx); err != nil {
+		slog.Error("events: flush failed, re-queueing", slog.Any("err", err))
+	}
+}
+
+// Forget takes u out of everything stored. The buffer is written first, so nothing recorded before
+// it reaches the database after; a buffer that cannot be written fails it rather than leaving rows
+// naming u to land later.
+func (l *Log) Forget(ctx context.Context, u snowflake.ID) error {
+	l.flushing.Lock()
+	defer l.flushing.Unlock()
+	if err := l.flush(ctx); err != nil {
+		return err
+	}
+	return l.db.Forget(ctx, u)
+}
+
+func (l *Log) flush(ctx context.Context) error {
 	l.mu.Lock()
 	plays, misc := l.plays, l.misc
 	l.plays, l.misc = nil, nil
 	l.mu.Unlock()
 	if len(plays) == 0 && len(misc) == 0 {
-		return
+		return nil
 	}
-	if err := l.db.WritePlays(ctx, plays); err != nil {
-		slog.Error("events: plays flush failed, re-queueing", slog.Int("n", len(plays)), slog.Any("err", err))
+	perr := l.db.WritePlays(ctx, plays)
+	if perr != nil {
+		perr = fmt.Errorf("write %d plays: %w", len(plays), perr)
 		l.mu.Lock()
 		l.plays = newest(append(plays, l.plays...))
 		l.mu.Unlock()
 	}
-	if err := l.db.WriteMisc(ctx, misc); err != nil {
-		slog.Error("events: misc flush failed, re-queueing", slog.Int("n", len(misc)), slog.Any("err", err))
+	merr := l.db.WriteMisc(ctx, misc)
+	if merr != nil {
+		merr = fmt.Errorf("write %d misc: %w", len(misc), merr)
 		l.mu.Lock()
 		l.misc = newest(append(misc, l.misc...))
 		l.mu.Unlock()
 	}
+	return errors.Join(perr, merr)
 }
 
 // newest holds a re-queued batch to maxBuffer. Without it every failed flush adds whatever arrived

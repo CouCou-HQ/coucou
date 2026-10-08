@@ -8,6 +8,7 @@
 | `/help` | anyone | the command list, and which switch actually keeps the bot out |
 | `/about` | anyone | who the bot is: its tagline, lore and traits from the profile (only you see it) |
 | `/optout on\|for\|schedule\|rrule\|off` | anyone, per person | stop being counted when the bot picks a channel: indefinitely, `for <hours>`, or on a repeating `schedule` (an RFC 5545 rule, typed directly with `rrule`) |
+| `/forget` | anyone, per person | erase what the bot has recorded about you, in every server, after a confirmation: your listens, flees, collection and leaderboard places go, plays you started stay in the server totals with no one named, and a live `/optout` is kept |
 | `/chance <0-100>` | Manage Server | odds of a drop-in every 5 minutes (0 = never) |
 | `/quiet on\|for\|schedule\|rrule\|off` | Manage Server | leave the server alone: indefinitely, `for <hours>`, or on a repeating `schedule` — the same shapes as `/optout` |
 | `/suspense <0-20>` | Manage Server | seconds of silence before the sound |

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/disgoorg/snowflake/v2"
+
 	"github.com/be-sandaa/coucou/internal/store"
 )
 
@@ -43,5 +45,20 @@ func TestFailedFlushKeepsTheBufferCapped(t *testing.T) {
 
 	if plays, misc := l.Buffered(); plays != maxBuffer || misc != maxBuffer {
 		t.Fatalf("Buffered() = %d plays, %d misc; want both capped at %d", plays, misc, maxBuffer)
+	}
+}
+
+// A row recorded before /forget is written before the erase, or it would land afterwards still
+// naming the user.
+func TestForgetFlushesFirst(t *testing.T) {
+	c := &capture{}
+	l := New(c)
+	u := snowflake.ID(42)
+	l.Record(Misc{At: time.Now(), Kind: kindCommand, User: &u})
+	if err := l.Forget(context.Background(), u); err != nil {
+		t.Fatalf("Forget: %v", err)
+	}
+	if c.writtenAtForget != 1 {
+		t.Errorf("%d rows written when Forget reached the store, want 1", c.writtenAtForget)
 	}
 }

@@ -301,6 +301,24 @@ func (s *Store) ClearOptOut(ctx context.Context, user snowflake.ID) error {
 	return s.q.CloseOptOut(ctx, gen.CloseOptOutParams{UserID: i64(user), DisabledAt: &now})
 }
 
+// Forget takes user out of everything recorded, in one transaction.
+func (s *Store) Forget(ctx context.Context, user snowflake.ID) error {
+	u, now := i64(user), fmtT(time.Now())
+	return s.tx(ctx, func(q *gen.Queries) error {
+		for _, f := range []func(context.Context, int64) error{q.ForgetListens, q.ForgetOptOutLog, q.ForgetQuietBy, q.ForgetChaosBy} {
+			if err := f(ctx, u); err != nil {
+				return err
+			}
+		}
+		for _, f := range []func(context.Context, *int64) error{q.ForgetPlays, q.ForgetEvents, q.ForgetActor, q.ForgetSettingsBy} {
+			if err := f(ctx, &u); err != nil {
+				return err
+			}
+		}
+		return q.ForgetOptOutHistory(ctx, gen.ForgetOptOutHistoryParams{UserID: u, Now: &now})
+	})
+}
+
 func (s *Store) ListQuiet(ctx context.Context) ([]store.Silence, error) {
 	now := fmtT(time.Now())
 	rows, err := s.q.ListQuiet(ctx, &now)

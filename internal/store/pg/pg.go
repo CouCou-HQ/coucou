@@ -311,6 +311,30 @@ func (s *Store) ClearOptOut(ctx context.Context, user snowflake.ID) error {
 	return s.q.CloseOptOut(ctx, i64(user))
 }
 
+// Forget takes user out of everything recorded in one transaction, then recounts the rollups so
+// their stats drop them now rather than at the next refresh.
+func (s *Store) Forget(ctx context.Context, user snowflake.ID) error {
+	u := i64(user)
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		for _, f := range []func(context.Context, int64) error{q.ForgetListens, q.ForgetOptOutLog, q.ForgetQuietBy, q.ForgetChaosBy, q.ForgetOptOutHistory} {
+			if err := f(ctx, u); err != nil {
+				return err
+			}
+		}
+		for _, f := range []func(context.Context, *int64) error{q.ForgetPlays, q.ForgetEvents, q.ForgetActor, q.ForgetSettingsBy} {
+			if err := f(ctx, &u); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return s.RefreshAnalytics(ctx)
+}
+
 func (s *Store) ListQuiet(ctx context.Context) ([]store.Silence, error) {
 	rows, err := s.q.ListQuiet(ctx)
 	if err != nil {

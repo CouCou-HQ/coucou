@@ -197,6 +197,9 @@ type Store interface {
 	ListOptOuts(ctx context.Context) ([]Silence, error)
 	SetOptOut(ctx context.Context, o Silence) error
 	ClearOptOut(ctx context.Context, user snowflake.ID) error
+	// Forget removes user from every record: their listens go, plays they triggered and changes
+	// they made stay with no one named, and only a live opt-out of theirs is kept.
+	Forget(ctx context.Context, user snowflake.ID) error
 	ListQuiet(ctx context.Context) ([]Silence, error)
 	SetQuiet(ctx context.Context, q Silence) error
 	ClearQuiet(ctx context.Context, guild snowflake.ID) error

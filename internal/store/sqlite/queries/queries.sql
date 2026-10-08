@@ -365,3 +365,32 @@ from (
 group by x.hour
 having sum(x.heard) + sum(x.fled) + sum(x.triggered) > 0
 order by x.hour;
+
+-- /forget: see the postgres forget.sql for what each one keeps.
+
+-- name: ForgetListens :exec
+delete from stats_play_listeners where user_id = ?;
+
+-- name: ForgetPlays :exec
+update stats_plays set user_id = null where user_id = ?;
+
+-- name: ForgetEvents :exec
+update audit_events set user_id = null where user_id = ?;
+
+-- name: ForgetActor :exec
+update audit_logs set by = null where by = ?;
+
+-- name: ForgetOptOutLog :exec
+delete from audit_logs where table_name = 'optouts' and pk = ?;
+
+-- name: ForgetSettingsBy :exec
+update guilds_settings set updated_by = null where updated_by = ?;
+
+-- name: ForgetQuietBy :exec
+update guilds_quiet set created_by = 0 where created_by = ?;
+
+-- name: ForgetChaosBy :exec
+update guilds_chaos set created_by = 0 where created_by = ?;
+
+-- name: ForgetOptOutHistory :exec
+delete from users_optouts where user_id = sqlc.arg(user_id) and disabled_at <= sqlc.arg(now);

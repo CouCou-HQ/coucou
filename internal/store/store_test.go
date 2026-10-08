@@ -1278,3 +1278,65 @@ func TestCharacterPlays(t *testing.T) {
 		}
 	})
 }
+
+// Forget takes a user out of every per-user number while the server's own counts stand, and keeps
+// the opt-out that is still live.
+func TestForget(t *testing.T) {
+	run(t, "forget", func(t *testing.T, s store.Store) {
+		ctx := context.Background()
+		g, user, other := guildID(t), userID(t), userID(t)
+		at := time.Now().UTC()
+		seedForget(t, s, g, user, other, at)
+		before, err := s.GuildStats(ctx, g)
+		if err != nil {
+			t.Fatalf("GuildStats: %v", err)
+		}
+
+		if err := s.Forget(ctx, user); err != nil {
+			t.Fatalf("Forget: %v", err)
+		}
+
+		checkForgotten(t, s, g, user, other, at, before.PlaysAll)
+	})
+}
+
+// checkForgotten is TestForget's outcome: user gone from every per-user number, other and the
+// guild's play count untouched, and the live opt-out still there.
+func checkForgotten(t *testing.T, s store.Store, g, user, other snowflake.ID, at time.Time, plays int) {
+	t.Helper()
+	ctx := context.Background()
+	if got, err := s.UserStats(ctx, nil, user); err != nil || got != (store.UserStats{}) {
+		t.Errorf("forgotten user's stats: %+v, %v", got, err)
+	}
+	if got, err := s.UserHourly(ctx, nil, user, at.Add(-time.Hour)); err != nil || len(got) != 0 {
+		t.Errorf("forgotten user's hours: %+v, %v", got, err)
+	}
+	if got, err := s.UserStats(ctx, nil, other); err != nil || got.Heard != 2 {
+		t.Errorf("other user's stats: %+v, %v; want heard 2", got, err)
+	}
+	if after, err := s.GuildStats(ctx, g); err != nil || after.PlaysAll != plays {
+		t.Errorf("guild plays: %d after, %d before, %v", after.PlaysAll, plays, err)
+	}
+	if !has(t, s, user) {
+		t.Errorf("%s's live opt-out went with the rest", user)
+	}
+}
+
+// seedForget is a play user started and fled with other listening, one more they both heard, and
+// an opt-out set twice so a closed row sits behind the live one.
+func seedForget(t *testing.T, s store.Store, g, user, other snowflake.ID, at time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	if err := s.WritePlays(ctx, []store.Play{
+		{At: at, Guild: g, Channel: g + 1, Sound: "a", Trigger: trigCmd, User: &user, OK: true,
+			ListenerIDs: []snowflake.ID{user, other}, FledIDs: []snowflake.ID{user}},
+		{At: at, Guild: g, Channel: g + 1, Sound: "b", Trigger: trigLoop, OK: true, ListenerIDs: []snowflake.ID{user, other}},
+	}); err != nil {
+		t.Fatalf("WritePlays: %v", err)
+	}
+	for range 2 {
+		if err := s.SetOptOut(ctx, store.Silence{ID: user}); err != nil {
+			t.Fatalf("SetOptOut: %v", err)
+		}
+	}
+}

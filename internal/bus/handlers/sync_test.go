@@ -92,6 +92,7 @@ func (f *fakeStore) TopGuilds(context.Context, int) ([]store.Row, error) { retur
 func (f *fakeStore) CharacterPlays(context.Context, *snowflake.ID) ([]store.Row, error) {
 	return nil, nil
 }
+func (*fakeStore) Forget(context.Context, snowflake.ID) error { return nil }
 func (*fakeStore) UserRank(context.Context, snowflake.ID, snowflake.ID, time.Time) (store.UserRank, error) {
 	return store.UserRank{}, nil
 }
