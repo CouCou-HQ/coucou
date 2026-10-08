@@ -75,7 +75,8 @@ The project, coucou, isn't a character; CouCou is just the one run from here. Gi
 Discord app, your sounds.
 
 1. **Write the character.** A `profile.toml`: a name, an emoji, a status, lore for `/about`, and how
-   a server starts out. → [Profile](https://github.com/be-sandaa/coucou/wiki/Profile)
+   a server starts out. Its avatar is an image beside it, or the avatar of its own bot, GIFs and
+   all. → [Profile](https://github.com/be-sandaa/coucou/wiki/Profile)
 2. **Make the sounds.** `scripts/sound ~/Downloads/noises/` encodes a folder of clips and names them
    for you. → [Sounds](https://github.com/be-sandaa/coucou/wiki/Sounds)
 3. **Run it.** A release binary, the container image, Compose or the Helm chart, with a token from
