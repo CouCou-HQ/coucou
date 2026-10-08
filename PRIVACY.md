@@ -1,6 +1,7 @@
 # Privacy Policy
 
-This covers the bots run by the maintainer of this repository. Anyone else running coucou is
+This covers the bots run by the maintainer of this repository, listed under
+[Bots run from here](docs/wiki/dev/Characters.md#bots-run-from-here). Anyone else running coucou is
 responsible for their own bot and its data; the list below is what the software stores, so it is a
 fair starting point for theirs.
 
@@ -36,6 +37,8 @@ Nothing is sold or shared. Discord sees what any bot does on its platform, under
 
 ## Contact
 
-Questions, or anything `/forget` does not cover: open an
-[issue](https://github.com/be-sandaa/coucou/issues). Do not post anything you would not want public
-there.
+Can't run `/forget`? Open a
+[Remove my data](https://github.com/be-sandaa/coucou/issues/new?template=remove_my_data.yml) issue
+with the bot and your Discord user ID. This only works for the bots listed under
+[Bots run from here](docs/wiki/dev/Characters.md#bots-run-from-here); for any other bot built on
+coucou, ask whoever runs it. Other questions: open an [issue](https://github.com/be-sandaa/coucou/issues).

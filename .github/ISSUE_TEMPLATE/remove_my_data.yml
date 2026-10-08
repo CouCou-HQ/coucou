@@ -1,0 +1,53 @@
+name: Remove my data
+description: Ask for what a bot run by the maintainer recorded about you to be erased
+labels: ["privacy"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Try `/forget` first.** Run it in any server the bot is in and it erases you straight away,
+        no issue needed. Use this form when you can't, for example because you left every server
+        it is in.
+
+        **Only bots run by the maintainer of this repository can be handled here.** coucou is open
+        source, so anyone can run their own bot with it, and only whoever runs a bot can touch its
+        database. The bots run from here are listed on the
+        [Characters](https://github.com/be-sandaa/coucou/blob/main/docs/wiki/dev/Characters.md#bots-run-from-here)
+        page; for any other bot, ask whoever runs it.
+
+        This issue is public. Your Discord ID is not secret, but leave out anything you would not
+        want seen. Once it is done, the issue is closed and you can delete it from the `...` menu.
+
+  - type: input
+    id: bot
+    attributes:
+      label: Bot
+      description: Its name, and its ID or application ID (Discord's Developer Mode → right-click the bot → Copy User ID).
+      placeholder: coucou, 123456789012345678
+    validations:
+      required: true
+
+  - type: input
+    id: user
+    attributes:
+      label: Your Discord user ID
+      description: Developer Mode → right-click yourself → Copy User ID. A username alone is not enough; it can change.
+      placeholder: "123456789012345678"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Anything else
+      description: Optional. Why /forget didn't work, or anything specific you want gone.
+
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Check
+      options:
+        - label: The bot is listed on the Characters page as run from here.
+          required: true
+        - label: I am the person with this Discord ID.
+          required: true
