@@ -308,6 +308,7 @@ var definitions = []discord.ApplicationCommandCreate{
 		Options: silenceSubs("Do not count me, until I say otherwise", "Do not count me for a while",
 			"Do not count me on a repeating schedule", "Count me again"),
 	},
+	forgetDefinition,
 	discord.SlashCommandCreate{
 		Name: cmdNameChance, Description: "How likely the bot drops in every 5 min (0 = never)",
 		DefaultMemberPermissions: omit.NewPtr(manageGuild),
@@ -500,6 +501,7 @@ func (c *Commands) handlers() map[string]cmdFunc {
 		cmdNameAbout:       c.cmdAbout,
 		cmdNameInvite:      c.cmdInvite,
 		cmdNameCharacter:   c.cmdCharacter,
+		cmdNameForget:      c.cmdForget,
 	}
 }
 

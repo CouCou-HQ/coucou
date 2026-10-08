@@ -111,6 +111,10 @@ func (c *Commands) onComponent(e *events.ComponentInteractionCreate) {
 		err = c.confirmNSFW(e)
 	case id == nsfwCancel:
 		err = e.UpdateMessage(discord.NewMessageUpdate().WithEmbeds(none("Left as it was", "")).ClearComponents())
+	case id == forgetConfirm:
+		err = c.confirmForget(e)
+	case id == forgetCancel:
+		err = e.UpdateMessage(discord.NewMessageUpdate().WithEmbeds(none("Nothing erased", "")).ClearComponents())
 	case strings.HasPrefix(id, welcomeApply):
 		err = c.applyWelcome(e)
 	default:

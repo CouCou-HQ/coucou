@@ -492,6 +492,94 @@ func (q *Queries) CutsTriggered(ctx context.Context, arg CutsTriggeredParams) ([
 	return items, nil
 }
 
+const forgetActor = `-- name: ForgetActor :exec
+update audit_logs set by = null where by = ?
+`
+
+func (q *Queries) ForgetActor(ctx context.Context, by *int64) error {
+	_, err := q.db.ExecContext(ctx, forgetActor, by)
+	return err
+}
+
+const forgetChaosBy = `-- name: ForgetChaosBy :exec
+update guilds_chaos set created_by = 0 where created_by = ?
+`
+
+func (q *Queries) ForgetChaosBy(ctx context.Context, createdBy int64) error {
+	_, err := q.db.ExecContext(ctx, forgetChaosBy, createdBy)
+	return err
+}
+
+const forgetEvents = `-- name: ForgetEvents :exec
+update audit_events set user_id = null where user_id = ?
+`
+
+func (q *Queries) ForgetEvents(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, forgetEvents, userID)
+	return err
+}
+
+const forgetListens = `-- name: ForgetListens :exec
+
+delete from stats_play_listeners where user_id = ?
+`
+
+// /forget: see the postgres forget.sql for what each one keeps.
+func (q *Queries) ForgetListens(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, forgetListens, userID)
+	return err
+}
+
+const forgetOptOutHistory = `-- name: ForgetOptOutHistory :exec
+delete from users_optouts where user_id = ?1 and disabled_at <= ?2
+`
+
+type ForgetOptOutHistoryParams struct {
+	UserID int64   `json:"user_id"`
+	Now    *string `json:"now"`
+}
+
+func (q *Queries) ForgetOptOutHistory(ctx context.Context, arg ForgetOptOutHistoryParams) error {
+	_, err := q.db.ExecContext(ctx, forgetOptOutHistory, arg.UserID, arg.Now)
+	return err
+}
+
+const forgetOptOutLog = `-- name: ForgetOptOutLog :exec
+delete from audit_logs where table_name = 'optouts' and pk = ?
+`
+
+func (q *Queries) ForgetOptOutLog(ctx context.Context, pk int64) error {
+	_, err := q.db.ExecContext(ctx, forgetOptOutLog, pk)
+	return err
+}
+
+const forgetPlays = `-- name: ForgetPlays :exec
+update stats_plays set user_id = null where user_id = ?
+`
+
+func (q *Queries) ForgetPlays(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, forgetPlays, userID)
+	return err
+}
+
+const forgetQuietBy = `-- name: ForgetQuietBy :exec
+update guilds_quiet set created_by = 0 where created_by = ?
+`
+
+func (q *Queries) ForgetQuietBy(ctx context.Context, createdBy int64) error {
+	_, err := q.db.ExecContext(ctx, forgetQuietBy, createdBy)
+	return err
+}
+
+const forgetSettingsBy = `-- name: ForgetSettingsBy :exec
+update guilds_settings set updated_by = null where updated_by = ?
+`
+
+func (q *Queries) ForgetSettingsBy(ctx context.Context, updatedBy *int64) error {
+	_, err := q.db.ExecContext(ctx, forgetSettingsBy, updatedBy)
+	return err
+}
+
 const getSettings = `-- name: GetSettings :one
 
 select guild_id, join_chance, tz, suspense, updated_at, updated_by, fakeout, encore, nsfw, character, pushed_avatar from guilds_settings where guild_id = ?

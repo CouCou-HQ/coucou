@@ -15,12 +15,21 @@ import (
 type capture struct {
 	mu   sync.Mutex
 	misc []store.Misc
+	// writtenAtForget is how many rows had been written when Forget ran.
+	writtenAtForget int
 }
 
 func (c *capture) WriteMisc(_ context.Context, m []store.Misc) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.misc = append(c.misc, m...)
+	return nil
+}
+
+func (c *capture) Forget(context.Context, snowflake.ID) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.writtenAtForget = len(c.misc)
 	return nil
 }
 
