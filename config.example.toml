@@ -14,8 +14,8 @@ owner_ids = []          # user ids, as strings, that unlock the servers leaderbo
 siblings  = ""          # Name=application-id pairs of other coucou bots, comma separated; a Unicode emoji may lead the name
 
 # The characters: profiles/<id>/, each holding profile.toml and sounds/. One character is the bot
-# as it always was; with several, default_profile is required and is who a server gets until it
-# picks. Unset, the bot plays the one character at /var/lib/coucou/profile, which is what the
+# as it always was; with several, default_profile is who a server gets until it picks, and left out
+# a server stays quiet until someone picks with /character. Unset, the bot plays the one character at /var/lib/coucou/profile, which is what the
 # deprecated profile key points at. From a checkout, "profiles" (git-ignored; start each from
 # profile.example.toml).
 # profiles        = "/var/lib/coucou/profiles"

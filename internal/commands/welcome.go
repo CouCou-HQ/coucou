@@ -45,8 +45,12 @@ func suggest(chars []*characters.Character, def *characters.Character, text stri
 	return suggestion{Character: ch.ID, Chance: sized(ch.Defaults.Chance, members)}
 }
 
-// match is the character whose keywords turn up most in text, the default on a tie or no match.
+// match is the character whose keywords turn up most in text, the default on a tie or no match,
+// and the first character when there is no default to fall back on.
 func match(chars []*characters.Character, def *characters.Character, text string) *characters.Character {
+	if def.ID == "" {
+		def = chars[0]
+	}
 	best, top, tied := def, 0, false
 	for _, ch := range chars {
 		n := 0
@@ -140,8 +144,10 @@ func (c *Commands) welcomeChannel(g *discord.GatewayGuild) (snowflake.ID, bool) 
 func (c *Commands) welcomeEmbed(s suggestion, by snowflake.ID) discord.Embed {
 	ch := c.chars.Get(s.Character)
 	multi := len(c.chars.All()) > 1
+	// Without a default the bot is nobody until someone presses, so it does not claim the suggestion.
+	unpicked := by == 0 && c.chars.Default().ID == ""
 	var sb strings.Builder
-	if ch.Tagline != "" {
+	if ch.Tagline != "" && !unpicked {
 		sb.WriteString("*" + ch.Tagline + "*\n\n")
 	}
 	sb.WriteString("Every 5 minutes there is a chance I drop into a busy voice channel, play something, and leave. " +
@@ -161,6 +167,12 @@ func (c *Commands) welcomeEmbed(s suggestion, by snowflake.ID) discord.Embed {
 			sb.WriteString(" and `/character`")
 		}
 		sb.WriteString(".")
+		if unpicked {
+			sb.WriteString(" Until a character is picked, I stay quiet.")
+		}
+	}
+	if unpicked {
+		return info("Hi! Who should I be here?", sb.String())
 	}
 	return info(withEmoji(ch.Emoji, "Hi, I'm "+ch.Name()), sb.String())
 }

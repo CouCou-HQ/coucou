@@ -34,6 +34,10 @@ const (
 	switchCooldown = time.Hour
 )
 
+// noCharacter is what a server that has not picked a character is told, on a bot with no default.
+const noCharacter = "No character has been picked here yet, so I stay quiet. " +
+	"Someone with Manage Server picks one with `/character switch`."
+
 // characterDefinition is /character, offered only to a bot with more than one character. Each
 // character is a choice, so nobody types an id.
 func characterDefinition(chars []*characters.Character) discord.SlashCommandCreate {
@@ -84,6 +88,9 @@ func (c *Commands) cmdCharacter(ctx context.Context, e *events.ApplicationComman
 func (c *Commands) characterList(guild snowflake.ID) discord.Embed {
 	now := c.character(guild)
 	var sb strings.Builder
+	if now.ID == "" {
+		sb.WriteString(noCharacter + "\n\n")
+	}
 	for _, ch := range c.chars.All() {
 		line := "**" + markdown.Replace(withEmoji(ch.Emoji, ch.Name())) + "**"
 		if ch.Tagline != "" {
@@ -217,7 +224,7 @@ func (c *Commands) byCharacter(rows []store.Row) string {
 	slices.SortStableFunc(ids, func(a, b string) int { return counts[b] - counts[a] })
 	lines := make([]string, len(ids))
 	for i, id := range ids {
-		name := id // a character since removed is still counted, under its id
+		name := cmp.Or(id, "Before characters") // a character since removed is still counted, under its id
 		if j := slices.IndexFunc(c.chars.All(), func(ch *characters.Character) bool { return ch.ID == id }); j >= 0 {
 			name = withEmoji(c.chars.All()[j].Emoji, c.chars.All()[j].Name())
 		}

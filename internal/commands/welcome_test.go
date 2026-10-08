@@ -9,12 +9,13 @@ import (
 	"github.com/be-sandaa/coucou/internal/store"
 )
 
-func keywordSet(t *testing.T) *characters.Set {
+// keywordSet is bart, the default when def says so, and lisa, each with keywords to match.
+func keywordSet(t *testing.T, def string) *characters.Set {
 	t.Helper()
 	s, err := characters.New([]profile.Profile{
 		{ID: bart, Dir: t.TempDir(), Keywords: []string{"skate", "prank"}, Defaults: store.Defaults{Chance: 5}},
 		{ID: lisa, Dir: t.TempDir(), Keywords: []string{"jazz", "sax", "book"}, Defaults: store.Defaults{Chance: 4}},
-	}, bart)
+	}, def)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +39,7 @@ func TestSuggest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := keywordSet(t)
+			s := keywordSet(t, bart)
 			if got := suggest(s.All(), s.Default(), tt.text, tt.members); got != tt.want {
 				t.Errorf("got %+v, want %+v", got, tt.want)
 			}
@@ -57,11 +58,27 @@ func TestWelcomeEmbed(t *testing.T) {
 	if strings.Contains(single, "Character:") || strings.Contains(single, "/character") {
 		t.Errorf("one character: %q mentions characters", single)
 	}
-	multi := &Commands{chars: keywordSet(t)}
+	multi := &Commands{chars: keywordSet(t, bart)}
 	if got := multi.welcomeEmbed(suggestion{lisa, 4}, 0).Description; !strings.Contains(got, "Character: **lisa**") || !strings.Contains(got, "Manage Server") {
 		t.Errorf("suggested: %q", got)
 	}
 	if got := multi.welcomeEmbed(suggestion{lisa, 4}, 42).Description; !strings.Contains(got, "by <@42>") || strings.Contains(got, "Manage Server") {
 		t.Errorf("applied: %q", got)
+	}
+}
+
+// Without a default the suggestion still names someone, and the message asks rather than claims
+// to be them, until a press picks one.
+func TestWelcomeWithoutDefault(t *testing.T) {
+	s := keywordSet(t, "")
+	if got := suggest(s.All(), s.Default(), gaming, 100); got != (suggestion{bart, 5}) {
+		t.Errorf("no match: got %+v, want the first character", got)
+	}
+	c := &Commands{chars: s}
+	if em := c.welcomeEmbed(suggestion{lisa, 4}, 0); em.Title != "Hi! Who should I be here?" || !strings.Contains(em.Description, "I stay quiet") {
+		t.Errorf("suggested: %q / %q", em.Title, em.Description)
+	}
+	if em := c.welcomeEmbed(suggestion{lisa, 4}, 42); !strings.Contains(em.Title, "lisa") || strings.Contains(em.Description, "I stay quiet") {
+		t.Errorf("applied: %q / %q", em.Title, em.Description)
 	}
 }

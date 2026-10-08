@@ -24,6 +24,9 @@ type Character struct {
 type Set struct {
 	cur   atomic.Pointer[state]
 	defID string
+	// nobody stands in for the default when several characters have none: it has no sounds, so a
+	// server that has not picked stays quiet.
+	nobody *Character
 
 	mu       sync.Mutex // serialises Start and Reload
 	ctx      context.Context
@@ -38,10 +41,11 @@ type state struct {
 	def  *Character
 }
 
-// New pairs each profile with a registry over its sounds/. def names the default; empty is allowed
-// only when there is one character, which is then the default.
+// New pairs each profile with a registry over its sounds/. def names the default. Left empty, one
+// character is the default, and with several a server that has not picked one gets Nobody.
 func New(profiles []profile.Profile, def string) (*Set, error) {
-	s := &Set{defID: def, stop: map[*sounds.Registry]context.CancelFunc{}}
+	s := &Set{defID: def, stop: map[*sounds.Registry]context.CancelFunc{},
+		nobody: &Character{Profile: profile.Nobody(), Sounds: sounds.New("")}}
 	st, err := s.build(profiles, func(p profile.Profile) *sounds.Registry { return sounds.New(p.SoundsDir()) })
 	if err != nil {
 		return nil, err
@@ -64,7 +68,7 @@ func (s *Set) build(profiles []profile.Profile, reg func(profile.Profile) *sound
 	case len(st.all) == 0:
 		return nil, errors.New("no characters")
 	case s.defID == "" && len(st.all) > 1:
-		return nil, fmt.Errorf("default_profile is required with %d characters", len(st.all))
+		st.def = s.nobody
 	case s.defID == "":
 		st.def = st.all[0]
 	default:
@@ -76,7 +80,8 @@ func (s *Set) build(profiles []profile.Profile, reg func(profile.Profile) *sound
 }
 
 // Get is the character with id, or the default for an empty or unknown one: a server that never
-// picked, or whose character has since been removed.
+// picked, or whose character has since been removed. Without a default that is Nobody, whose ID is
+// empty.
 func (s *Set) Get(id string) *Character {
 	st := s.cur.Load()
 	if c, ok := st.byID[id]; ok {

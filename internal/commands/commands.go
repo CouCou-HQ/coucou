@@ -789,6 +789,9 @@ func (c *Commands) playChannel(guild, user snowflake.ID) (snowflake.ID, *discord
 }
 
 func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
+	if c.character(guild).ID == "" {
+		return e.CreateMessage(say(bad("No character yet", noCharacter)))
+	}
 	channel, refusal := c.playChannel(guild, e.User().ID)
 	if refusal != nil {
 		return e.CreateMessage(say(*refusal))
@@ -952,7 +955,11 @@ func aboutBody(p profile.Profile, note string) string {
 func (c *Commands) cmdAbout(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
 	ch := c.character(guild)
-	return e.CreateMessage(say(info(withEmoji(ch.Emoji, name), aboutBody(ch.Profile, c.note)).WithThumbnail(avatar)))
+	body := aboutBody(ch.Profile, c.note)
+	if ch.ID == "" {
+		body = strings.TrimSpace(noCharacter + "\n\n" + body)
+	}
+	return e.CreateMessage(say(info(withEmoji(ch.Emoji, name), body).WithThumbnail(avatar)))
 }
 
 // self is the bot as people in guild see it, and the avatar that goes with it. The profile's
