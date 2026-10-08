@@ -70,7 +70,8 @@ profiles/
   deprecation warning at startup when the key is set. Leaving both unset still reads the old
   default directory, without a warning, so existing Docker and Helm installs keep working.
 - `default_profile = "<id>"` in `config.toml` is the character for new servers and for servers whose
-  character was removed. It is required when there is more than one character. It is not "the
+  character was removed. It is optional: without it, such a server has no character and stays quiet
+  until someone picks one with `/character`, or presses the join message's button. It is not "the
   first one alphabetically", because then adding a character could silently change the default.
 - No characters at startup is a usage error, as a broken profile is today.
 - `siblings` stays. A standalone bot only loads its own character, so it has no other way to know

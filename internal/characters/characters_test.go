@@ -17,6 +17,14 @@ func set(t *testing.T, def string, ids ...string) (*Set, error) {
 	return New(ps, def)
 }
 
+// Several characters and no default: a server that has not picked gets nobody, with no sounds.
+func TestNoDefault(t *testing.T) {
+	none, err := set(t, "", bart, lisa)
+	if err != nil || none.Default().ID != "" || none.Get("").Sounds.Len() != 0 || none.Get(lisa).ID != lisa {
+		t.Fatalf("want nobody for a server that has not picked: %v", err)
+	}
+}
+
 func TestDefault(t *testing.T) {
 	one, err := set(t, "", bart)
 	if err != nil || one.Default().ID != bart {
@@ -30,7 +38,6 @@ func TestDefault(t *testing.T) {
 		name, def string
 		ids       []string
 	}{
-		{"two without a default", "", []string{bart, lisa}},
 		{"default not loaded", homer, []string{bart, lisa}},
 		{"no characters", "", nil},
 	} {

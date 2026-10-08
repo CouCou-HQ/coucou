@@ -3,7 +3,7 @@
 Who the bot is lives in one directory per character under the `profiles` key in
 [Configuration](Configuration): `profiles/<id>/profile.toml` and the `sounds/` beside it. One
 character is the bot as it has always been; with several, `default_profile` names the one a server
-gets until it picks. The deprecated `profile` key still points at a single character's directory. Copy [`profile.example.toml`](https://github.com/be-sandaa/coucou/blob/main/profile.example.toml), which lists every key. Nothing in it is
+gets until it picks, and without it a server stays quiet until someone picks with `/character`. The deprecated `profile` key still points at a single character's directory. Copy [`profile.example.toml`](https://github.com/be-sandaa/coucou/blob/main/profile.example.toml), which lists every key. Nothing in it is
 pushed to Discord — the bot's username, avatar and banner stay whatever the developer portal says.
 
 | key | default | what |

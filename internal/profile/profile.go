@@ -49,6 +49,12 @@ const (
 // is how a joke bot gets removed. Guilds tune it per server with /chance.
 const defaultChance = 5
 
+// Nobody is a bot with several characters in a server that has not picked one: no name or avatar
+// beyond the bot's own, and the defaults a profile starts from.
+func Nobody() Profile {
+	return Profile{Color: DefaultColor, Status: Status{Online: discord.OnlineStatusOnline}, Defaults: store.Defaults{Chance: defaultChance}}
+}
+
 // DefaultColor is the embed accent when the profile names none: the brand hue in DESIGN.md.
 const DefaultColor = 0xE4572E
 
