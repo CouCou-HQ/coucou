@@ -3,11 +3,13 @@ package commands
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/rest"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 // Discord sends no event when an app emoji is added or deleted, so the list is fetched again on a
@@ -39,6 +41,24 @@ func (e *emojis) icon(name string) string {
 		return m + " "
 	}
 	return ""
+}
+
+// soundIcon is name's emoji. With several characters the app holds every one of theirs, so each is
+// uploaded as <character>_<sound>, a dash in the id as an underscore since emoji names allow none.
+// The character is guild's when it has the sound, else whichever does; a nil guild is bot-wide.
+func (c *Commands) soundIcon(guild *snowflake.ID, name string) string {
+	if len(c.chars.All()) < 2 {
+		return c.emojis.icon(name)
+	}
+	var prefer string
+	if guild != nil {
+		prefer = c.character(*guild).ID
+	}
+	ch := c.chars.Owner(prefer, name)
+	if ch == nil {
+		return ""
+	}
+	return c.emojis.icon(strings.ReplaceAll(ch.ID, "-", "_") + "_" + name)
 }
 
 // RunEmojis keeps the sound emojis current. A failed fetch keeps the last list: a stale emoji

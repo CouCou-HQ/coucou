@@ -120,7 +120,7 @@ func TestMissingValuesReadAsWords(t *testing.T) {
 	if got := pct(nil); got != noneYet {
 		t.Errorf("pct(nil) = %q", got)
 	}
-	if got := (&Commands{}).orNone(nil); got != noneYet {
+	if got := (&Commands{}).orNone(nil, nil); got != noneYet {
 		t.Errorf("orNone(nil) = %q", got)
 	}
 	if got := plural(1, "channel", "channels"); got != "1 channel" {

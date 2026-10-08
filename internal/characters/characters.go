@@ -189,6 +189,21 @@ func (s *Set) halt(r *sounds.Registry) {
 	}
 }
 
+// Owner is the character with sound name: prefer when it has one, else the first that does, else nil.
+func (s *Set) Owner(prefer, name string) *Character {
+	if c, ok := s.cur.Load().byID[prefer]; ok {
+		if _, has := c.Sounds.Path(name); has {
+			return c
+		}
+	}
+	for _, c := range s.All() {
+		if _, has := c.Sounds.Path(name); has {
+			return c
+		}
+	}
+	return nil
+}
+
 // Marks is a sound's tag markers as whichever character has it shows them. Stats and boards span
 // every character, and a name reads as the same sound to the people looking at them.
 func (s *Set) Marks(name string) string {
