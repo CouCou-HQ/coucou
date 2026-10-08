@@ -64,10 +64,6 @@ To be listed, a bot runs on its own Discord application, with sounds it has the 
 follows Discord's [Terms of Service](https://discord.com/terms) and
 [Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy).
 
-> [!NOTE]
-> The repository, the image and the release binaries are private for now, so this is the plan for
-> when they open up rather than something you can do today.
-
 ### 🏆 Community bots
 
 | Bot | What it does | Maintainer | |
@@ -114,4 +110,5 @@ Go 1.26, no CGO, both SQLite and PostgreSQL in one binary. Start with
 
 ## 📄 License
 
-[MIT](LICENSE).
+[MIT](LICENSE). The bots run from this repository follow its [Terms](TERMS.md) and
+[Privacy Policy](PRIVACY.md).
