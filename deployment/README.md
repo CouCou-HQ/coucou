@@ -57,7 +57,7 @@ docker compose up -d --build
 ```
 
 `--build` compiles the image from this checkout. To run a published one instead, set
-`COUCOU_IMAGE=ghcr.io/be-sandaa/coucou:0.3.0` in `.env` and drop the flag. Image tags have no
+`COUCOU_IMAGE=ghcr.io/be-sandaa/coucou:0.4.0` in `.env` and drop the flag. Image tags have no
 leading `v`, unlike the git tags they are built from.
 
 `PROFILE_DIR` defaults to `../../profile` relative to `compose.yaml`: the bot's character, with its
@@ -80,7 +80,7 @@ Every `v*` tag publishes the chart as an OCI artifact next to the image, version
 number:
 
 ```sh
-helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.3.0 \
+helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.4.0 \
   --set discord.existingSecret=coucou-creds \
   --set database.existingSecret=coucou-creds \
   --set-file profile=lenore.toml \
