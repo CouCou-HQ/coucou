@@ -1,8 +1,8 @@
 # ☀️ Rory
 
-![Rory's banner](https://cdn.discordapp.com/banners/1555573816451792956/07a64f45a9015d3132950d1375c4aaea.png?size=1024)
+![Rory's banner](https://cdn.discordapp.com/banners/1555573816451792956/07a64f45a9015d3132950d1375c4aaea.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1555573816451792956/83963886b56da65ec47bd21f8f4d1035.png?size=256" alt="Rory" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555573816451792956/83963886b56da65ec47bd21f8f4d1035.webp?size=256&animated=true" alt="Rory" width="128" align="right">
 
 > G'day! A sunny Aussie bursts into your voice channel, cheers you on far too loudly, and jogs off again.
 

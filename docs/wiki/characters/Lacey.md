@@ -1,8 +1,8 @@
 # 🤠 Lacey
 
-![Lacey's banner](https://cdn.discordapp.com/banners/1556024956297421002/379c69fca93bdbb769ec3b653404d358.png?size=1024)
+![Lacey's banner](https://cdn.discordapp.com/banners/1556024956297421002/379c69fca93bdbb769ec3b653404d358.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1556024956297421002/a7a9e4c01f36712a6a58e9c68f33abc7.png?size=256" alt="Lacey" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1556024956297421002/a7a9e4c01f36712a6a58e9c68f33abc7.webp?size=256&animated=true" alt="Lacey" width="128" align="right">
 
 > Well, howdy, sugar! A Texas cowgirl moseys into your voice channel, tips her hat to all y'all, and rides off.
 

@@ -1,8 +1,8 @@
 # 💜 Susurra
 
-![Susurra's banner](https://cdn.discordapp.com/banners/1555097872549023744/f4dee05f493b0fa9cb2beb0665fd4723.png?size=1024)
+![Susurra's banner](https://cdn.discordapp.com/banners/1555097872549023744/f4dee05f493b0fa9cb2beb0665fd4723.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1555097872549023744/a_ab9daaf5c311e5c1bd48e84c7b3d61ad.gif?size=256" alt="Susurra" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555097872549023744/a_ab9daaf5c311e5c1bd48e84c7b3d61ad.webp?size=256&animated=true" alt="Susurra" width="128" align="right">
 
 > Ufufu~ She slips into your voice channel, whispers something sweet in your ear, and vanishes before you can blush.
 

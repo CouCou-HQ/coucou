@@ -1,8 +1,8 @@
 # 💨 Gus
 
-![Gus's banner](https://cdn.discordapp.com/banners/1286266858642870333/4c9125e79c2109f1c230faa107205985.png?size=1024)
+![Gus's banner](https://cdn.discordapp.com/banners/1286266858642870333/4c9125e79c2109f1c230faa107205985.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1286266858642870333/c540a7a11ee20198fec96271ade0eeef.png?size=256" alt="Gus" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1286266858642870333/c540a7a11ee20198fec96271ade0eeef.webp?size=256&animated=true" alt="Gus" width="128" align="right">
 
 > Gus wanders into your voice channel, farts, burps, crunches chips into the mic, and leaves you all blaming each other.
 
