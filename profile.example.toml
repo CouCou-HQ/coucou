@@ -4,7 +4,7 @@
 
 id       = "lenore"             # required: lowercase letters, digits and dashes
 nickname = "Lenore"             # optional: what replies call the bot, over its server nickname and Discord name
-# application_id = ""           # optional: the character's own bot, so other bots can advertise it
+# application_id = ""           # optional: the character's own bot, so other bots can advertise it; its avatar is used without an avatar.*
 # preview = ["knock", "drum"]   # optional: up to 3 sounds /character preview plays; random ones fill the rest
 # keywords = ["goth", "poetry"] # optional: words in a server's name, description or channels that suggest this character
 emoji    = "🖤"                  # optional: in front of the /help and /about titles

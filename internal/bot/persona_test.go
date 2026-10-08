@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -150,4 +151,90 @@ func TestAvatarLimited(t *testing.T) {
 	if avatarLimited(nil) {
 		t.Error("avatarLimited(nil) = true")
 	}
+}
+
+// appPersona is a Persona over one character with its own bot (app 99) and no avatar.* file, whose
+// bot's avatar is *hash and whose lookups are counted.
+func appPersona(t *testing.T, self snowflake.ID, hash *string) (*Persona, *[]discord.CurrentMemberUpdate, *int) {
+	t.Helper()
+	chars, err := characters.New([]profile.Profile{{ID: "maggie", Dir: t.TempDir(), App: 99}}, "maggie")
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := settings.New(&fakeStore{rows: []store.Settings{{Guild: personaGuild}}})
+	if err := set.Load(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var calls []discord.CurrentMemberUpdate
+	lookups := 0
+	p := &Persona{
+		chars: chars, set: set, pending: map[snowflake.ID]bool{}, apps: map[snowflake.ID]appAvatar{}, app: self,
+		self:   func(snowflake.ID) (string, bool) { return "", true },
+		guilds: func() []snowflake.ID { return []snowflake.ID{personaGuild} },
+		update: func(_ snowflake.ID, u discord.CurrentMemberUpdate) error { calls = append(calls, u); return nil },
+		userAvatar: func(context.Context, snowflake.ID) (string, error) {
+			lookups++
+			return *hash, nil
+		},
+		download: func(context.Context, snowflake.ID, string) (*discord.Icon, error) {
+			return &discord.Icon{Type: discord.IconTypePNG}, nil
+		},
+	}
+	return p, &calls, &lookups
+}
+
+const appHash = "abc"
+
+func TestPersonaAppAvatarOnce(t *testing.T) {
+	hash := appHash
+	p, calls, lookups := appPersona(t, 1, &hash)
+	p.push(t.Context(), personaGuild)
+	p.push(t.Context(), personaGuild)
+	if len(*calls) != 1 || (*calls)[0].Avatar.IsZero() || *lookups != 1 {
+		t.Fatalf("calls = %+v, lookups = %d; want one upload after one lookup", *calls, *lookups)
+	}
+	if got := p.set.Get(personaGuild).PushedAvatar; got != "app:"+appHash {
+		t.Errorf("PushedAvatar = %q, want app:%s", got, appHash)
+	}
+}
+
+func TestPersonaAppAvatarRefresh(t *testing.T) {
+	hash := appHash
+	p, calls, _ := appPersona(t, 1, &hash)
+	p.push(t.Context(), personaGuild)
+	p.refresh(t.Context())
+	if _, ok := p.next(); ok {
+		t.Fatal("refresh queued guilds with nothing changed")
+	}
+	hash = "def"
+	p.refresh(t.Context())
+	g, ok := p.next()
+	if !ok {
+		t.Fatal("refresh did not queue the guilds")
+	}
+	p.push(t.Context(), g)
+	if got := p.set.Get(personaGuild).PushedAvatar; len(*calls) != 2 || got != "app:def" {
+		t.Errorf("calls = %+v, PushedAvatar = %q; want the new avatar uploaded", *calls, got)
+	}
+}
+
+func TestPersonaOwnAppNotCopied(t *testing.T) {
+	hash := appHash
+	p, calls, lookups := appPersona(t, 99, &hash)
+	p.push(t.Context(), personaGuild)
+	if len(*calls) != 0 || *lookups != 0 {
+		t.Errorf("calls = %+v, lookups = %d; want nothing", *calls, *lookups)
+	}
+}
+
+func TestPersonaAvatarFileWins(t *testing.T) {
+	p, _, _ := persona(t, "", lisaNick, nil)
+	p.apps = map[snowflake.ID]appAvatar{}
+	p.userAvatar = func(context.Context, snowflake.ID) (string, error) {
+		t.Error("looked up its bot despite an avatar.* file")
+		return "", nil
+	}
+	lisa := p.chars.Get("lisa")
+	lisa.App = 99
+	p.push(t.Context(), personaGuild)
 }

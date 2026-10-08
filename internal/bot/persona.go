@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -25,6 +28,10 @@ const (
 	personaPace       = time.Second
 	avatarRetryAfter  = 10 * time.Minute
 	avatarRateLimited = "AVATAR_RATE_LIMIT"
+	// ponytail: polled, since Discord sends no event when another bot's avatar changes.
+	appAvatarRefresh = time.Hour
+	appAvatarSize    = 512
+	maxAvatarBytes   = 10 << 20
 )
 
 // Persona keeps every guild's nickname and avatar on its character, one guild per personaPace.
@@ -37,6 +44,12 @@ type Persona struct {
 	guilds func() []snowflake.ID
 	update func(guild snowflake.ID, u discord.CurrentMemberUpdate) error
 	after  func(d time.Duration, f func())
+	// app is this bot's application. userAvatar is a bot's avatar hash, "" when it has none, and
+	// download fetches it.
+	app        snowflake.ID
+	userAvatar func(ctx context.Context, user snowflake.ID) (string, error)
+	download   func(ctx context.Context, user snowflake.ID, hash string) (*discord.Icon, error)
+	apps       map[snowflake.ID]appAvatar // only touched from Run
 
 	mu      sync.Mutex
 	queue   []snowflake.ID
@@ -65,9 +78,48 @@ func NewPersona(c *bot.Client, chars *characters.Set, set *settings.Store) *Pers
 			_, err := c.Rest.UpdateCurrentMember(guild, u)
 			return err
 		},
-		after:   func(d time.Duration, f func()) { time.AfterFunc(d, f) },
-		pending: map[snowflake.ID]bool{},
+		after: func(d time.Duration, f func()) { time.AfterFunc(d, f) },
+		app:   c.ApplicationID,
+		userAvatar: func(ctx context.Context, user snowflake.ID) (string, error) {
+			u, err := c.Rest.GetUser(user, rest.WithCtx(ctx))
+			if err != nil || u.Avatar == nil {
+				return "", err
+			}
+			return *u.Avatar, nil
+		},
+		download: downloadAvatar,
+		apps:     map[snowflake.ID]appAvatar{},
+		pending:  map[snowflake.ID]bool{},
 	}
+}
+
+// appAvatar is a character's own bot's avatar, worn by a character without an avatar.* file.
+type appAvatar struct {
+	hash string // "app:" and Discord's hash, so it never matches an avatar.* hash; "" for none
+	icon *discord.Icon
+}
+
+// downloadAvatar is a static PNG even of an animated avatar. Not User.AvatarURL: for an a_ hash it
+// returns the GIF whatever format is asked, and that runs to megabytes.
+func downloadAvatar(ctx context.Context, user snowflake.ID, hash string) (*discord.Icon, error) {
+	url := fmt.Sprintf("%s/avatars/%s/%s.png?size=%d", discord.CDN, user, hash, appAvatarSize)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // read to the end already; a close error cannot change the icon
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("avatar of %s: %s", user, resp.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxAvatarBytes))
+	if err != nil {
+		return nil, err
+	}
+	return discord.ParseIconRaw(data)
 }
 
 // Push queues guilds to be brought in line with their characters.
@@ -100,15 +152,62 @@ func (p *Persona) next() (snowflake.ID, bool) {
 func (p *Persona) Run(ctx context.Context) error {
 	t := time.NewTicker(personaPace)
 	defer t.Stop()
+	refresh := time.NewTicker(appAvatarRefresh)
+	defer refresh.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-refresh.C:
+			p.refresh(ctx)
 		case <-t.C:
+			if g, ok := p.next(); ok {
+				p.push(ctx, g)
+			}
 		}
-		if g, ok := p.next(); ok {
-			p.push(ctx, g)
+	}
+}
+
+// avatar is what ch wears in a server: its avatar.* file, else its own bot's avatar, else none.
+// This bot's own application is left out: wearing no guild avatar already shows its avatar.
+func (p *Persona) avatar(ctx context.Context, ch *characters.Character) (*discord.Icon, string, error) {
+	if ch.Avatar != nil || ch.App == 0 || ch.App == p.app {
+		return ch.Avatar, ch.AvatarHash, nil
+	}
+	if a, ok := p.apps[ch.App]; ok {
+		return a.icon, a.hash, nil
+	}
+	hash, err := p.userAvatar(ctx, ch.App)
+	if err != nil {
+		return nil, "", err
+	}
+	var a appAvatar
+	if hash != "" {
+		if a.icon, err = p.download(ctx, ch.App, hash); err != nil {
+			return nil, "", err
 		}
+		a.hash = "app:" + hash
+	}
+	p.apps[ch.App] = a
+	return a.icon, a.hash, nil
+}
+
+// refresh forgets every bot avatar that changed on Discord, and queues every guild to take it up.
+func (p *Persona) refresh(ctx context.Context) {
+	changed := false
+	for app, a := range p.apps {
+		hash, err := p.userAvatar(ctx, app)
+		if err != nil {
+			slog.Warn("persona: check avatar", slog.String("application_id", app.String()), slog.Any("err", err))
+			continue
+		}
+		if hash == "" && a.hash != "" || hash != "" && a.hash != "app:"+hash {
+			delete(p.apps, app)
+			changed = true
+		}
+	}
+	if changed {
+		p.PushAll()
 	}
 }
 
@@ -126,11 +225,16 @@ func (p *Persona) push(ctx context.Context, guild snowflake.ID) {
 		}
 	}
 
-	if st.PushedAvatar == ch.AvatarHash {
+	icon, hash, err := p.avatar(ctx, ch)
+	if err != nil {
+		log.Warn("persona: avatar of its own bot", slog.String("application_id", ch.App.String()), slog.Any("err", err))
+		return
+	}
+	if st.PushedAvatar == hash {
 		return
 	}
 	// A nil icon is sent as null, which clears the guild avatar back to the bot's own.
-	err := p.update(guild, discord.CurrentMemberUpdate{Avatar: omit.New(ch.Avatar)})
+	err = p.update(guild, discord.CurrentMemberUpdate{Avatar: omit.New(icon)})
 	switch {
 	case avatarLimited(err):
 		log.Info("persona: avatar rate limited, retrying", slog.Duration("after", avatarRetryAfter))
@@ -141,7 +245,7 @@ func (p *Persona) push(ctx context.Context, guild snowflake.ID) {
 		return
 	}
 	// Actor zero: the bot is keeping its own record of what it uploaded.
-	if _, err := p.set.Update(ctx, guild, 0, func(s *settings.Settings) { s.PushedAvatar = ch.AvatarHash }); err != nil {
+	if _, err := p.set.Update(ctx, guild, 0, func(s *settings.Settings) { s.PushedAvatar = hash }); err != nil {
 		log.Warn("persona: record avatar", slog.Any("err", err))
 	}
 }
