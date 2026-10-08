@@ -18,4 +18,4 @@ Sloane Mercer is a partner at a New York venture firm, the youngest it has ever 
 |---|---|---|
 | `sloane` | 💼 on a call. Make it quick. | `#1F6E5A` |
 
-**[Add Sloane to your server](https://discord.com/oauth2/authorize?client_id=1555574243436269728&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.
+**[Add Sloane to your server](https://discord.com/oauth2/authorize?client_id=1555574243436269728&scope=bot+applications.commands&permissions=70274048)** as a bot of her own.

@@ -18,4 +18,4 @@ Caricia teaches dance at a university, she's in her early 30s, and she is warm: 
 |---|---|---|
 | `caricia` | 🌺 dancing salsa in the studio | `#E0465A` |
 
-**[Add Caricia to your server](https://discord.com/oauth2/authorize?client_id=1555145751670161458&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.
+**[Add Caricia to your server](https://discord.com/oauth2/authorize?client_id=1555145751670161458&scope=bot+applications.commands&permissions=70274048)** as a bot of her own.

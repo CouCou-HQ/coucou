@@ -18,4 +18,4 @@ Rory is a sunrise in human form: loud, warm, freckled and already halfway throug
 |---|---|---|
 | `rory` | ☀️ out on a 6 a.m. run, legend | `#F2A93B` |
 
-**[Add Rory to your server](https://discord.com/oauth2/authorize?client_id=1555573816451792956&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.
+**[Add Rory to your server](https://discord.com/oauth2/authorize?client_id=1555573816451792956&scope=bot+applications.commands&permissions=70274048)** as a bot of her own.

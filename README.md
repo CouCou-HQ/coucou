@@ -61,7 +61,7 @@ who warns you about your password… → [all of them](https://github.com/be-san
 in the same server? Each also runs as a bot of its own, and a couple, like Gus 💨, only ever run as
 themselves → [standalone bots](https://github.com/be-sandaa/coucou/wiki/Standalone-bots).
 
-**[Add CouCou to your server](https://discord.com/oauth2/authorize?client_id=1557651122460557384&scope=bot+applications.commands&permissions=3165184)**, or any character on her own from [her page](https://github.com/be-sandaa/coucou/wiki/Characters).
+**[Add CouCou to your server](https://discord.com/oauth2/authorize?client_id=1557651122460557384&scope=bot+applications.commands&permissions=70274048)**, or any character on her own from [her page](https://github.com/be-sandaa/coucou/wiki/Characters).
 
 A few things she will not tell you:
 
@@ -92,8 +92,8 @@ follows Discord's [Terms of Service](https://discord.com/terms) and
 
 | Bot | What it does | Maintainer | |
 |---|---|---|---|
-| 💨 [Gus](https://github.com/be-sandaa/coucou/wiki/Gus) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=3165184) |
-| 😳 [Moan](https://github.com/be-sandaa/coucou/wiki/Moan) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=3165184) |
+| 💨 [Gus](https://github.com/be-sandaa/coucou/wiki/Gus) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=70274048) |
+| 😳 [Moan](https://github.com/be-sandaa/coucou/wiki/Moan) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=70274048) |
 | *yours here* | | | |
 
 ## 🚀 Quick start

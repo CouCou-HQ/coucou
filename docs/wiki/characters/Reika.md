@@ -18,4 +18,4 @@ Reika is an heiress in her mid 20s who treats every voice channel as a ballroom 
 |---|---|---|
 | `reika` | 👑 having tea served. Do wait. | `#C9A227` |
 
-**[Add Reika to your server](https://discord.com/oauth2/authorize?client_id=1556016304455024730&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.
+**[Add Reika to your server](https://discord.com/oauth2/authorize?client_id=1556016304455024730&scope=bot+applications.commands&permissions=70274048)** as a bot of her own.

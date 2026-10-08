@@ -18,4 +18,4 @@ Proxy is a privacy engineer in her late 20s who turns up in voice channels witho
 |---|---|---|
 | `proxy` | 🕶️ you didn't see me | `#1FA3A3` |
 
-**[Add Proxy to your server](https://discord.com/oauth2/authorize?client_id=1556009369697779843&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.
+**[Add Proxy to your server](https://discord.com/oauth2/authorize?client_id=1556009369697779843&scope=bot+applications.commands&permissions=70274048)** as a bot of her own.

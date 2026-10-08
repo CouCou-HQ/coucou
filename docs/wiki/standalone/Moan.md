@@ -16,4 +16,4 @@ Moan is a business student at a university, in her early 20s, and every class sh
 |---|---|---|
 | `moan` | 😳 forgot to mute again | `#E86A92` |
 
-**[Add Moan to your server](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=3165184)** as a bot of its own.
+**[Add Moan to your server](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=70274048)** as a bot of its own.
