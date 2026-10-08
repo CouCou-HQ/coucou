@@ -637,8 +637,8 @@ func soundsPage(names []string, marks func(string) string, page int) discord.Emb
 
 // nowPlaying is the /play reply's sound: its emoji in place of the speaker when the app has one.
 // A custom emoji does not render inside a code fence, so it cannot go in the speaker's block.
-func (c *Commands) nowPlaying(sound string) string {
-	if icon := c.emojis.icon(sound); icon != "" {
+func (c *Commands) nowPlaying(guild snowflake.ID, sound string) string {
+	if icon := c.soundIcon(&guild, sound); icon != "" {
 		return icon + "`" + c.chars.Label(sound) + "`"
 	}
 	return nowPlaying(sounds.Display(sound), c.chars.Marks(sound))
@@ -811,7 +811,7 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 		return e.CreateMessage(say(bad("Slow down", fmt.Sprintf("The next play is allowed <t:%d:R>.", next.Unix()))))
 	}
 	name, _ := c.self(guild)
-	body := c.nowPlaying(sound) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
+	body := c.nowPlaying(guild, sound) + playAd(c.siblings, c.client.ApplicationID, name, rand.IntN)
 	if err := e.CreateMessage(say(info("Playing", body))); err != nil {
 		return err
 	}
@@ -1344,11 +1344,12 @@ func pct(v *float64) string {
 	return fmt.Sprintf("%.0f%%", *v*100)
 }
 
-func (c *Commands) orNone(s *string) string {
+// orNone is a top sound in guild, or bot-wide for nil.
+func (c *Commands) orNone(guild *snowflake.ID, s *string) string {
 	if s == nil {
 		return noneYet
 	}
-	return c.emojis.icon(*s) + "`" + c.chars.Label(*s) + "`"
+	return c.soundIcon(guild, *s) + "`" + c.chars.Label(*s) + "`"
 }
 
 func (c *Commands) cmdStats(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
@@ -1390,7 +1391,7 @@ func (c *Commands) statsBot(ctx context.Context, e *events.ApplicationCommandInt
 		WithTimestamp(time.Now()).
 		AddField("Plays (24h)", strconv.Itoa(s.Plays24h), true).
 		AddField("Servers (24h)", strconv.Itoa(s.Guilds24h), true).
-		AddField("Top sound (7 days)", c.orNone(s.TopSound), false), c.byCharacter(who)))...)
+		AddField("Top sound (7 days)", c.orNone(nil, s.TopSound), false), c.byCharacter(who)))...)
 }
 
 func hourAt(h store.PlayHour) time.Time { return h.Hour }
@@ -1673,7 +1674,7 @@ func (c *Commands) statsGuild(ctx context.Context, e *events.ApplicationCommandI
 		AddField("All time", plural(s.PlaysAll, "play", "plays"), true).
 		AddField("Avg listeners", avg, true).
 		AddField("Fail rate (7d)", pct(s.FailRate7d), true).
-		AddField("Top sound", c.orNone(s.TopSound), true).
+		AddField("Top sound", c.orNone(&guild, s.TopSound), true).
 		AddField("Peak hour", hour, true).
 		AddField("Busiest day", day, true)
 	return c.edit(e, fit(ranked(withByCharacter(em, c.byCharacter(who)), rt))...)
@@ -1725,7 +1726,7 @@ func (c *Commands) cmdLeaderboard(ctx context.Context, e *events.ApplicationComm
 		foot += " · requested by " + e.User().EffectiveName()
 	}
 	return c.edit(e, boardEmbed(boardTitles[board], foot, rows, func(r store.Row) string {
-		return c.label(board, r.Key)
+		return c.label(guild, board, r.Key)
 	}))
 }
 
@@ -1742,10 +1743,10 @@ func window(period string) (days int, span string) {
 
 // label renders one leaderboard key for its board: a sound name, a channel link, or a user mention.
 // A sound is clipped here rather than by boardEmbed, which would cut its markers off first.
-func (c *Commands) label(board, key string) string {
+func (c *Commands) label(guild snowflake.ID, board, key string) string {
 	switch board {
 	case boardSounds:
-		return c.emojis.icon(key) + clipped(key, c.chars.Marks)
+		return c.soundIcon(&guild, key) + clipped(key, c.chars.Marks)
 	case boardChannels:
 		return "<#" + key + ">"
 	}

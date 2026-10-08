@@ -60,6 +60,14 @@ in place of the speaker, before the top sound in `/stats`, and on the `/leaderbo
 `/sounds` and the autocomplete stay text: fifty mentions would overrun a page, and autocomplete
 cannot render one.
 
+A bot with more than one character holds every character's emojis in its one app, so there each is
+named `<character>_<sound>`, with a `-` in the character's id written as `_`: `lisa-jr`'s
+`perfect_fart` is `lisa_jr_perfect_fart`. The emoji shown is the server's character's when it has
+that sound, and otherwise the first character's, by id, that does. A bot with one character uses the
+plain sound name, so a character's own bot and the bot holding every character each get their own
+uploads. Discord allows an app 2000 emojis, each named in at most 32 characters, so keep the
+two together short enough.
+
 A sound with no emoji of its name is shown exactly as before, so they can be added one at a time.
 Discord tells the bot nothing when an app emoji is added or deleted, so it lists them every ten
 minutes. A new emoji appears within that, and a deleted one may still be mentioned until then.
