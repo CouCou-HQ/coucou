@@ -1,8 +1,8 @@
 # 🖤 Lenore
 
-![Lenore's banner](https://cdn.discordapp.com/banners/1555149085244260382/ab3f66904389df39cba434807cbbb8b9.png?size=1024)
+![Lenore's banner](https://cdn.discordapp.com/banners/1555149085244260382/ab3f66904389df39cba434807cbbb8b9.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1555149085244260382/a_ac8fcf5bf2532e34938b7f60c9db9eb0.gif?size=256" alt="Lenore" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555149085244260382/a_ac8fcf5bf2532e34938b7f60c9db9eb0.webp?size=256&animated=true" alt="Lenore" width="128" align="right">
 
 > Ugh. You again. Lenore drifts into your voice channel, says something mean she definitely means nicely, and leaves.
 

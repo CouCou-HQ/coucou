@@ -1,8 +1,8 @@
 # 👑 Reika
 
-![Reika's banner](https://cdn.discordapp.com/banners/1556016304455024730/eb0ec286cdbe04139af40c55ed6633c4.png?size=1024)
+![Reika's banner](https://cdn.discordapp.com/banners/1556016304455024730/eb0ec286cdbe04139af40c55ed6633c4.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1556016304455024730/da9029782e454ff10f8ea9324fd6fe55.png?size=256" alt="Reika" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1556016304455024730/da9029782e454ff10f8ea9324fd6fe55.webp?size=256&animated=true" alt="Reika" width="128" align="right">
 
 > Oh ho ho ho! A haughty heiress sweeps into your voice channel, declares herself the winner, and leaves you all bowing.
 

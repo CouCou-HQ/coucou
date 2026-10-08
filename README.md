@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://cdn.discordapp.com/banners/1557651122460557384/b0ed51f983bbdcf8ccc4554637000b1c.png?size=1024" alt="CouCou, with long pastel rainbow hair, winking and holding up a gilded hand mirror in a Paris dressing room full of gowns at sunset" width="720">
+  <img src="https://cdn.discordapp.com/banners/1557651122460557384/b0ed51f983bbdcf8ccc4554637000b1c.webp?size=1024&animated=true" alt="CouCou, with long pastel rainbow hair, winking and holding up a gilded hand mirror in a Paris dressing room full of gowns at sunset" width="720">
 </p>
 
 <p align="center"><b>It waits in the wings. Then, from nowhere: <i>coucou!</i></b></p>

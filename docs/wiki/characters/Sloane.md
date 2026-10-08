@@ -1,8 +1,8 @@
 # 💼 Sloane
 
-![Sloane's banner](https://cdn.discordapp.com/banners/1555574243436269728/dab0e3d8bc347051b4026669411d6943.png?size=1024)
+![Sloane's banner](https://cdn.discordapp.com/banners/1555574243436269728/dab0e3d8bc347051b4026669411d6943.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/1555574243436269728/770d519600dc65627e38539bf9fecae9.png?size=256" alt="Sloane" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555574243436269728/770d519600dc65627e38539bf9fecae9.webp?size=256&animated=true" alt="Sloane" width="128" align="right">
 
 > Let's make a deal. A New York exec takes a call in your voice channel, names her price, and leaves you wanting to sign.
 

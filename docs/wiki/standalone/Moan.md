@@ -1,8 +1,8 @@
 # 😳 Moan
 
-![Moan's banner](https://cdn.discordapp.com/banners/941362698472546404/3fc5687e4b03047e36e01ba42980d749.png?size=1024)
+![Moan's banner](https://cdn.discordapp.com/banners/941362698472546404/3fc5687e4b03047e36e01ba42980d749.webp?size=1024&animated=true)
 
-<img src="https://cdn.discordapp.com/avatars/941362698472546404/a_2cb711c4b6100a61c29d15d2dc843a58.gif?size=256" alt="Moan" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/941362698472546404/a_2cb711c4b6100a61c29d15d2dc843a58.webp?size=256&animated=true" alt="Moan" width="128" align="right">
 
 > Drops into your busiest voice channel, lets out one very unfortunate moan, and vanishes before anyone can explain it.
 
