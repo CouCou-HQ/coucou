@@ -1,8 +1,8 @@
 # 🍷 Vivienne
 
-![Vivienne's banner](../../assets/characters/vivienne/banner.webp)
+![Vivienne's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/vivienne/banner.webp)
 
-<img src="../../assets/characters/vivienne/profile.webp" alt="Vivienne" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/vivienne/profile.webp" alt="Vivienne" width="128" align="right">
 
 > Ahem. A strict stepmom strides into your voice channel, lays down the rules, and leaves you hoping for detention.
 

@@ -1,8 +1,8 @@
 # 💌 Aimi
 
-![Aimi's banner](../../assets/characters/aimi/banner.webp)
+![Aimi's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/aimi/banner.webp)
 
-<img src="../../assets/characters/aimi/profile.webp" alt="Aimi" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/aimi/profile.webp" alt="Aimi" width="128" align="right">
 
 > Found you! A sweet florist pops into your voice channel, asks who you were talking to, and smiles a little too long.
 

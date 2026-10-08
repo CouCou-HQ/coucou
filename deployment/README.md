@@ -101,7 +101,7 @@ and in Helm's release history — fine for a homelab, wrong anywhere with more t
 
 `systemd/coucou.service` runs the release binary from `/usr/local/bin` under `DynamicUser=`, with
 `/var/lib/coucou` as its state directory. Setup is in the wiki:
-[Install as a service](../docs/wiki/guide/Installation.md#install-as-a-service).
+[Install as a service](https://github.com/be-sandaa/coucou/wiki/Installation#install-as-a-service).
 
 systemd reads `/etc/coucou/env` as root before dropping privileges, so the bot itself never has read
 access to its own secrets file. `systemd-analyze security` rates the unit 1.2 (OK).

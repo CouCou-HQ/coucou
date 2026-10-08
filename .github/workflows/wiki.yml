@@ -1,0 +1,44 @@
+# Publishes docs/wiki to the repository's GitHub wiki. docs/wiki is the source: a page edited in the
+# wiki's own editor is overwritten by the next run, so edits go through a PR like everything else.
+name: Wiki
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/wiki/**", ".github/workflows/wiki.yml"]
+  workflow_dispatch:
+
+permissions: {} # the job takes only what it needs
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false # an older run finishing after a newer one would publish stale pages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # pushing to the wiki repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The wiki finds a page by its file name wherever it sits, so the folders are kept as they are
+      # and every name under docs/wiki has to be unique.
+      - name: Push docs/wiki to the wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+          find wiki -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r docs/wiki/. wiki/
+          cd wiki
+          git add -A
+          if git diff --cached --quiet; then
+            echo "wiki already matches docs/wiki"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Sync from ${GITHUB_SHA::7}"
+          git push -q origin HEAD

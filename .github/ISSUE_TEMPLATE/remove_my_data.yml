@@ -12,7 +12,7 @@ body:
         **Only bots run by the maintainer of this repository can be handled here.** coucou is open
         source, so anyone can run their own bot with it, and only whoever runs a bot can touch its
         database. The bots run from here are listed on the
-        [Characters](https://github.com/be-sandaa/coucou/blob/main/docs/wiki/dev/Characters.md#bots-run-from-here)
+        [Characters](https://github.com/be-sandaa/coucou/wiki/Characters#bots-run-from-here)
         page; for any other bot, ask whoever runs it.
 
         This issue is public. Your Discord ID is not secret, but leave out anything you would not

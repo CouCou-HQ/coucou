@@ -1,8 +1,8 @@
 # 💋 Colette
 
-![Colette's banner](../../assets/characters/colette/banner.webp)
+![Colette's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/colette/banner.webp)
 
-<img src="../../assets/characters/colette/profile.webp" alt="Colette" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/colette/profile.webp" alt="Colette" width="128" align="right">
 
 > Coucou~! A Parisian tease pops into your voice channel, flirts with you in Franglais, and leaves with a bisou.
 

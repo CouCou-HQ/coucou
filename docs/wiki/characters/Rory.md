@@ -1,8 +1,8 @@
 # ☀️ Rory
 
-![Rory's banner](../../assets/characters/rory/banner.webp)
+![Rory's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/rory/banner.webp)
 
-<img src="../../assets/characters/rory/profile.webp" alt="Rory" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/rory/profile.webp" alt="Rory" width="128" align="right">
 
 > G'day! A sunny Aussie bursts into your voice channel, cheers you on far too loudly, and jogs off again.
 

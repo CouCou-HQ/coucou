@@ -1,8 +1,8 @@
 # 🖤 Lenore
 
-![Lenore's banner](../../assets/characters/lenore/banner.webp)
+![Lenore's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/lenore/banner.webp)
 
-<img src="../../assets/characters/lenore/profile.webp" alt="Lenore" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/lenore/profile.webp" alt="Lenore" width="128" align="right">
 
 > Ugh. You again. Lenore drifts into your voice channel, says something mean she definitely means nicely, and leaves.
 

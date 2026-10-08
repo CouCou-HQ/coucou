@@ -1,8 +1,8 @@
 # 🎮 Kaede
 
-![Kaede's banner](../../assets/characters/kaede/banner.webp)
+![Kaede's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/kaede/banner.webp)
 
-<img src="../../assets/characters/kaede/profile.webp" alt="Kaede" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/kaede/profile.webp" alt="Kaede" width="128" align="right">
 
 > Hmph. A tsundere gamer storms into your voice channel, insults your aim, and definitely didn't come to see you.
 

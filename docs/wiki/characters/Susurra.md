@@ -1,8 +1,8 @@
 # 💜 Susurra
 
-![Susurra's banner](../../assets/characters/susurra/banner.webp)
+![Susurra's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/susurra/banner.webp)
 
-<img src="../../assets/characters/susurra/profile.webp" alt="Susurra" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/susurra/profile.webp" alt="Susurra" width="128" align="right">
 
 > Ufufu~ She slips into your voice channel, whispers something sweet in your ear, and vanishes before you can blush.
 

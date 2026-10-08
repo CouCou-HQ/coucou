@@ -20,7 +20,7 @@ import (
 )
 
 // Measured, not documented: Discord allows two avatar changes per guild in about ten minutes, and
-// the route is per guild too. See docs/wiki/dev/Characters.md.
+// the route is per guild too. See docs/wiki/dev/Character-design.md.
 const (
 	personaPace       = time.Second
 	avatarRetryAfter  = 10 * time.Minute

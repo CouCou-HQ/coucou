@@ -1,8 +1,8 @@
 # 🤠 Lacey
 
-![Lacey's banner](../../assets/characters/lacey/banner.webp)
+![Lacey's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/lacey/banner.webp)
 
-<img src="../../assets/characters/lacey/profile.webp" alt="Lacey" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/lacey/profile.webp" alt="Lacey" width="128" align="right">
 
 > Well, howdy, sugar! A Texas cowgirl moseys into your voice channel, tips her hat to all y'all, and rides off.
 

@@ -1,8 +1,8 @@
 # 🌺 Caricia
 
-![Caricia's banner](../../assets/characters/caricia/banner.webp)
+![Caricia's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/caricia/banner.webp)
 
-<img src="../../assets/characters/caricia/profile.webp" alt="Caricia" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/caricia/profile.webp" alt="Caricia" width="128" align="right">
 
 > Ay, papi... Caricia slips into your voice channel, purrs something sweet in Spanglish, and leaves you blushing.
 

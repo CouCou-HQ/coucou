@@ -1,8 +1,8 @@
 # 📚 Penny
 
-![Penny's banner](../../assets/characters/penny/banner.webp)
+![Penny's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/penny/banner.webp)
 
-<img src="../../assets/characters/penny/profile.webp" alt="Penny" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/penny/profile.webp" alt="Penny" width="128" align="right">
 
 > Oh gosh, sorry! A shy librarian slips into your voice channel, apologises, and reads you her spicy novel by accident.
 

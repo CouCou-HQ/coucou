@@ -1,8 +1,8 @@
 # 👑 Reika
 
-![Reika's banner](../../assets/characters/reika/banner.webp)
+![Reika's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/reika/banner.webp)
 
-<img src="../../assets/characters/reika/profile.webp" alt="Reika" width="128" align="right">
+<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/reika/profile.webp" alt="Reika" width="128" align="right">
 
 > Oh ho ho ho! A haughty heiress sweeps into your voice channel, declares herself the winner, and leaves you all bowing.
 
