@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
 	"github.com/disgoorg/snowflake/v2"
@@ -27,28 +28,34 @@ const (
 // config is every knob the bot has, read from one TOML file. Secrets reach it as ${VAR}
 // references inside string values rather than through a second way of setting the same key.
 type config struct {
-	DatabaseURL  string
-	Token        string
-	OwnerIDs     []snowflake.ID
-	Siblings     []commands.Sibling
-	ProfileDir   string
-	SoundsPoll   time.Duration
-	HTTPAddr     string
-	OTLPEndpoint string
-	LogLevel     slog.Level
-	PProf        bool
-	ShardCount   int
+	DatabaseURL    string
+	Token          string
+	OwnerIDs       []snowflake.ID
+	Siblings       []commands.Sibling
+	ProfileDir     string // one character; deprecated, empty when ProfilesDir is set
+	ProfilesDir    string // one directory per character
+	DefaultProfile string
+	Note           string
+	SoundsPoll     time.Duration
+	HTTPAddr       string
+	OTLPEndpoint   string
+	LogLevel       slog.Level
+	PProf          bool
+	ShardCount     int
 }
 
 // file is config.toml as written, before parsing. Every string field may hold ${VAR} references;
 // the non-string ones cannot, because they are typed by the decoder before expansion runs.
 type file struct {
-	DiscordToken string   `toml:"discord_token"`
-	DatabaseURL  string   `toml:"database_url"`
-	OwnerIDs     []string `toml:"owner_ids"`
-	Siblings     string   `toml:"siblings"`
-	Profile      string   `toml:"profile"`
-	Sounds       struct {
+	DiscordToken   string   `toml:"discord_token"`
+	DatabaseURL    string   `toml:"database_url"`
+	OwnerIDs       []string `toml:"owner_ids"`
+	Siblings       string   `toml:"siblings"`
+	Profile        string   `toml:"profile"`
+	Profiles       string   `toml:"profiles"`
+	DefaultProfile string   `toml:"default_profile"`
+	Note           string   `toml:"note"`
+	Sounds         struct {
 		Poll time.Duration `toml:"poll"`
 	} `toml:"sounds"`
 	Ops struct {
@@ -78,9 +85,12 @@ func parseConfig(args []string) (config, error) {
 		*path = cmp.Or(os.Getenv("COUCOU_CONFIG"), defaultConfigPath)
 	}
 
-	f, err := readFile(*path)
+	f, legacy, err := readFile(*path)
 	if err != nil {
 		return config{}, err
+	}
+	if legacy {
+		slog.Warn("config: profile is deprecated and will be removed; move the directory to profiles/<id>/ and set profiles", slog.String("profile", f.Profile))
 	}
 	c, err := f.parse()
 	if err != nil {
@@ -90,26 +100,32 @@ func parseConfig(args []string) (config, error) {
 }
 
 // readFile decodes path over the defaults, refuses keys the file has that config does not, and
-// then expands ${VAR} references in the decoded strings.
-func readFile(path string) (file, error) {
-	f := file{Profile: defaultProfileDir}
+// then expands ${VAR} references in the decoded strings. legacy is whether the file names the
+// deprecated profile key; the default it falls back to says nothing about the operator's intent.
+func readFile(path string) (f file, legacy bool, err error) {
 	f.Ops.HTTPAddr = defaultHTTPAddr
 
 	md, err := toml.DecodeFile(path, &f)
 	if err != nil {
-		return file{}, err
+		return file{}, false, err
 	}
 	if extra := md.Undecoded(); len(extra) > 0 {
 		keys := make([]string, len(extra))
 		for i, k := range extra {
 			keys[i] = k.String()
 		}
-		return file{}, fmt.Errorf("%s: unknown keys %s", path, strings.Join(keys, ", "))
+		return file{}, false, fmt.Errorf("%s: unknown keys %s", path, strings.Join(keys, ", "))
 	}
 	if err := expandEnv(reflect.ValueOf(&f).Elem()); err != nil {
-		return file{}, fmt.Errorf("%s: %w", path, err)
+		return file{}, false, fmt.Errorf("%s: %w", path, err)
 	}
-	return f, nil
+	switch {
+	case f.Profile != "" && f.Profiles != "":
+		return file{}, false, fmt.Errorf("%s: set profiles or the deprecated profile, not both", path)
+	case f.Profile == "" && f.Profiles == "":
+		f.Profile = defaultProfileDir
+	}
+	return f, md.IsDefined("profile"), nil
 }
 
 // envRef is ${NAME} or ${NAME:-default}. A bare $NAME is deliberately not a reference, so a
@@ -166,13 +182,16 @@ func expand(s string) (string, error) {
 // parse turns the file into the config the rest of the program reads, checking every value.
 func (f file) parse() (config, error) {
 	c := config{
-		DatabaseURL:  f.DatabaseURL,
-		Token:        f.DiscordToken,
-		ProfileDir:   f.Profile,
-		SoundsPoll:   f.Sounds.Poll,
-		HTTPAddr:     f.Ops.HTTPAddr,
-		OTLPEndpoint: f.Ops.OTLP,
-		PProf:        f.Ops.PProf,
+		DatabaseURL:    f.DatabaseURL,
+		Token:          f.DiscordToken,
+		ProfileDir:     f.Profile,
+		ProfilesDir:    f.Profiles,
+		DefaultProfile: strings.TrimSpace(f.DefaultProfile),
+		Note:           strings.TrimSpace(f.Note),
+		SoundsPoll:     f.Sounds.Poll,
+		HTTPAddr:       f.Ops.HTTPAddr,
+		OTLPEndpoint:   f.Ops.OTLP,
+		PProf:          f.Ops.PProf,
 	}
 	var err error
 	if c.OwnerIDs, err = parseOwners(f.OwnerIDs); err != nil {
@@ -190,11 +209,18 @@ func (f file) parse() (config, error) {
 	return c, c.validate()
 }
 
+// maxNote is Discord's cap on an embed field, which keeps the note from crowding /about's own
+// limit out of the character sheet it is appended to.
+const maxNote = 1024
+
 // validate checks what a run needs before it can start: somewhere to store state, and a token to
 // reach Discord with.
 func (c config) validate() error {
 	if c.DatabaseURL == "" {
 		return errors.New("missing database_url")
+	}
+	if n := utf8.RuneCountInString(c.Note); n > maxNote {
+		return fmt.Errorf("note is %d characters, over %d", n, maxNote)
 	}
 	if c.Token == "" {
 		return errors.New("missing discord_token")

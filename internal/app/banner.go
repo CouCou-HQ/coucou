@@ -9,8 +9,6 @@ import (
 	"unicode"
 
 	dbot "github.com/disgoorg/disgo/bot"
-
-	"github.com/be-sandaa/coucou/internal/sounds"
 )
 
 // Build is the stamp the linker puts on a binary. Version also reaches the trace resource; all
@@ -85,8 +83,8 @@ type status struct {
 // printBanner prints the build stamp and what the process woke up to. serve calls it once, after
 // the reconcile, which is the first point at which every count is final — on a GuildsReady listener
 // the guild count could be one shard's worth. It is the only place the build stamp is printed.
-func printBanner(w io.Writer, b Build, c *dbot.Client, reg *sounds.Registry) {
-	s := status{Name: "coucou", Guilds: c.Caches.GuildsLen(), Sounds: reg.Len()}
+func printBanner(w io.Writer, b Build, c *dbot.Client, sounds int) {
+	s := status{Name: "coucou", Guilds: c.Caches.GuildsLen(), Sounds: sounds}
 	if u, ok := c.Caches.SelfUser(); ok {
 		s.Name = u.Username
 	}

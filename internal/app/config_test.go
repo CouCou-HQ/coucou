@@ -13,7 +13,9 @@ import (
 
 	"github.com/disgoorg/snowflake/v2"
 
+	"github.com/be-sandaa/coucou/internal/characters"
 	"github.com/be-sandaa/coucou/internal/commands"
+	"github.com/be-sandaa/coucou/internal/profile"
 )
 
 const (
@@ -68,7 +70,9 @@ func TestEveryKeyIsRead(t *testing.T) {
 	got := mustLoad(t, minimal+`
 owner_ids      = ["`+ownerA+`", "`+ownerB+`"]
 siblings       = "Fart=`+ownerA+`"
-profile        = "/srv/lenore"
+profiles       = "/srv/characters"
+default_profile = " lenore "
+note           = " Run by the Fart people. "
 
 [sounds]
 poll = "15s"
@@ -83,17 +87,19 @@ otlp      = "collector:4317"
 shard_count = 4
 `)
 	want := config{
-		DatabaseURL:  testDSN,
-		Token:        testToken,
-		OwnerIDs:     []snowflake.ID{snowflake.MustParse(ownerA), snowflake.MustParse(ownerB)},
-		Siblings:     []commands.Sibling{{Name: "Fart", App: snowflake.MustParse(ownerA)}},
-		ProfileDir:   "/srv/lenore",
-		SoundsPoll:   15 * time.Second,
-		HTTPAddr:     "", // explicitly empty disables the ops listener, not a fallback to the default
-		OTLPEndpoint: "collector:4317",
-		LogLevel:     slog.LevelWarn,
-		PProf:        true,
-		ShardCount:   4,
+		DatabaseURL:    testDSN,
+		Token:          testToken,
+		OwnerIDs:       []snowflake.ID{snowflake.MustParse(ownerA), snowflake.MustParse(ownerB)},
+		Siblings:       []commands.Sibling{{Name: "Fart", App: snowflake.MustParse(ownerA)}},
+		ProfilesDir:    "/srv/characters",
+		DefaultProfile: "lenore",
+		Note:           "Run by the Fart people.",
+		SoundsPoll:     15 * time.Second,
+		HTTPAddr:       "", // explicitly empty disables the ops listener, not a fallback to the default
+		OTLPEndpoint:   "collector:4317",
+		LogLevel:       slog.LevelWarn,
+		PProf:          true,
+		ShardCount:     4,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
@@ -160,6 +166,8 @@ func TestValidationErrors(t *testing.T) {
 		{"negative shard count", minimal + "[gateway]\nshard_count = -2"},
 		{"unknown log level", minimal + "[ops]\nlog_level = \"loud\""},
 		{"pprof not a bool", minimal + "[ops]\npprof = \"yesplease\""},
+		{"profile and profiles both", minimal + "profile = \"a\"\nprofiles = \"b\""},
+		{"note over 1024 characters", minimal + "note = \"" + strings.Repeat("x", maxNote+1) + "\""},
 		{"not toml", "database_url ="},
 	}
 	for _, tc := range tests {
@@ -236,5 +244,35 @@ func TestExampleConfigsLoad(t *testing.T) {
 				t.Errorf("parseConfig: %v", err)
 			}
 		})
+	}
+}
+
+// The deprecated profile key still reads as the one character it always was.
+func TestDeprecatedProfile(t *testing.T) {
+	if got := mustLoad(t, minimal+`profile = "/srv/lenore"`); got.ProfileDir != "/srv/lenore" || got.ProfilesDir != "" {
+		t.Errorf("profile: got ProfileDir %q, ProfilesDir %q", got.ProfileDir, got.ProfilesDir)
+	}
+	if got := mustLoad(t, minimal+`profiles = "/srv/characters"`); got.ProfileDir != "" {
+		t.Errorf("profiles set: ProfileDir = %q, want the default left out", got.ProfileDir)
+	}
+}
+
+// A character with its own bot joins the friends once; a sibling the config already names keeps
+// the config's name.
+func TestFriends(t *testing.T) {
+	const lisaApp, bartApp = 11, 22
+	const lisa, bart = "Lisa", "Bart Simpson"
+	chars, err := characters.New([]profile.Profile{
+		{ID: "bart", Dir: t.TempDir(), App: bartApp},
+		{ID: "lisa", Nickname: lisa, Dir: t.TempDir(), App: lisaApp},
+		{ID: "maggie", Dir: t.TempDir()},
+	}, "lisa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := friends([]commands.Sibling{{Name: bart, App: bartApp}}, chars.All())
+	want := []commands.Sibling{{Name: bart, App: bartApp}, {Name: lisa, App: lisaApp}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("friends = %+v, want %+v", got, want)
 	}
 }

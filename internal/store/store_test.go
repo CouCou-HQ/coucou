@@ -119,6 +119,7 @@ func find(t *testing.T, s store.Store, g snowflake.ID) store.Settings {
 const (
 	nsfwDefault = "restricted"
 	nsfwOn      = "on"
+	lisa        = "lisa"
 )
 
 func TestSettingsRoundTrip(t *testing.T) {
@@ -126,13 +127,13 @@ func TestSettingsRoundTrip(t *testing.T) {
 		g := guildID(t)
 
 		if err := s.UpsertSettings(context.Background(), store.Settings{
-			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn,
+			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn, Character: lisa,
 		}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
 		got := find(t, s, g)
-		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) {
+		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) || got.Character != lisa {
 			t.Errorf("got %+v", got)
 		}
 	})
@@ -144,7 +145,7 @@ func TestUpsertSettingsClearsTheZone(t *testing.T) {
 	run(t, "clear-zone", func(t *testing.T, s store.Store) {
 		ctx := context.Background()
 		g := guildID(t)
-		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, NSFW: nsfwDefault}); err != nil {
+		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, NSFW: nsfwDefault, Character: lisa}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
@@ -152,7 +153,7 @@ func TestUpsertSettingsClearsTheZone(t *testing.T) {
 			t.Fatalf("upsert nil zone: %v", err)
 		}
 		got := find(t, s, g)
-		if got.Chance != 5 || got.TZ != nil {
+		if got.Chance != 5 || got.TZ != nil || got.Character != "" {
 			t.Errorf("upsert did not overwrite: %+v", got)
 		}
 	})
@@ -269,7 +270,7 @@ func TestEncorePlayIsRecorded(t *testing.T) {
 	run(t, "encore", func(t *testing.T, s store.Store) {
 		g, listener := guildID(t), userID(t)
 		if err := s.WritePlays(context.Background(), []store.Play{{At: time.Now().UTC(), Guild: g, Channel: g + 1,
-			Sound: "a", Trigger: trigEncore, ListenerIDs: []snowflake.ID{listener}, OK: true, Duration: time.Second}}); err != nil {
+			Sound: "a", Trigger: trigEncore, ListenerIDs: []snowflake.ID{listener}, OK: true, Duration: time.Second, Character: lisa}}); err != nil {
 			t.Fatalf("WritePlays: %v", err)
 		}
 		st, err := s.GuildStats(context.Background(), g)

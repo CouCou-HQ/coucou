@@ -459,7 +459,7 @@ func (q *Queries) CutsTriggered(ctx context.Context, arg CutsTriggeredParams) ([
 
 const getSettings = `-- name: GetSettings :one
 
-select guild_id, join_chance, tz, suspense, updated_at, updated_by, fakeout, encore, nsfw from guilds_settings where guild_id = ?
+select guild_id, join_chance, tz, suspense, updated_at, updated_by, fakeout, encore, nsfw, character from guilds_settings where guild_id = ?
 `
 
 // The audited tables are read back whole, with select *, on purpose: the diff is taken over every
@@ -478,6 +478,7 @@ func (q *Queries) GetSettings(ctx context.Context, guildID int64) (GuildsSetting
 		&i.Fakeout,
 		&i.Encore,
 		&i.Nsfw,
+		&i.Character,
 	)
 	return i, err
 }
@@ -729,8 +730,8 @@ func (q *Queries) InsertOptOut(ctx context.Context, arg InsertOptOutParams) erro
 }
 
 const insertPlay = `-- name: InsertPlay :one
-insert into stats_plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms)
-values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+insert into stats_plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms, character)
+values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 returning id
 `
 
@@ -745,6 +746,7 @@ type InsertPlayParams struct {
 	Ok         int64   `json:"ok"`
 	Reason     *string `json:"reason"`
 	DurationMs int64   `json:"duration_ms"`
+	Character  *string `json:"character"`
 }
 
 func (q *Queries) InsertPlay(ctx context.Context, arg InsertPlayParams) (int64, error) {
@@ -759,6 +761,7 @@ func (q *Queries) InsertPlay(ctx context.Context, arg InsertPlayParams) (int64, 
 		arg.Ok,
 		arg.Reason,
 		arg.DurationMs,
+		arg.Character,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -930,7 +933,7 @@ func (q *Queries) ListQuiet(ctx context.Context, disabledAt *string) ([]ListQuie
 
 const listSettings = `-- name: ListSettings :many
 
-select guild_id, join_chance, tz, suspense, fakeout, encore, nsfw from guilds_settings
+select guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, character from guilds_settings
 `
 
 type ListSettingsRow struct {
@@ -941,6 +944,7 @@ type ListSettingsRow struct {
 	Fakeout    int64   `json:"fakeout"`
 	Encore     int64   `json:"encore"`
 	Nsfw       string  `json:"nsfw"`
+	Character  *string `json:"character"`
 }
 
 // SQLite has no unnest / COPY. Batches are done by the Go side inside one transaction with these
@@ -962,6 +966,7 @@ func (q *Queries) ListSettings(ctx context.Context) ([]ListSettingsRow, error) {
 			&i.Fakeout,
 			&i.Encore,
 			&i.Nsfw,
+			&i.Character,
 		); err != nil {
 			return nil, err
 		}
@@ -1185,10 +1190,10 @@ func (q *Queries) UpsertGuild(ctx context.Context, arg UpsertGuildParams) error 
 }
 
 const upsertSettings = `-- name: UpsertSettings :exec
-insert into guilds_settings (guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, updated_by)
-values (?, ?, ?, ?, ?, ?, ?, ?)
+insert into guilds_settings (guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, character, updated_by)
+values (?, ?, ?, ?, ?, ?, ?, ?, ?)
 on conflict (guild_id) do update set
-  join_chance = excluded.join_chance, tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, nsfw = excluded.nsfw, updated_by = excluded.updated_by,
+  join_chance = excluded.join_chance, tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, nsfw = excluded.nsfw, character = excluded.character, updated_by = excluded.updated_by,
   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
 `
 
@@ -1200,6 +1205,7 @@ type UpsertSettingsParams struct {
 	Fakeout    int64   `json:"fakeout"`
 	Encore     int64   `json:"encore"`
 	Nsfw       string  `json:"nsfw"`
+	Character  *string `json:"character"`
 	UpdatedBy  *int64  `json:"updated_by"`
 }
 
@@ -1216,6 +1222,7 @@ func (q *Queries) UpsertSettings(ctx context.Context, arg UpsertSettingsParams) 
 		arg.Fakeout,
 		arg.Encore,
 		arg.Nsfw,
+		arg.Character,
 		arg.UpdatedBy,
 	)
 	return err

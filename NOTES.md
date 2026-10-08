@@ -120,13 +120,13 @@ same zip, same input ordering, so `RETURNING id` still lines up with the input a
 
 ### sqlc cannot express an array with nullable elements
 
-`plays.user_id` and `plays.reason` are nullable, but sqlc maps `bigint[]`/`text[]` to
+`plays.user_id`, `plays.reason` and `plays.character` are nullable, but sqlc maps `bigint[]`/`text[]` to
 `[]int64`/`[]string` with no way to say "elements may be NULL". Neither a column override nor
 `sqlc.narg` changes that.
 
-The two columns therefore travel as sentinels and become NULL **in the query**, at the insert, not in
-Go: `nullif(r.user_id, 0)` and `nullif(r.reason, '')`. Neither a snowflake nor a failure reason is
-ever zero. (`nullif(unnest(...), 0)` is not an option — Postgres rejects a set-returning function
+The columns therefore travel as sentinels and become NULL **in the query**, at the insert, not in
+Go: `nullif(r.user_id, 0)`, `nullif(r.reason, '')` and `nullif(r.character, '')`. Neither a
+snowflake, a failure reason nor a profile id is ever zero or empty. (`nullif(unnest(...), 0)` is not an option — Postgres rejects a set-returning function
 nested inside another expression — hence the inner sub-select.)
 
 ### sqlc infers scalar subqueries as NOT NULL

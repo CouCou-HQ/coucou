@@ -63,6 +63,7 @@ type GuildsSetting struct {
 	Fakeout    int64   `json:"fakeout"`
 	Encore     int64   `json:"encore"`
 	Nsfw       string  `json:"nsfw"`
+	Character  *string `json:"character"`
 }
 
 type StatsPlay struct {
@@ -77,6 +78,7 @@ type StatsPlay struct {
 	Ok         int64   `json:"ok"`
 	Reason     *string `json:"reason"`
 	DurationMs int64   `json:"duration_ms"`
+	Character  *string `json:"character"`
 }
 
 type StatsPlayListener struct {

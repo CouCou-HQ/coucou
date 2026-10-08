@@ -40,13 +40,14 @@ type InsertPlayListenersParams struct {
 }
 
 const insertPlays = `-- name: InsertPlays :many
-insert into stats.plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms)
+insert into stats.plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms, character)
 select
   r.at, r.guild_id, r.channel_id, r.sound, r.trigger,
   nullif(r.user_id, 0),
   r.listeners, r.ok,
   nullif(r.reason, ''),
-  r.duration_ms
+  r.duration_ms,
+  nullif(r.character, '')
 from (
   select
     unnest($1::timestamptz[])        as at,
@@ -58,7 +59,8 @@ from (
     unnest($7::smallint[])    as listeners,
     unnest($8::boolean[])           as ok,
     unnest($9::text[])          as reason,
-    unnest($10::int[])      as duration_ms
+    unnest($10::int[])      as duration_ms,
+    unnest($11::text[])       as character
 ) r
 returning id
 `
@@ -74,6 +76,7 @@ type InsertPlaysParams struct {
 	Oks         []bool
 	Reasons     []string
 	DurationsMs []int32
+	Characters  []string
 }
 
 // One round-trip for a whole batch. sqlc's postgres catalog only knows single-argument unnest, so the
@@ -81,7 +84,7 @@ type InsertPlaysParams struct {
 // lockstep, so RETURNING ids come back in input order and line up with the arrays.
 //
 // sqlc maps bigint[]/text[] to []int64/[]string and has no way to express a nullable *element*, so the
-// two nullable columns travel as sentinels (0 / ”) and become NULL here, at the insert, not in Go.
+// nullable columns travel as sentinels (0 / ”) and become NULL here, at the insert, not in Go.
 func (q *Queries) InsertPlays(ctx context.Context, arg InsertPlaysParams) ([]int64, error) {
 	rows, err := q.db.Query(ctx, insertPlays,
 		arg.At,
@@ -94,6 +97,7 @@ func (q *Queries) InsertPlays(ctx context.Context, arg InsertPlaysParams) ([]int
 		arg.Oks,
 		arg.Reasons,
 		arg.DurationsMs,
+		arg.Characters,
 	)
 	if err != nil {
 		return nil, err

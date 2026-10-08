@@ -35,6 +35,7 @@ import (
 
 	"github.com/be-sandaa/coucou/internal/bus"
 	"github.com/be-sandaa/coucou/internal/chaos"
+	"github.com/be-sandaa/coucou/internal/characters"
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/ranks"
@@ -59,14 +60,14 @@ type Commands struct {
 	optouts  *silence.Store
 	quiet    *silence.Store
 	chaos    *chaos.Store
-	sounds   *sounds.Registry
+	chars    *characters.Set
 	events   *ev.Log
 	ranks    *ranks.Cuts
 	bus      *bus.Bus
 	play     Play
-	profile  profile.Profile
 	owners   []snowflake.ID
 	siblings []Sibling
+	note     string
 	// Zero value works, so New never has to mention it and a test can build a Commands literal.
 	autocomplete debouncer
 	plays        cooldown
@@ -90,17 +91,22 @@ func New(
 	set *settings.Store,
 	opt, quiet *silence.Store,
 	ch *chaos.Store,
-	reg *sounds.Registry,
+	chars *characters.Set,
 	log *ev.Log,
 	rk *ranks.Cuts,
 	b *bus.Bus,
 	play Play,
-	prof profile.Profile,
 	owners []snowflake.ID,
 	siblings []Sibling,
+	note string,
 ) *Commands {
-	colBrand = prof.Color
-	return &Commands{client: client, settings: set, optouts: opt, quiet: quiet, chaos: ch, sounds: reg, events: log, ranks: rk, bus: b, play: play, profile: prof, owners: owners, siblings: siblings}
+	colBrand = chars.Default().Color
+	return &Commands{client: client, settings: set, optouts: opt, quiet: quiet, chaos: ch, chars: chars, events: log, ranks: rk, bus: b, play: play, owners: owners, siblings: siblings, note: note}
+}
+
+// character is who the bot is in guild.
+func (c *Commands) character(guild snowflake.ID) *characters.Character {
+	return c.chars.Get(c.settings.Get(guild).Character)
 }
 
 // isOwner gates the servers leaderboard. A linear scan over a handful of ids is cheaper than the map
@@ -614,9 +620,9 @@ func soundsPage(names []string, marks func(string) string, page int) discord.Emb
 // A custom emoji does not render inside a code fence, so it cannot go in the speaker's block.
 func (c *Commands) nowPlaying(sound string) string {
 	if icon := c.emojis.icon(sound); icon != "" {
-		return icon + "`" + c.sounds.Label(sound) + "`"
+		return icon + "`" + c.chars.Label(sound) + "`"
 	}
-	return nowPlaying(sounds.Display(sound), c.sounds.Marks(sound))
+	return nowPlaying(sounds.Display(sound), c.chars.Marks(sound))
 }
 
 // cmdSounds lists what the autocomplete would, past its 25: nsfw follows the caller's voice channel.
@@ -625,7 +631,8 @@ func (c *Commands) cmdSounds(_ context.Context, e *events.ApplicationCommandInte
 	if !ok {
 		page = 1
 	}
-	return e.CreateMessage(say(soundsPage(c.sounds.Names(c.adultChannel(&guild, e.User().ID)), c.sounds.Marks, page)))
+	reg := c.character(guild).Sounds
+	return e.CreateMessage(say(soundsPage(reg.Names(c.adultChannel(&guild, e.User().ID)), reg.Marks, page)))
 }
 
 // autocompleteWait is how long typing has to stop before the bot answers. Discord sends one
@@ -720,7 +727,11 @@ func (c *cooldown) take(guild, user snowflake.ID) (time.Time, bool) {
 func (c *Commands) onAutocomplete(e *events.AutocompleteInteractionCreate) {
 	c.autocomplete.do(e.User().ID, autocompleteWait, func() {
 		defer logPanic("autocomplete")
-		if err := e.AutocompleteResult(matchSounds(c.sounds.Names(c.adultChannel(e.GuildID(), e.User().ID)), c.sounds.Label, e.Data.String("sound"))); err != nil {
+		reg := c.chars.Default().Sounds
+		if g := e.GuildID(); g != nil {
+			reg = c.character(*g).Sounds
+		}
+		if err := e.AutocompleteResult(matchSounds(reg.Names(c.adultChannel(e.GuildID(), e.User().ID)), reg.Label, e.Data.String("sound"))); err != nil {
 			slog.Error("autocomplete", slog.Any("err", err))
 		}
 	})
@@ -764,13 +775,14 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 		return e.CreateMessage(say(*refusal))
 	}
 	nsfw := c.settings.Get(guild).NSFW.Allows(voice.AgeRestricted(c.client, guild, channel))
+	reg := c.character(guild).Sounds
 	sound, given := data.OptString("sound")
 	if !given {
 		var ok bool
-		if sound, ok = c.sounds.Pick(nsfw); !ok {
+		if sound, ok = reg.Pick(nsfw); !ok {
 			return e.CreateMessage(say(bad("No sounds loaded", "There is nothing to play.")))
 		}
-	} else if !c.sounds.Playable(sound, nsfw) {
+	} else if !reg.Playable(sound, nsfw) {
 		return e.CreateMessage(say(bad("No such sound", "Pick one from the autocomplete.")))
 	}
 	if voice.Busy(guild) {
@@ -833,7 +845,7 @@ const helpSounds = "`/sounds` lists everything `/play` will take from you, a pag
 // find: the commands under the bot's own name and avatar, the switches, the sounds, then its friends.
 func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
-	commands := info(withEmoji(c.profile.Emoji, name), commandList())
+	commands := info(withEmoji(c.character(guild).Emoji, name), commandList())
 	if avatar != "" {
 		commands = commands.WithThumbnail(avatar)
 	}
@@ -841,6 +853,9 @@ func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandIntera
 		commands,
 		info("Keeping the bot out", helpLimits),
 		info("Sounds", helpSounds+"\n\n"+adultHelp(c.settings.Get(guild).NSFW, voice.AgeRestrictedGuild(c.client, guild))+"\n"+helpNSFW),
+	}
+	if c.note != "" {
+		fixed = append(fixed, info("", c.note))
 	}
 	return e.CreateMessage(say(fitHelp(fixed, friendsGrid(c.siblings, c.client.ApplicationID, name))...))
 }
@@ -894,8 +909,8 @@ func withEmoji(emoji, title string) string {
 const aboutLimit = 4000
 
 // aboutBody is the character sheet: tagline, lore, then traits as a list, each left out when the
-// profile has none of it.
-func aboutBody(p profile.Profile) string {
+// profile has none of it. The operator's note goes under it, story or not.
+func aboutBody(p profile.Profile, note string) string {
 	var parts []string
 	if p.Tagline != "" {
 		parts = append(parts, "*"+p.Tagline+"*")
@@ -907,14 +922,18 @@ func aboutBody(p profile.Profile) string {
 		parts = append(parts, "**Traits**\n• "+strings.Join(p.Traits, "\n• "))
 	}
 	if len(parts) == 0 {
-		return "No story yet."
+		parts = append(parts, "No story yet.")
+	}
+	if note != "" {
+		parts = append(parts, note)
 	}
 	return truncate(strings.Join(parts, "\n\n"), aboutLimit)
 }
 
 func (c *Commands) cmdAbout(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
-	return e.CreateMessage(say(info(withEmoji(c.profile.Emoji, name), aboutBody(c.profile)).WithThumbnail(avatar)))
+	ch := c.character(guild)
+	return e.CreateMessage(say(info(withEmoji(ch.Emoji, name), aboutBody(ch.Profile, c.note)).WithThumbnail(avatar)))
 }
 
 // self is the bot as people in guild see it, and the avatar that goes with it. The profile's
@@ -927,7 +946,7 @@ func (c *Commands) self(guild snowflake.ID) (name, avatar string) {
 	} else if u, ok := c.client.Caches.SelfUser(); ok {
 		name, avatar = u.EffectiveName(), u.EffectiveAvatarURL()
 	}
-	return cmp.Or(c.profile.Nickname, name), avatar
+	return cmp.Or(c.character(guild).Nickname, name), avatar
 }
 
 // markdown escapes what would restyle or break a name dropped into bold or a link label: a
@@ -1310,7 +1329,7 @@ func (c *Commands) orNone(s *string) string {
 	if s == nil {
 		return noneYet
 	}
-	return c.emojis.icon(*s) + "`" + c.sounds.Label(*s) + "`"
+	return c.emojis.icon(*s) + "`" + c.chars.Label(*s) + "`"
 }
 
 func (c *Commands) cmdStats(ctx context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, data discord.SlashCommandInteractionData) error {
@@ -1530,7 +1549,7 @@ func (c *Commands) userReport(ctx context.Context, guild, user snowflake.ID, w c
 		last = fmt.Sprintf("<t:%d:R>", s.LastHeard.Unix())
 	}
 	top := max(s.Heard, s.Triggered, s.Fled)
-	col := c.sounds.Collection(heard, c.settings.Get(guild).NSFW.Allows(voice.AgeRestrictedGuild(c.client, guild)))
+	col := c.character(guild).Sounds.Collection(heard, c.settings.Get(guild).NSFW.Allows(voice.AgeRestrictedGuild(c.client, guild)))
 	rt := rankText(standings, of)
 	meters := []string{
 		meter("caught", frac(s.Heard, top), plural(s.Heard, "time", "times")),
@@ -1702,7 +1721,7 @@ func window(period string) (days int, span string) {
 func (c *Commands) label(board, key string) string {
 	switch board {
 	case boardSounds:
-		return c.emojis.icon(key) + clipped(key, c.sounds.Marks)
+		return c.emojis.icon(key) + clipped(key, c.chars.Marks)
 	case boardChannels:
 		return "<#" + key + ">"
 	}

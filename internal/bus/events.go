@@ -24,6 +24,7 @@ type PlayFinished struct {
 	Reason    string         `json:"reason,omitempty"`
 	StartedAt time.Time      `json:"started_at"`
 	Duration  time.Duration  `json:"duration" validate:"min=0"`
+	Character string         `json:"character,omitempty"`
 }
 
 // GuildLeft is the boot reconcile only: a guild the bot was in when it went down and is not in now.
@@ -48,8 +49,10 @@ type SettingsChanged struct {
 }
 
 type SoundAdded struct {
-	Name string `json:"name" validate:"required"`
+	Name      string `json:"name" validate:"required"`
+	Character string `json:"character,omitempty"`
 }
 type SoundRemoved struct {
-	Name string `json:"name" validate:"required"`
+	Name      string `json:"name" validate:"required"`
+	Character string `json:"character,omitempty"`
 }

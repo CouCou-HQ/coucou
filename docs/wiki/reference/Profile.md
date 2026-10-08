@@ -1,13 +1,16 @@
 # Profile
 
-Who the bot is lives in one directory, the `profile` key in [Configuration](Configuration): `profile.toml` and the `sounds/` it
-plays. Copy [`profile.example.toml`](https://github.com/be-sandaa/coucou/blob/main/profile.example.toml), which lists every key. Nothing in it is
+Who the bot is lives in one directory per character under the `profiles` key in
+[Configuration](Configuration): `profiles/<id>/profile.toml` and the `sounds/` beside it. One
+character is the bot as it has always been; with several, `default_profile` names the one a server
+gets until it picks. The deprecated `profile` key still points at a single character's directory. Copy [`profile.example.toml`](https://github.com/be-sandaa/coucou/blob/main/profile.example.toml), which lists every key. Nothing in it is
 pushed to Discord — the bot's username, avatar and banner stay whatever the developer portal says.
 
 | key | default | what |
 |---|---|---|
 | `id` | — (required) | lowercase letters, digits and dashes |
 | `nickname` | `""` | what replies call the bot. Wins over its nickname in a server, which wins over its Discord name |
+| `application_id` | `""` | the character's own bot, if it runs as one too. Adds it to the friends `/help` advertises |
 | `emoji` | `""` | in front of the `/help` and `/about` titles |
 | `color` | `#E4572E` | embed accent for reports and confirmations, `#RRGGBB` |
 | `tagline`, `lore` | `""` | shown by `/about` |
@@ -29,6 +32,6 @@ overrides each with its command, and seeding never touches a server that already
 changed default only reaches servers the bot joins afterwards.
 
 `profile.toml` is read once at startup and an invalid one stops the bot; a change needs a restart.
-Only `sounds/` reloads live. From a checkout, `profile/` is git-ignored: start it with
-`mkdir -p profile/sounds && cp profile.example.toml profile/profile.toml`, and set
-`profile = "profile"` in your `config.toml`.
+Only `sounds/` reloads live. Every `id` must be unique. From a checkout, `profiles/` is git-ignored:
+start a character with `mkdir -p profiles/lenore/sounds && cp profile.example.toml
+profiles/lenore/profile.toml`, and set `profiles = "profiles"` in your `config.toml`.

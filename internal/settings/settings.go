@@ -20,6 +20,9 @@ type Settings struct {
 	FakeOut  int
 	Encore   int
 	NSFW     NSFW
+	// Character is the guild's profile id. Empty is the default character, which every guild has
+	// until it picks; characters.Set.Get resolves both.
+	Character string
 }
 
 // NSFW is where a guild's nsfw sounds may play.
@@ -60,7 +63,7 @@ func (s *Store) Load(ctx context.Context) error {
 	}
 	m := make(map[snowflake.ID]Settings, len(rows))
 	for _, r := range rows {
-		m[r.Guild] = Settings{Chance: r.Chance, TZ: r.TZ, Suspense: r.Suspense, FakeOut: r.FakeOut, Encore: r.Encore, NSFW: NSFW(r.NSFW)}
+		m[r.Guild] = Settings{Chance: r.Chance, TZ: r.TZ, Suspense: r.Suspense, FakeOut: r.FakeOut, Encore: r.Encore, NSFW: NSFW(r.NSFW), Character: r.Character}
 	}
 	s.mu.Lock()
 	s.m = m
@@ -104,7 +107,7 @@ func (s *Store) Update(ctx context.Context, guild, by snowflake.ID, fn func(*Set
 	if next.NSFW == "" {
 		next.NSFW = NSFWRestricted // a guild without a row yet; the column refuses an empty mode
 	}
-	if err := s.db.UpsertSettings(ctx, store.Settings{Guild: guild, Chance: next.Chance, TZ: next.TZ, Suspense: next.Suspense, FakeOut: next.FakeOut, Encore: next.Encore, NSFW: string(next.NSFW), UpdatedBy: by}); err != nil {
+	if err := s.db.UpsertSettings(ctx, store.Settings{Guild: guild, Chance: next.Chance, TZ: next.TZ, Suspense: next.Suspense, FakeOut: next.FakeOut, Encore: next.Encore, NSFW: string(next.NSFW), Character: next.Character, UpdatedBy: by}); err != nil {
 		return next, err
 	}
 	s.mu.Lock()

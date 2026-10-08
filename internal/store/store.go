@@ -29,6 +29,7 @@ type Settings struct {
 	FakeOut   int
 	Encore    int
 	NSFW      string
+	Character string // a profile id; empty is the default character, stored as null
 	UpdatedBy snowflake.ID
 }
 
@@ -53,6 +54,7 @@ type Play struct {
 	OK          bool
 	Reason      string
 	Duration    time.Duration
+	Character   string // empty for a play recorded before characters existed
 }
 
 // Misc is one row of the append-only events table. Guild is nil for a global event — a sound

@@ -153,14 +153,14 @@ func (s *Store) ListSettings(ctx context.Context) ([]store.Settings, error) {
 	}
 	out := make([]store.Settings, len(rows))
 	for i, r := range rows {
-		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore), NSFW: r.Nsfw}
+		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore), NSFW: r.Nsfw, Character: deref(r.Character)}
 	}
 	return out, nil
 }
 
 func (s *Store) UpsertSettings(ctx context.Context, st store.Settings) error {
 	return s.q.UpsertSettings(ctx, gen.UpsertSettingsParams{
-		GuildID: i64(st.Guild), JoinChance: small(st.Chance), Tz: st.TZ, Suspense: small(st.Suspense), Fakeout: small(st.FakeOut), Encore: small(st.Encore), Nsfw: st.NSFW,
+		GuildID: i64(st.Guild), JoinChance: small(st.Chance), Tz: st.TZ, Suspense: small(st.Suspense), Fakeout: small(st.FakeOut), Encore: small(st.Encore), Nsfw: st.NSFW, Character: strp(st.Character),
 		UpdatedBy: i64(st.UpdatedBy),
 	})
 }
@@ -179,7 +179,7 @@ func (s *Store) WritePlays(ctx context.Context, plays []store.Play) error {
 		p := gen.InsertPlaysParams{
 			At: make([]time.Time, n), GuildIds: make([]int64, n), ChannelIds: make([]int64, n), Sounds: make([]string, n),
 			Triggers: make([]string, n), UserIds: make([]int64, n), Listeners: make([]int16, n), Oks: make([]bool, n),
-			Reasons: make([]string, n), DurationsMs: make([]int32, n),
+			Reasons: make([]string, n), DurationsMs: make([]int32, n), Characters: make([]string, n),
 		}
 		for i, pl := range plays {
 			p.At[i], p.GuildIds[i], p.ChannelIds[i], p.Sounds[i], p.Triggers[i] = pl.At, i64(pl.Guild), i64(pl.Channel), pl.Sound, pl.Trigger
@@ -188,7 +188,7 @@ func (s *Store) WritePlays(ctx context.Context, plays []store.Play) error {
 			if pl.User != nil {
 				p.UserIds[i] = i64(*pl.User)
 			}
-			p.Reasons[i] = pl.Reason
+			p.Reasons[i], p.Characters[i] = pl.Reason, pl.Character
 			p.Listeners[i], p.Oks[i], p.DurationsMs[i] = small(len(pl.ListenerIDs)), pl.OK, i32(int(pl.Duration.Milliseconds()))
 		}
 		ids, err := q.InsertPlays(ctx, p)
@@ -623,3 +623,11 @@ func i32p(v *int32) *int {
 }
 
 //#endregion
+
+// deref is a nullable text column read back as its empty-string sentinel.
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

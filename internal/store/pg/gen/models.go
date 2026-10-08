@@ -66,6 +66,7 @@ type GuildsSetting struct {
 	Fakeout    int16
 	Encore     int16
 	Nsfw       string
+	Character  *string
 }
 
 type StatsListen struct {
@@ -111,6 +112,7 @@ type StatsPlay struct {
 	Ok         bool
 	Reason     *string
 	DurationMs int32
+	Character  *string
 }
 
 type StatsPlayListener struct {

@@ -45,6 +45,7 @@ func PlayFinished(log *events.Log) bus.Handler[bus.PlayFinished] {
 		log.RecordPlay(events.Play{
 			At: e.StartedAt, Guild: e.Guild, Channel: e.Channel, Sound: e.Sound, Trigger: e.Trigger,
 			User: e.User, ListenerIDs: e.Listeners, FledIDs: e.Fled, OK: e.OK, Reason: e.Reason, Duration: e.Duration,
+			Character: e.Character,
 		})
 		return nil
 	}
@@ -53,6 +54,9 @@ func PlayFinished(log *events.Log) bus.Handler[bus.PlayFinished] {
 // keyName is a stored column name, shared by the three records that carry one. The data keys are
 // schema — renaming this is a migration, not a wording change.
 const keyName = "name"
+
+// keyCharacter is whose sound it was, on a sound record.
+const keyCharacter = "character"
 
 // The guild_leave record and its one column, shared by the live handler and the boot-reconcile one
 // so the two cannot drift into writing different rows for the same thing.
@@ -144,14 +148,14 @@ func GuildLeftSync(db store.Store) bus.Handler[discord.Guild] {
 
 func SoundAdded(log *events.Log) bus.Handler[bus.SoundAdded] {
 	return func(ctx context.Context, e *bus.SoundAdded) error {
-		log.Audit(ctx, events.Misc{Kind: "sound_added", Data: map[string]any{keyName: e.Name}})
+		log.Audit(ctx, events.Misc{Kind: "sound_added", Data: map[string]any{keyName: e.Name, keyCharacter: e.Character}})
 		return nil
 	}
 }
 
 func SoundRemoved(log *events.Log) bus.Handler[bus.SoundRemoved] {
 	return func(ctx context.Context, e *bus.SoundRemoved) error {
-		log.Audit(ctx, events.Misc{Kind: "sound_removed", Data: map[string]any{keyName: e.Name}})
+		log.Audit(ctx, events.Misc{Kind: "sound_removed", Data: map[string]any{keyName: e.Name, keyCharacter: e.Character}})
 		return nil
 	}
 }

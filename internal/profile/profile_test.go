@@ -48,6 +48,7 @@ func TestEveryKeyIsRead(t *testing.T) {
 	dir := write(t, `
 id       = "lenore"
 nickname = " Lenore "
+application_id = "912694340814516254"
 emoji    = "🖤"
 color    = "#4E5058"
 tagline  = "Mean, nicely."
@@ -94,6 +95,7 @@ online   = "dnd"
 		},
 		Links:  sounds.Links{"snare": {"boo": 70, "sad-trombone": 30}},
 		Status: Status{Text: "🖤 lurking", Activity: discord.ActivityTypeListening, Online: discord.OnlineStatusDND},
+		App:    912694340814516254,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
@@ -135,6 +137,7 @@ func TestInvalidProfiles(t *testing.T) {
 		{"unknown activity", "id = \"x\"\n[status]\nactivity = \"streaming\""},
 		{"unknown online state", "id = \"x\"\n[status]\nonline = \"invisible\""},
 		{"status text over 128 characters", "id = \"x\"\n[status]\ntext = \"" + strings.Repeat("🖤", MaxStatus+1) + "\""},
+		{"application id not a number", "id = \"x\"\napplication_id = \"lenore\""},
 		{"not toml", "id ="},
 	}
 	for _, tc := range tests {
@@ -150,4 +153,60 @@ func TestMissingProfileIsAnError(t *testing.T) {
 	if _, err := Load(t.TempDir()); err == nil {
 		t.Fatal("expected an error for a directory with no profile.toml")
 	}
+}
+
+// character puts a profile.toml with body under root/sub.
+func character(t *testing.T, root, sub, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, sub), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, sub, "profile.toml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Every subdirectory with a profile.toml is a character, sorted by id rather than by folder; a
+// folder without one is skipped, so a stray directory is not an error.
+func TestLoadAll(t *testing.T) {
+	root := t.TempDir()
+	character(t, root, "a", `id = "zelda"`)
+	character(t, root, "b", `id = "bart"`)
+	if err := os.MkdirAll(filepath.Join(root, "empty"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadAll(root)
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != "bart" || got[1].ID != "zelda" {
+		t.Fatalf("got %+v, want bart then zelda", got)
+	}
+	if got[0].Dir != filepath.Join(root, "b") {
+		t.Errorf("Dir = %q, want its own folder", got[0].Dir)
+	}
+}
+
+func TestLoadAllRefuses(t *testing.T) {
+	t.Run("no characters", func(t *testing.T) {
+		if _, err := LoadAll(t.TempDir()); err == nil {
+			t.Error("expected an error")
+		}
+	})
+	t.Run("one id twice", func(t *testing.T) {
+		root := t.TempDir()
+		character(t, root, "a", `id = "bart"`)
+		character(t, root, "b", `id = "bart"`)
+		if _, err := LoadAll(root); err == nil {
+			t.Error("expected an error")
+		}
+	})
+	t.Run("one broken character", func(t *testing.T) {
+		root := t.TempDir()
+		character(t, root, "a", `id = "bart"`)
+		character(t, root, "b", `id = "Bad"`)
+		if _, err := LoadAll(root); err == nil {
+			t.Error("expected an error")
+		}
+	})
 }

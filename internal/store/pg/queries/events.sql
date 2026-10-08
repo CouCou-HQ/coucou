@@ -4,14 +4,15 @@
 -- lockstep, so RETURNING ids come back in input order and line up with the arrays.
 --
 -- sqlc maps bigint[]/text[] to []int64/[]string and has no way to express a nullable *element*, so the
--- two nullable columns travel as sentinels (0 / '') and become NULL here, at the insert, not in Go.
-insert into stats.plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms)
+-- nullable columns travel as sentinels (0 / '') and become NULL here, at the insert, not in Go.
+insert into stats.plays (at, guild_id, channel_id, sound, trigger, user_id, listeners, ok, reason, duration_ms, character)
 select
   r.at, r.guild_id, r.channel_id, r.sound, r.trigger,
   nullif(r.user_id, 0),
   r.listeners, r.ok,
   nullif(r.reason, ''),
-  r.duration_ms
+  r.duration_ms,
+  nullif(r.character, '')
 from (
   select
     unnest(sqlc.arg(at)::timestamptz[])        as at,
@@ -23,7 +24,8 @@ from (
     unnest(sqlc.arg(listeners)::smallint[])    as listeners,
     unnest(sqlc.arg(oks)::boolean[])           as ok,
     unnest(sqlc.arg(reasons)::text[])          as reason,
-    unnest(sqlc.arg(durations_ms)::int[])      as duration_ms
+    unnest(sqlc.arg(durations_ms)::int[])      as duration_ms,
+    unnest(sqlc.arg(characters)::text[])       as character
 ) r
 returning id;
 

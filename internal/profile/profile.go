@@ -4,10 +4,14 @@
 package profile
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +19,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/store"
@@ -57,7 +62,11 @@ type Profile struct {
 	Chains   []sounds.Chain
 	Links    sounds.Links
 	Status   Status
+	App      snowflake.ID // the character's own bot, zero when it has none
 }
+
+// Name is what the character is called where no server is asking: its nickname, else its id.
+func (p Profile) Name() string { return cmp.Or(p.Nickname, p.ID) }
 
 // Status is what the bot shows under its name in the member list. No Text: only the online state.
 type Status struct {
@@ -87,6 +96,7 @@ func (p Profile) SoundsDir() string { return filepath.Join(p.Dir, "sounds") }
 type file struct {
 	ID       string   `toml:"id"`
 	Nickname string   `toml:"nickname"`
+	App      string   `toml:"application_id"`
 	Emoji    string   `toml:"emoji"`
 	Color    string   `toml:"color"`
 	Tagline  string   `toml:"tagline"`
@@ -121,6 +131,40 @@ var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 // Load reads dir/profile.toml. It is read once, at startup: a changed profile needs a restart, and
 // only the sounds beside it reload live.
 func Load(dir string) (Profile, error) { return load(filepath.Join(dir, "profile.toml"), dir) }
+
+// LoadAll reads every character in dir: one subdirectory each, holding its profile.toml. Ids must
+// be unique, since a server's saved character is its id. Sorted by id, so the order is stable.
+func LoadAll(dir string) ([]Profile, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []Profile
+	seen := map[string]string{}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		sub := filepath.Join(dir, e.Name())
+		if _, err := os.Stat(filepath.Join(sub, "profile.toml")); errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		p, err := Load(sub)
+		if err != nil {
+			return nil, err
+		}
+		if other, ok := seen[p.ID]; ok {
+			return nil, fmt.Errorf("id %q is used by both %s and %s", p.ID, other, sub)
+		}
+		seen[p.ID] = sub
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%s: no character found, want <id>/profile.toml in it", dir)
+	}
+	slices.SortFunc(out, func(a, b Profile) int { return cmp.Compare(a.ID, b.ID) })
+	return out, nil
+}
 
 func load(path, dir string) (Profile, error) {
 	var f file
@@ -173,12 +217,18 @@ func (f file) parse(dir string) (Profile, error) {
 	if err != nil {
 		return Profile{}, err
 	}
+	var app snowflake.ID
+	if f.App != "" {
+		if app, err = snowflake.Parse(f.App); err != nil {
+			return Profile{}, fmt.Errorf("application_id %q: %w", f.App, err)
+		}
+	}
 	return Profile{
 		Dir: dir, ID: f.ID, Nickname: strings.TrimSpace(f.Nickname), Emoji: f.Emoji, Color: color,
 		Tagline: f.Tagline, Lore: strings.TrimSpace(f.Lore), Traits: f.Traits,
 		Defaults: store.Defaults{Chance: d.Chance, Suspense: d.Suspense, FakeOut: d.FakeOut, Encore: d.Encore},
 		Chains:   chains, Links: links,
-		Status: status,
+		Status: status, App: app,
 	}, nil
 }
 
