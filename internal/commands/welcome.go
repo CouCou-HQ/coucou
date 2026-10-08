@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -174,7 +175,7 @@ func (c *Commands) welcomeEmbed(s suggestion, by snowflake.ID) discord.Embed {
 	if unpicked {
 		return info("Hi! Who should I be here?", sb.String())
 	}
-	return info(withEmoji(ch.Emoji, "Hi, I'm "+ch.Name()), sb.String())
+	return info(withEmoji(ch.Emoji, "Hi, I'm "+ch.Name()), sb.String()).WithColor(cmp.Or(ch.Color, colBrand))
 }
 
 // applyWelcome saves the suggestion on the button. The message is in a channel, not ephemeral, so

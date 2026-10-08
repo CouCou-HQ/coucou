@@ -258,7 +258,7 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 	}
 
 	// Status is the whole account's, so with several characters it is the default's.
-	client, err := bot.New(cfg.Token, cfg.ShardCount, chars.Default().Status)
+	client, err := bot.New(cfg.Token, cfg.ShardCount, botStatus(cfg, chars))
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 	}
 	rk := ranks.New(db)
 	persona := bot.NewPersona(client, chars, set)
-	cmds := commands.New(client, set, opt, quiet, cha, chars, log, rk, eb, play, cfg.OwnerIDs, friends(cfg.Siblings, chars.All()), cfg.Note, persona.Push)
+	cmds := commands.New(client, set, opt, quiet, cha, chars, log, rk, eb, play, cfg.OwnerIDs, friends(cfg.Siblings, chars.All()), cfg.Note, cfg.Color, persona.Push)
 	ready := bot.NewReadyTracker()
 	pulse := bot.NewPulse()
 
@@ -362,6 +362,14 @@ func watchCharacters(cfg config, chars *characters.Set, p *parts) func(context.C
 			p.persona.PushAll()
 		})
 	}
+}
+
+// botStatus is the bot's status: config.toml's, else the default character's from before it moved there.
+func botStatus(cfg config, chars *characters.Set) profile.Status {
+	if cfg.Status != nil {
+		return *cfg.Status
+	}
+	return chars.Default().Status
 }
 
 // warnForeignApp catches a single character whose application_id is some other bot's, which is a

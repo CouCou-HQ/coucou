@@ -15,12 +15,10 @@ pushed to Discord — the bot's username, avatar and banner stay whatever the de
 | `keywords` | `[]` | words that, found in a server's name, description or channel names when the bot joins, suggest this character |
 | `application_id` | `""` | the character's own bot, if it runs as one too. Adds it to the friends `/help` advertises, and gives the character that bot's avatar when it has no `avatar.*` |
 | `emoji` | `""` | in front of the `/help` and `/about` titles |
-| `color` | `#E4572E` | embed accent for reports and confirmations, `#RRGGBB` |
+| `color` | config's `color` | embed accent for reports and confirmations in servers playing this character, `#RRGGBB` |
 | `tagline`, `lore` | `""` | shown by `/about` |
 | `traits` | `[]` | character quirks, listed by `/about`. Something to read; they never change what the bot does |
-| `status.text` | `""` | shown under the bot's name, up to 128 characters. Emoji go in the text: bots get no separate emoji slot or server emoji |
-| `status.activity` | `custom` | `custom` shows the text as is; `playing`, `listening`, `watching`, `competing` prefix it the way Discord does |
-| `status.online` | `online` | `online`, `idle` or `dnd` |
+| `status.*` | — | **deprecated**: set `[status]` in [Configuration](Configuration). Still read from the default character when config.toml has none |
 | `defaults.chance` | `5` | join chance a server starts with, 0–100 |
 | `defaults.suspense` | `0` | seconds of silence before the sound, 0–20 |
 | `defaults.fakeout` | `0` | % of visits that leave without a sound, 0–50 |
@@ -38,7 +36,6 @@ An invalid `profile.toml` stops the bot at startup. While it runs, changes to `p
 `avatar.*` are picked up within about 40 seconds of the last edit: added, removed and edited
 characters, `/character` appearing or going, and every server's nickname and avatar. An avatar
 taken from `application_id` follows that bot within the hour. An edit that
-does not load is logged and the running characters stay. The embed `color` and the `status` of the
-default character still need a restart. `sounds/` reloads on its own. Every `id` must be unique. From a checkout, `profiles/` is git-ignored:
+does not load is logged and the running characters stay. `sounds/` reloads on its own. Every `id` must be unique. From a checkout, `profiles/` is git-ignored:
 start a character with `mkdir -p profiles/lenore/sounds && cp profile.example.toml
 profiles/lenore/profile.toml`, and set `profiles = "profiles"` in your `config.toml`.

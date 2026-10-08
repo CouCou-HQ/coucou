@@ -60,8 +60,8 @@ New `profile.toml` keys:
 | `keywords` | matched against a new server to suggest this character |
 | `preview` | up to 3 sound names `/character preview` plays; random sounds when left out |
 
-The embed accent (`color`) on replies is the default character's. Status is account-wide, so it
-is the default character's too. Everything else a reply shows comes from the server's character.
+Everything a reply shows comes from the server's character, its embed accent (`color`) too, with
+config.toml's `color` where it sets none. Status is account-wide, so it is config.toml's `[status]`.
 
 `avatar.png` beside `profile.toml` is the per-server avatar. Without it, a character with an
 `application_id` other than the bot's own wears that bot's avatar, animated ones as the GIF, checked again

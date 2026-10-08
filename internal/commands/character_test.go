@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/characters"
 	"github.com/be-sandaa/coucou/internal/profile"
+	"github.com/be-sandaa/coucou/internal/settings"
 	"github.com/be-sandaa/coucou/internal/store"
 )
 
@@ -123,5 +125,34 @@ func TestByCharacter(t *testing.T) {
 	got := c.byCharacter([]store.Row{{Key: lisa, N: 4}, {Key: "", N: 3}, {Key: bart, N: 2}, {Key: "homer", N: 1}})
 	if want := "bart · 5 plays\nlisa · 4 plays\nhomer · 1 play"; got != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// A reply takes its server's character's color; where that has none, or there is no server, the
+// bot's. Only info's color is swapped: a refusal stays red whoever the bot is.
+func TestBranded(t *testing.T) {
+	const own = 0x123456
+	guild := snowflake.ID(1)
+	for _, tt := range []struct {
+		name  string
+		color int
+		guild *snowflake.ID
+		want  int
+	}{
+		{"the character's", own, &guild, own},
+		{"a character without one", 0, &guild, colBrand},
+		{"no server", own, nil, colBrand},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := characters.New([]profile.Profile{{ID: bart, Dir: t.TempDir(), Color: tt.color}}, bart)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := &Commands{chars: s, settings: settings.New(nil)}
+			got := c.branded(tt.guild, []discord.Embed{info("", ""), bad("", "")})
+			if got[0].Color != tt.want || got[1].Color != colBad {
+				t.Errorf("colors = %#x, %#x; want %#x, %#x", got[0].Color, got[1].Color, tt.want, colBad)
+			}
+		})
 	}
 }

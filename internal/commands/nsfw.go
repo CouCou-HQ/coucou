@@ -105,6 +105,7 @@ func (c *Commands) OnComponent() bot.EventListener {
 
 func (c *Commands) onComponent(e *events.ComponentInteractionCreate) {
 	defer logPanic("component")
+	e.Respond = c.branding(e.GuildID(), e.Respond)
 	var err error
 	switch id := e.Data.CustomID(); {
 	case id == nsfwConfirm:
@@ -143,7 +144,7 @@ func (c *Commands) confirmNSFW(e *events.ComponentInteractionCreate) error {
 		reply = bad("Couldn't save", "The database isn't answering. Try again in a minute.")
 	}
 	if _, uerr := c.client.Rest.UpdateInteractionResponse(c.client.ApplicationID, e.Token(),
-		discord.NewMessageUpdate().WithEmbeds(reply).ClearComponents(), rest.WithCtx(ctx)); uerr != nil {
+		discord.NewMessageUpdate().WithEmbeds(c.branded(e.GuildID(), []discord.Embed{reply})...).ClearComponents(), rest.WithCtx(ctx)); uerr != nil {
 		slog.Error("answering the nsfw confirmation", slog.Any("err", uerr))
 	}
 	return err

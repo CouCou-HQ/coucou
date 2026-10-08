@@ -49,7 +49,7 @@ func (c *Commands) confirmForget(e *events.ComponentInteractionCreate) error {
 		reply.Description += "\n\nYour `/optout` stays, so the bot still isn't counting you. `/optout off` ends it."
 	}
 	if _, uerr := c.client.Rest.UpdateInteractionResponse(c.client.ApplicationID, e.Token(),
-		discord.NewMessageUpdate().WithEmbeds(reply).ClearComponents(), rest.WithCtx(ctx)); uerr != nil {
+		discord.NewMessageUpdate().WithEmbeds(c.branded(e.GuildID(), []discord.Embed{reply})...).ClearComponents(), rest.WithCtx(ctx)); uerr != nil {
 		slog.Error("answering the forget confirmation", slog.Any("err", uerr))
 	}
 	return err

@@ -111,9 +111,10 @@ func New(
 	owners []snowflake.ID,
 	siblings []Sibling,
 	note string,
+	color int,
 	push func(...snowflake.ID),
 ) *Commands {
-	colBrand = chars.Default().Color
+	colBrand = color
 	return &Commands{client: client, settings: set, optouts: opt, quiet: quiet, chaos: ch, chars: chars, events: log, ranks: rk, bus: b, play: play, owners: owners, siblings: siblings, note: note, push: push}
 }
 
@@ -402,8 +403,8 @@ const (
 // Embed colours. Four of them, and every title states in words what its colour states in hue — a
 // screen reader is read the title and never the colour, so the colour is confirmation, not carrier.
 //
-// colBrand is the character's accent from its profile. A var set once in New rather than a field:
-// one process runs one profile, and info is called from everywhere.
+// colBrand is the bot's accent from config.toml. A var set once in New rather than a field: info is
+// called from everywhere. branded swaps it for the server's character's on the way out.
 var colBrand = profile.DefaultColor // reports and confirmations
 
 const (
@@ -417,7 +418,45 @@ func embed(color int, title, body string) discord.Embed {
 }
 
 func info(title, body string) discord.Embed { return embed(colBrand, title, body) }
-func bad(title, body string) discord.Embed  { return embed(colBad, title, body) }
+
+// brand is guild's accent: its character's color, else the bot's.
+func (c *Commands) brand(guild *snowflake.ID) int {
+	if guild == nil {
+		return colBrand
+	}
+	return cmp.Or(c.character(*guild).Color, colBrand)
+}
+
+// branded recolors the info embeds in es for guild. info is built far from the server it answers,
+// so the color is settled where replies leave instead of at every one of its callers.
+func (c *Commands) branded(guild *snowflake.ID, es []discord.Embed) []discord.Embed {
+	col := c.brand(guild)
+	for i := range es {
+		if es[i].Color == colBrand {
+			es[i].Color = col
+		}
+	}
+	return es
+}
+
+// branding is respond with every reply it sends branded for guild.
+func (c *Commands) branding(guild *snowflake.ID, respond events.InteractionResponderFunc) events.InteractionResponderFunc {
+	return func(t discord.InteractionResponseType, data discord.InteractionResponseData, opts ...rest.RequestOpt) error {
+		switch d := data.(type) {
+		case discord.MessageCreate:
+			d.Embeds = c.branded(guild, d.Embeds)
+			data = d
+		case discord.MessageUpdate:
+			if d.Embeds != nil {
+				em := c.branded(guild, *d.Embeds)
+				d.Embeds = &em
+			}
+			data = d
+		}
+		return respond(t, data, opts...)
+	}
+}
+func bad(title, body string) discord.Embed { return embed(colBad, title, body) }
 
 // deny is bad for the callers that hand a refusal back up rather than sending it themselves.
 func deny(title, body string) *discord.Embed { e := bad(title, body); return &e }
@@ -448,6 +487,7 @@ func (c *Commands) onCommand(e *events.ApplicationCommandInteractionCreate) {
 		return
 	}
 	guild := *e.GuildID()
+	e.Respond = c.branding(&guild, e.Respond)
 	data := e.SlashCommandInteractionData()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -1831,6 +1871,7 @@ func truncate(s string, n int) string {
 // edit replaces the deferred "thinking…" with the answer. Mentions render and nobody is pinged: a
 // public board would otherwise notify ten people who did not ask to be ranked.
 func (c *Commands) edit(e *events.ApplicationCommandInteractionCreate, em ...discord.Embed) error {
+	em = c.branded(e.GuildID(), em)
 	_, err := c.client.Rest.UpdateInteractionResponse(c.client.ApplicationID, e.Token(), discord.MessageUpdate{
 		Embeds:          &em,
 		AllowedMentions: &discord.AllowedMentions{},
