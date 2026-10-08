@@ -37,10 +37,10 @@ func TestInviteAsksForTheBitsNotTheNames(t *testing.T) {
 	}
 }
 
-// The invite, pinned like voice.Needed below: the docs and every invite link in them hard-code 3165184.
-func TestInviteIsVoiceAndTheWelcome(t *testing.T) {
-	want := voice.Needed | discord.PermissionSendMessages | discord.PermissionEmbedLinks
-	if invitePermissions != want || int64(want) != 3165184 {
+// The invite, pinned like voice.Needed below: the docs and every invite link in them hard-code 70274048.
+func TestInviteIsVoiceTheWelcomeAndTheNickname(t *testing.T) {
+	want := voice.Needed | discord.PermissionSendMessages | discord.PermissionEmbedLinks | discord.PermissionChangeNickname
+	if invitePermissions != want || int64(want) != 70274048 {
 		t.Errorf("invitePermissions = %d (%s), want %d", invitePermissions, invitePermissions, int64(want))
 	}
 }

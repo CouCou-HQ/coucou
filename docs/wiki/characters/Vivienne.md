@@ -18,4 +18,4 @@ Vivienne is a university's Dean of Students, and the rules are hers. Late 30s, g
 |---|---|---|
 | `vivienne` | 🍷 one glass of red, reviewing your file | `#7A1F35` |
 
-**[Add Vivienne to your server](https://discord.com/oauth2/authorize?client_id=1555573886995800215&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.
+**[Add Vivienne to your server](https://discord.com/oauth2/authorize?client_id=1555573886995800215&scope=bot+applications.commands&permissions=70274048)** as a bot of her own.
