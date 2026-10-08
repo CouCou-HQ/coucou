@@ -102,20 +102,21 @@ profile copied into the wrong deployment.
 
 ## Joining a server
 
-On `GuildJoin` (not the burst of servers at startup), and only when the server has no settings
-row yet:
+On `GuildJoin` (not the burst of servers at startup), including a server that adds the bot back:
 
-1. Suggest settings from what the join already carries: name, description, locale, member count,
-   channel names and types. The character comes from the best `keywords` match, with the default on
-   a tie or no match. `chance` comes from members and voice channels. `nsfw` always stays off. It
-   is a pure function with a table test; there is no model behind it.
-2. Post an introduction in the system channel, or the first text channel in channel order where
-   the bot has View Channel, Send Messages and Embed Links. If there is none, post nothing.
-3. Add an Apply button that carries the suggestion in its `custom_id`, so it still works after a
-   restart. The message is public, so the handler checks the presser has Manage Server. Not
-   pressing it leaves the profile defaults, and the commands still work.
+1. Suggest settings from what the join already carries: name, description, member count and
+   channel names. The character comes from the most `keywords` found in that text, with the
+   default on a tie or no match. `chance` is that character's default, doubled for 15 members or
+   fewer and halved for 500 or more. `nsfw` is never suggested. It is a pure function with a table
+   test; there is no model behind it.
+2. Post an introduction in the system channel, or the first text channel by position where the
+   bot has View Channel, Send Messages and Embed Links. If there is none, post nothing.
+3. Add a "Use these" button that carries the suggestion in its `custom_id`, so it still works after
+   a restart. The message is public, so the handler checks the presser has Manage Server.
 
-The character is still saved and pushed on join. Only the settings wait for the button.
+Nothing is applied until the button is pressed: until then the server has the default character
+and the default settings, and `/chance` and `/character` work as always. A one-character bot
+suggests only the settings.
 
 ## Reloading characters
 

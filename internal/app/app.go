@@ -314,6 +314,7 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, chars.Default().Defaults))
 	bus.OnTopic(eb, gw, "guild-sync-leave", bot.TopicGuildDelete, handlers.GuildLeftSync(db))
 	bus.OnTopic(eb, gw, "persona-join", bot.TopicGuildCreate, handlers.GuildJoinedPersona(persona.Push))
+	bus.OnTopic(eb, gw, "welcome-join", bot.TopicGuildCreate, cmds.Welcome)
 
 	bus.On(eb, "log-sounds-added", handlers.SoundAdded(log))
 	bus.On(eb, "log-sounds-removed", handlers.SoundRemoved(log))

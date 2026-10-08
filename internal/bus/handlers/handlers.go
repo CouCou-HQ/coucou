@@ -5,7 +5,7 @@
 // delivery causes — and no ack can honestly cover the 90 seconds one can take. The loop and /play
 // call bot.NewPlayer directly; what reaches this package is PlayFinished, the fact that it ended.
 //
-//	discord.guild_create ─► guild sync (db) ─► stats writer ─► persona queue
+//	discord.guild_create ─► guild sync (db) ─► stats writer ─► persona queue ─► welcome (commands.Welcome)
 //	discord.guild_delete ─► guild sync (db) ─► stats writer
 //	PlayFinished   ─► stats writer
 //	CommandInvoked ─► stats writer

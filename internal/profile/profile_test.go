@@ -50,6 +50,7 @@ id       = "lenore"
 nickname = " Lenore "
 application_id = "912694340814516254"
 preview  = ["hiss", "creak"]
+keywords = [" Goth ", "", "poetry"]
 emoji    = "🖤"
 color    = "#4E5058"
 tagline  = "Mean, nicely."
@@ -94,10 +95,11 @@ online   = "dnd"
 			// Left out, a chain's chance is 100, not 0: listing one means wanting it to play.
 			{Chance: 100, Steps: []sounds.Step{{Sound: "drum"}, {Sound: "clap"}}},
 		},
-		Links:   sounds.Links{"snare": {"boo": 70, "sad-trombone": 30}},
-		Status:  Status{Text: "🖤 lurking", Activity: discord.ActivityTypeListening, Online: discord.OnlineStatusDND},
-		App:     912694340814516254,
-		Preview: []string{"hiss", "creak"},
+		Links:    sounds.Links{"snare": {"boo": 70, "sad-trombone": 30}},
+		Status:   Status{Text: "🖤 lurking", Activity: discord.ActivityTypeListening, Online: discord.OnlineStatusDND},
+		App:      912694340814516254,
+		Preview:  []string{"hiss", "creak"},
+		Keywords: []string{"goth", "poetry"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)

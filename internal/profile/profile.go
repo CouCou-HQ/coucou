@@ -67,6 +67,7 @@ type Profile struct {
 	Status   Status
 	App      snowflake.ID // the character's own bot, zero when it has none
 	Preview  []string     // what /character preview plays first; random sounds fill the rest
+	Keywords []string     // lowercased; matched against a server the bot joins to suggest this character
 	// Avatar is avatar.* beside profile.toml, nil when there is none. AvatarHash names its content,
 	// so a server can be told apart from one that already has it without uploading it again.
 	Avatar     *discord.Icon
@@ -106,6 +107,7 @@ type file struct {
 	Nickname string   `toml:"nickname"`
 	App      string   `toml:"application_id"`
 	Preview  []string `toml:"preview"`
+	Keywords []string `toml:"keywords"`
 	Emoji    string   `toml:"emoji"`
 	Color    string   `toml:"color"`
 	Tagline  string   `toml:"tagline"`
@@ -273,7 +275,7 @@ func (f file) parse(dir string) (Profile, error) {
 		Tagline: f.Tagline, Lore: strings.TrimSpace(f.Lore), Traits: f.Traits,
 		Defaults: store.Defaults{Chance: d.Chance, Suspense: d.Suspense, FakeOut: d.FakeOut, Encore: d.Encore},
 		Chains:   chains, Links: links,
-		Status: status, App: app, Preview: f.Preview,
+		Status: status, App: app, Preview: f.Preview, Keywords: lower(f.Keywords),
 	}, nil
 }
 
@@ -368,6 +370,17 @@ func parseColor(s string) (int, error) {
 		return 0, fmt.Errorf("color %q: want #RRGGBB", s)
 	}
 	return int(n), nil
+}
+
+// lower trims and lowercases words, dropping any left empty.
+func lower(words []string) []string {
+	var out []string
+	for _, w := range words {
+		if w = strings.ToLower(strings.TrimSpace(w)); w != "" {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 func inRange(key string, n, maxN int) error {
