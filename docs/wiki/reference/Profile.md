@@ -10,10 +10,10 @@ pushed to Discord — the bot's username, avatar and banner stay whatever the de
 |---|---|---|
 | `id` | — (required) | lowercase letters, digits and dashes |
 | `nickname` | `""` | what replies call the bot. Wins over its nickname in a server, which wins over its Discord name |
-| `avatar.*` | none | not a key: an image file beside `profile.toml` (PNG, JPEG, GIF or WebP). The bot uses it as its avatar in every server playing this character |
+| `avatar.*` | none | not a key: an image file beside `profile.toml` (PNG, JPEG, GIF or WebP). The bot uses it as its avatar in every server playing this character. Without it, the avatar of the bot in `application_id`, as a GIF when that one is animated |
 | `preview` | `[]` | up to 3 sound names `/character preview` plays first; random sounds fill the rest |
 | `keywords` | `[]` | words that, found in a server's name, description or channel names when the bot joins, suggest this character |
-| `application_id` | `""` | the character's own bot, if it runs as one too. Adds it to the friends `/help` advertises |
+| `application_id` | `""` | the character's own bot, if it runs as one too. Adds it to the friends `/help` advertises, and gives the character that bot's avatar when it has no `avatar.*` |
 | `emoji` | `""` | in front of the `/help` and `/about` titles |
 | `color` | `#E4572E` | embed accent for reports and confirmations, `#RRGGBB` |
 | `tagline`, `lore` | `""` | shown by `/about` |
@@ -36,7 +36,8 @@ changed default only reaches servers the bot joins afterwards.
 
 An invalid `profile.toml` stops the bot at startup. While it runs, changes to `profile.toml` and
 `avatar.*` are picked up within about 40 seconds of the last edit: added, removed and edited
-characters, `/character` appearing or going, and every server's nickname and avatar. An edit that
+characters, `/character` appearing or going, and every server's nickname and avatar. An avatar
+taken from `application_id` follows that bot within the hour. An edit that
 does not load is logged and the running characters stay. The embed `color` and the `status` of the
 default character still need a restart. `sounds/` reloads on its own. Every `id` must be unique. From a checkout, `profiles/` is git-ignored:
 start a character with `mkdir -p profiles/lenore/sounds && cp profile.example.toml

@@ -63,14 +63,16 @@ New `profile.toml` keys:
 The embed accent (`color`) on replies is the default character's. Status is account-wide, so it
 is the default character's too. Everything else a reply shows comes from the server's character.
 
-`avatar.png` beside `profile.toml` is the per-server avatar. Without it only the nickname is pushed.
+`avatar.png` beside `profile.toml` is the per-server avatar. Without it, a character with an
+`application_id` other than the bot's own wears that bot's avatar, animated ones as the GIF, checked again
+every hour. Without either, the server shows the bot's own avatar.
 
 ## Per server
 
 - `guild_settings.character` holds the profile `id`, even on a one-character bot, so a bot that
   gains characters later already knows what every server is.
-- `guild_settings.pushed_avatar` holds a hash of the avatar last uploaded to that server, so an
-  unchanged avatar is never uploaded again. The nickname needs no record: the cache has it.
+- `guild_settings.pushed_avatar` holds a hash of the avatar last uploaded to that server (`app:`
+  and Discord's hash for one taken from a bot), so an unchanged avatar is never uploaded again. The nickname needs no record: the cache has it.
 - Switching has a per-server cooldown of 1 hour, well clear of 2 avatar changes per 10 minutes.
 - `AVATAR_RATE_LIMIT` is not an error to log and drop: disgo does not retry a `400`, so the push
   schedules its own retry for that server 10 minutes later.
