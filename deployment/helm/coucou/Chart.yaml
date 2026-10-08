@@ -4,8 +4,8 @@ description: A Discord voice drop-in bot. Brings no database; point it at one yo
 type: application
 # Both are stamped from the git tag when the release workflow packages this chart, so these values
 # only apply to an install straight from a checkout.
-version: 0.4.1
-appVersion: "0.4.1"
+version: 0.4.2
+appVersion: "0.4.2"
 home: https://github.com/be-sandaa/coucou
 sources:
   - https://github.com/be-sandaa/coucou
