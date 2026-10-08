@@ -16,6 +16,17 @@ updates:
       otel:
         patterns:
           - "go.opentelemetry.io/*"
+      # disgo and its own json, omit, snowflake and godave move together.
+      disgo:
+        patterns:
+          - "github.com/disgoorg/*"
+      # sqlite pins an exact libc, so the two only build at matching versions.
+      modernc:
+        patterns:
+          - "modernc.org/*"
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -28,6 +39,11 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      # Every action is pinned to a SHA and checked by the same CI run: one PR a week is enough.
+      actions:
+        patterns:
+          - "*"
 
   # Docker
   - package-ecosystem: "docker"
