@@ -6,7 +6,7 @@ import (
 	"github.com/be-sandaa/coucou/internal/profile"
 )
 
-const bart, lisa, homer = "bart", "lisa", "homer"
+const bart, lisa, homer, lisaNick = "bart", "lisa", "homer", "Lisa"
 
 func set(t *testing.T, def string, ids ...string) (*Set, error) {
 	t.Helper()
@@ -51,4 +51,53 @@ func TestGet(t *testing.T) {
 			t.Errorf("Get(%q) = %q, want %q", id, got, want)
 		}
 	}
+}
+
+// A reload keeps the registry of a character whose folder is the same, adds a new one and drops
+// a removed one; a reload that cannot stand changes nothing.
+func TestReload(t *testing.T) {
+	bartDir, lisaDir := t.TempDir(), t.TempDir()
+	s, err := New([]profile.Profile{{ID: bart, Dir: bartDir}, {ID: lisa, Dir: lisaDir}}, lisa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept := s.Get(lisa).Sounds
+	if err := s.Reload([]profile.Profile{{ID: lisa, Dir: lisaDir, Nickname: lisaNick}, {ID: homer, Dir: t.TempDir()}}); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if got := s.Get(lisa); got.Sounds != kept || got.Nickname != lisaNick {
+		t.Errorf("lisa = %+v, want the same registry and the new nickname", got)
+	}
+	if s.Get(homer).ID != homer || s.Get(bart).ID != lisa {
+		t.Errorf("homer added and bart gone: got %q and %q", s.Get(homer).ID, s.Get(bart).ID)
+	}
+	if err := s.Reload([]profile.Profile{{ID: bart, Dir: bartDir}}); err == nil {
+		t.Error("reload without the default character: expected an error")
+	}
+	if len(s.All()) != 2 || s.Default().ID != lisa {
+		t.Errorf("a refused reload changed the set: %+v", s.All())
+	}
+}
+
+// Readers never see half a reload.
+func TestReloadWhileReading(t *testing.T) {
+	dir := t.TempDir()
+	s, err := New([]profile.Profile{{ID: bart, Dir: dir}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 200 {
+			_ = s.Get(bart).Sounds.Len()
+			_ = s.Label("x")
+		}
+	}()
+	for i := range 50 {
+		if err := s.Reload([]profile.Profile{{ID: bart, Dir: dir, Nickname: string(rune('a' + i%26))}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	<-done
 }

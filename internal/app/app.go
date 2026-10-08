@@ -3,6 +3,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -74,22 +75,25 @@ func Run(args []string, build Build) error {
 	return serve(cfg, chars, build)
 }
 
-// loadCharacters reads profiles/, or the one deprecated profile directory.
+// loadCharacters reads the characters the bot starts with.
 func loadCharacters(cfg config) (*characters.Set, error) {
-	var ps []profile.Profile
-	if cfg.ProfilesDir != "" {
-		var err error
-		if ps, err = profile.LoadAll(cfg.ProfilesDir); err != nil {
-			return nil, err
-		}
-	} else {
-		p, err := profile.Load(cfg.ProfileDir)
-		if err != nil {
-			return nil, err
-		}
-		ps = []profile.Profile{p}
+	ps, err := loadProfiles(cfg)
+	if err != nil {
+		return nil, err
 	}
 	return characters.New(ps, cfg.DefaultProfile)
+}
+
+// loadProfiles reads profiles/, or the one deprecated profile directory.
+func loadProfiles(cfg config) ([]profile.Profile, error) {
+	if cfg.ProfilesDir != "" {
+		return profile.LoadAll(cfg.ProfilesDir)
+	}
+	p, err := profile.Load(cfg.ProfileDir)
+	if err != nil {
+		return nil, err
+	}
+	return []profile.Profile{p}, nil
 }
 
 // friends is the siblings from config plus every character with a bot of its own, once per app.
@@ -188,6 +192,7 @@ func serve(cfg config, chars *characters.Set, build Build) error {
 	r.Add(p.rollup.Run, nil)
 	r.Add(p.loop.Run, nil)
 	r.Add(p.persona.Run, nil)
+	r.Add(watchCharacters(cfg, chars, p), nil)
 
 	slog.Info("running")
 	return r.Run()
@@ -341,6 +346,22 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 		commands: cmds,
 		persona:  persona,
 	}, nil
+}
+
+// watchCharacters reloads the characters when their profiles change. A reload can add or remove
+// /character and change any server's nickname or avatar. The embed accent and the status are read
+// once, so those two still wait for a restart.
+func watchCharacters(cfg config, chars *characters.Set, p *parts) func(context.Context) error {
+	return func(ctx context.Context) error {
+		return chars.Watch(ctx, cmp.Or(cfg.ProfilesDir, cfg.ProfileDir), func() ([]profile.Profile, error) {
+			return loadProfiles(cfg)
+		}, func() {
+			if err := commands.Deploy(p.client, p.commands.Definitions()); err != nil {
+				slog.Error("characters: redeploy commands", slog.Any("err", err))
+			}
+			p.persona.PushAll()
+		})
+	}
 }
 
 // warnForeignApp catches a single character whose application_id is some other bot's, which is a

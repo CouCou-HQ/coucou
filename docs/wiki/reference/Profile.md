@@ -34,7 +34,10 @@ Set it to `0` to make the bot opt-in. The defaults seed servers that have no set
 overrides each with its command, and seeding never touches a server that already has settings, so a
 changed default only reaches servers the bot joins afterwards.
 
-`profile.toml` is read once at startup and an invalid one stops the bot; a change needs a restart.
-Only `sounds/` reloads live. Every `id` must be unique. From a checkout, `profiles/` is git-ignored:
+An invalid `profile.toml` stops the bot at startup. While it runs, changes to `profile.toml` and
+`avatar.*` are picked up within about 40 seconds of the last edit: added, removed and edited
+characters, `/character` appearing or going, and every server's nickname and avatar. An edit that
+does not load is logged and the running characters stay. The embed `color` and the `status` of the
+default character still need a restart. `sounds/` reloads on its own. Every `id` must be unique. From a checkout, `profiles/` is git-ignored:
 start a character with `mkdir -p profiles/lenore/sounds && cp profile.example.toml
 profiles/lenore/profile.toml`, and set `profiles = "profiles"` in your `config.toml`.

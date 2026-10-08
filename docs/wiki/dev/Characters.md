@@ -120,14 +120,21 @@ suggests only the settings.
 
 ## Reloading characters
 
-`profiles/` is watched the way `sounds/` already is, with a 30-second debounce.
+The `profile.toml` and `avatar.*` files are fingerprinted (path, size, modification time) every
+10 seconds, `sounds/` left to the registries. A change is reloaded once the fingerprint has held
+still for 30 seconds, since half an edit is a broken character. Polling rather than inotify, which
+also covers NFS and SMB mounts.
 
 - An invalid `profile.toml` keeps the characters that are loaded and logs the error. Only startup
   refuses to run.
-- Going from one character to two or more, or back, calls `Deploy` again.
+- A character whose folder is unchanged keeps its sound registry, re-arranged with the new chains
+  and links, so its sounds are not scanned and announced again. New characters get a registry,
+  removed ones have theirs stopped.
+- Every reload calls `Deploy` again, which adds or removes `/character` and updates its choices.
+- Every server is queued for the persona again; the `pushed_avatar` hash and the live nickname
+  mean only servers whose character actually changed are touched.
 - A removed character's servers fall back to the default.
-- A changed nickname or avatar is pushed only to servers whose `pushed_avatar` hash differs, through the
-  same one-server-per-second pace.
+- The embed accent and the status are read once and still need a restart.
 
 ## Stats
 

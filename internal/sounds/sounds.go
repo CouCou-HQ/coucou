@@ -80,7 +80,7 @@ type Registry struct {
 	last     string   // the name Pick handed out last, so it is not handed out twice running
 	pending  sync.Map // name → *time.Timer (debounce)
 
-	// Set by Arrange before Start and only read after, like OnChange.
+	// Set by Arrange, under mu: a reloaded profile re-arranges a running registry.
 	chains    map[string]Chain // by opener
 	followers map[string]bool  // later steps of a chain, never drawn as a first sound
 	links     Links
@@ -109,15 +109,18 @@ type Clip struct {
 	After time.Duration
 }
 
-// Arrange sets the chains and links. Call it before Start.
+// Arrange sets the chains and links, replacing any it had.
 func (r *Registry) Arrange(chains []Chain, links Links) {
-	r.chains, r.followers, r.links = map[string]Chain{}, map[string]bool{}, links
+	byOpener, followers := map[string]Chain{}, map[string]bool{}
 	for _, c := range chains {
-		r.chains[c.Steps[0].Sound] = c
+		byOpener[c.Steps[0].Sound] = c
 		for _, s := range c.Steps[1:] {
-			r.followers[s.Sound] = true
+			followers[s.Sound] = true
 		}
 	}
+	r.mu.Lock()
+	r.chains, r.followers, r.links = byOpener, followers, links
+	r.mu.Unlock()
 }
 
 func New(dir string) *Registry {
@@ -346,7 +349,10 @@ func (r *Registry) Collection(heard []string, nsfw bool) Collection {
 
 // PickOther is Pick without one name, for an encore that must not repeat the visit before it.
 func (r *Registry) PickOther(name string, nsfw bool) (string, bool) {
-	names := slices.DeleteFunc(r.Names(nsfw), func(n string) bool { return n == name || r.followers[n] })
+	names := r.Names(nsfw)
+	r.mu.RLock()
+	names = slices.DeleteFunc(names, func(n string) bool { return n == name || r.followers[n] })
+	r.mu.RUnlock()
 	if len(names) == 0 {
 		return "", false
 	}
@@ -356,13 +362,10 @@ func (r *Registry) PickOther(name string, nsfw bool) (string, bool) {
 // Follow rolls opener's chain and returns the steps that play after it: none without a chain or
 // when the roll fails. A step that is missing or may not play here is skipped, gap and all.
 func (r *Registry) Follow(opener string, nsfw bool) []Clip {
-	c, ok := r.chains[opener]
-	if !ok {
-		return nil
-	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.intN(100) >= c.Chance {
+	c, ok := r.chains[opener]
+	if !ok || r.intN(100) >= c.Chance {
 		return nil
 	}
 	var out []Clip
@@ -384,9 +387,9 @@ func (r *Registry) Encore(name string, nsfw bool) (string, bool) {
 }
 
 func (r *Registry) linked(name string, nsfw bool) (string, bool) {
-	to := r.links[name]
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	to := r.links[name]
 	names := make([]string, 0, len(to))
 	total := 0
 	for n, w := range to {

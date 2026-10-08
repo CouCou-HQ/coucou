@@ -1,6 +1,6 @@
 # A character for a bot running on coucou. Copy to profiles/<id>/profile.toml in a checkout, or to
 # /var/lib/coucou/profiles/<id>/profile.toml when installed; its sounds go in sounds/ beside it.
-# Read once at startup: a change needs a restart. Only sounds/ reloads live.
+# Reloaded within about 40 s of an edit; color and status need a restart. sounds/ reloads on its own.
 
 id       = "lenore"             # required: lowercase letters, digits and dashes
 nickname = "Lenore"             # optional: what replies call the bot, over its server nickname and Discord name
