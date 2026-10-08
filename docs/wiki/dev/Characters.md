@@ -24,6 +24,7 @@ Who they are: CouCou and the [characters](../characters/README.md) she becomes, 
 | Kaede | `1555574920900120767` |
 | Lacey | `1556024956297421002` |
 | Lenore | `1555149085244260382` |
+| Lorelei | `1557713384575602758` |
 | Moan | `941362698472546404` |
 | Penny | `1555574159516504165` |
 | Proxy | `1556009369697779843` |

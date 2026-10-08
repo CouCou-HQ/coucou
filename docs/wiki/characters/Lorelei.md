@@ -17,3 +17,5 @@ Lorelei is a beer-garden waitress from Munich in her late 20s who can carry four
 | Profile id | Status | Colour |
 |---|---|---|
 | `lorelei` | 🍺 two Maß in each hand, coming through | `#5BA4D9` |
+
+**[Add Lorelei to your server](https://discord.com/oauth2/authorize?client_id=1557713384575602758&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.
