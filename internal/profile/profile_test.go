@@ -25,7 +25,7 @@ func write(t *testing.T, body string) string {
 }
 
 // Only id is required. Everything else falls back to what a bot without a character did before
-// profiles existed: the brand hue, a 5% chance, and the other three settings off.
+// profiles existed: no color of its own, so the bot's, a 5% chance, and the other three settings off.
 func TestMinimalProfile(t *testing.T) {
 	dir := write(t, `id = "gus"`)
 	got, err := Load(dir)
@@ -33,7 +33,7 @@ func TestMinimalProfile(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	want := Profile{
-		Dir: dir, ID: "gus", Color: DefaultColor, Defaults: store.Defaults{Chance: defaultChance},
+		Dir: dir, ID: "gus", Defaults: store.Defaults{Chance: defaultChance},
 		Status: Status{Activity: discord.ActivityTypeCustom, Online: discord.OnlineStatusOnline},
 	}
 	if !reflect.DeepEqual(got, want) {

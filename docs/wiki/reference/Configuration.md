@@ -26,6 +26,10 @@ also means numbers and booleans cannot come from the environment: write them out
 | `profiles` | `""` | the characters: a directory with one `<id>/` per character, each holding `profile.toml` and `sounds/`; see [Profile](Profile) |
 | `default_profile` | `""` | the `id` a server gets until it picks one. Unset with more than one character, a server stays quiet until someone picks with `/character` |
 | `note` | `""` | your own markdown, under `/about` and at the end of `/help`, up to 1024 characters |
+| `color` | `#E4572E` | embed accent, `#RRGGBB`, in servers whose character sets no `color` of its own, and in servers with none picked yet |
+| `status.text` | `""` | shown under the bot's name, up to 128 characters. Emoji go in the text: bots get no separate emoji slot or server emoji |
+| `status.activity` | `custom` | `custom` shows the text as is; `playing`, `listening`, `watching`, `competing` prefix it the way Discord does |
+| `status.online` | `online` | `online`, `idle` or `dnd` |
 | `profile` | `/var/lib/coucou/profile` | **deprecated**: one character's directory. Used when `profiles` is unset; setting both is an error |
 | `sounds.poll` | `0s` | rescan interval for the profile's `sounds/`; `0s` uses inotify |
 | `ops.http_addr` | `:9090` | `/healthz`, `/readyz` and `/metrics`; `""` disables them |
@@ -33,6 +37,10 @@ also means numbers and booleans cannot come from the environment: write them out
 | `ops.pprof` | `false` | serve `/debug/pprof` on the ops listener |
 | `ops.otlp` | `""` | `host:port` of an OTLP/gRPC collector; `""` disables tracing |
 | `gateway.shard_count` | `0` | shards to run; `0` lets Discord decide, which is what a deploy should do |
+
+The status belongs to the bot, not a character: Discord shows one per bot account, whoever it is
+in a server. Without a `[status]` table the bot falls back to its default character's, from before
+it moved here.
 
 One setting stays an environment variable: `DISCORD_DEV_GUILD`, read only by a `-tags dev` build,
 is the guild that build registers its commands to.

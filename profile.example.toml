@@ -1,6 +1,6 @@
 # A character for a bot running on coucou. Copy to profiles/<id>/profile.toml in a checkout, or to
 # /var/lib/coucou/profiles/<id>/profile.toml when installed; its sounds go in sounds/ beside it.
-# Reloaded within about 40 s of an edit; color and status need a restart. sounds/ reloads on its own.
+# Reloaded within about 40 s of an edit. sounds/ reloads on its own.
 
 id       = "lenore"             # required: lowercase letters, digits and dashes
 nickname = "Lenore"             # optional: what replies call the bot, over its server nickname and Discord name
@@ -8,18 +8,12 @@ nickname = "Lenore"             # optional: what replies call the bot, over its 
 # preview = ["knock", "drum"]   # optional: up to 3 sounds /character preview plays; random ones fill the rest
 # keywords = ["goth", "poetry"] # optional: words in a server's name, description or channels that suggest this character
 emoji    = "🖤"                  # optional: in front of the /help and /about titles
-color    = "#4E5058"            # optional: embed accent, #RRGGBB; default #E4572E
+color    = "#4E5058"            # optional: embed accent in servers playing this character, #RRGGBB; default config.toml's color
 tagline  = "Says something mean she definitely means nicely."
 lore     = """
 Nobody invited her. She came anyway, and she is not leaving until she has said her piece.
 """
 traits   = ["sits in silence too long", "loves leaving without a sound"]   # quirks to read in /about; they change nothing
-
-# What shows under the bot's name in the member list. Emoji go inside text: bots get no emoji slot.
-[status]
-text     = "🖤 waiting for someone to join voice"   # optional, up to 128 characters; none shows only the dot
-activity = "custom"   # custom (text as is), playing, listening, watching or competing; default custom
-online   = "online"   # online, idle or dnd; default online
 
 # What a server starts with before anyone changes it. Seeding never touches a server that already
 # has settings, so changing these only reaches servers the bot joins afterwards.

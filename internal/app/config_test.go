@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/characters"
@@ -58,6 +59,7 @@ func TestDefaultsWhenOnlyTheRequiredKeysAreSet(t *testing.T) {
 		DatabaseURL: testDSN,
 		Token:       testToken,
 		ProfileDir:  defaultProfileDir,
+		Color:       profile.DefaultColor,
 		HTTPAddr:    defaultHTTPAddr,
 		LogLevel:    slog.LevelInfo,
 	}
@@ -73,6 +75,12 @@ siblings       = "Fart=`+ownerA+`"
 profiles       = "/srv/characters"
 default_profile = " lenore "
 note           = " Run by the Fart people. "
+color          = "#4E5058"
+
+[status]
+text     = " ✨ around "
+activity = "watching"
+online   = "idle"
 
 [sounds]
 poll = "15s"
@@ -94,6 +102,8 @@ shard_count = 4
 		ProfilesDir:    "/srv/characters",
 		DefaultProfile: "lenore",
 		Note:           "Run by the Fart people.",
+		Color:          0x4E5058,
+		Status:         &profile.Status{Text: "✨ around", Activity: discord.ActivityTypeWatching, Online: discord.OnlineStatusIdle},
 		SoundsPoll:     15 * time.Second,
 		HTTPAddr:       "", // explicitly empty disables the ops listener, not a fallback to the default
 		OTLPEndpoint:   "collector:4317",

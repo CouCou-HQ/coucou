@@ -21,6 +21,14 @@ siblings  = ""          # Name=application-id pairs of other coucou bots, comma 
 # profiles        = "/var/lib/coucou/profiles"
 # default_profile = "lenore"
 note = ""               # markdown under /about and at the end of /help, up to 1024 characters
+color = "#E4572E"       # embed accent, #RRGGBB, where a server's character sets none
+
+# What shows under the bot's name in the member list. One for the whole bot, whoever it is in a
+# server; a change needs a restart. Emoji go inside text: bots get no emoji slot.
+[status]
+text     = ""           # up to 128 characters; none shows only the dot
+activity = "custom"     # custom (text as is), playing, listening, watching or competing
+online   = "online"     # online, idle or dnd
 
 [sounds]
 poll = "0s"             # rescan interval for the profile's sounds/; e.g. "15s" on NFS/SMB mounts where inotify doesn't fire

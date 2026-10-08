@@ -126,7 +126,7 @@ func (c *Commands) previewCharacter(ctx context.Context, e *events.ApplicationCo
 		labels[i] = "`" + ch.Sounds.Label(s) + "`"
 	}
 	body := strings.Join(labels, " · ") + "\n\nA preview: it does not count in the stats, and nothing here changes." + ownBot(ch)
-	reply := info("Previewing "+withEmoji(ch.Emoji, ch.Name()), body)
+	reply := info("Previewing "+withEmoji(ch.Emoji, ch.Name()), body).WithColor(cmp.Or(ch.Color, colBrand))
 	if ch.Tagline != "" {
 		reply = reply.WithFooterText(ch.Tagline)
 	}

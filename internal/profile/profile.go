@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,10 +53,10 @@ const defaultChance = 5
 // Nobody is a bot with several characters in a server that has not picked one: no name or avatar
 // beyond the bot's own, and the defaults a profile starts from.
 func Nobody() Profile {
-	return Profile{Color: DefaultColor, Status: Status{Online: discord.OnlineStatusOnline}, Defaults: store.Defaults{Chance: defaultChance}}
+	return Profile{Status: Status{Online: discord.OnlineStatusOnline}, Defaults: store.Defaults{Chance: defaultChance}}
 }
 
-// DefaultColor is the embed accent when the profile names none: the brand hue in DESIGN.md.
+// DefaultColor is the bot's embed accent when config.toml names none: the brand hue in DESIGN.md.
 const DefaultColor = 0xE4572E
 
 type Profile struct {
@@ -63,7 +64,7 @@ type Profile struct {
 	ID       string
 	Nickname string // empty: the bot goes by its server nickname, else its Discord name
 	Emoji    string
-	Color    int
+	Color    int // 0: the bot's color from config.toml
 	Tagline  string
 	Lore     string
 	Traits   []string
@@ -219,7 +220,6 @@ func LoadAll(dir string) ([]Profile, error) {
 func load(path, dir string) (Profile, error) {
 	var f file
 	f.Defaults.Chance = defaultChance
-	f.Status.Activity, f.Status.Online = defaultActivity, defaultOnline
 	md, err := toml.DecodeFile(path, &f)
 	if err != nil {
 		return Profile{}, err
@@ -235,6 +235,9 @@ func load(path, dir string) (Profile, error) {
 	if err != nil {
 		return Profile{}, fmt.Errorf("%s: %w", path, err)
 	}
+	if md.IsDefined("status") {
+		slog.Warn("profile: status is deprecated and will be removed; the bot has one status, set [status] in config.toml", slog.String("profile", path))
+	}
 	return p, nil
 }
 
@@ -242,7 +245,7 @@ func (f file) parse(dir string) (Profile, error) {
 	if !idPattern.MatchString(f.ID) {
 		return Profile{}, fmt.Errorf("id %q: want lowercase letters, digits and dashes", f.ID)
 	}
-	color, err := parseColor(f.Color)
+	color, err := ParseColor(f.Color)
 	if err != nil {
 		return Profile{}, err
 	}
@@ -346,27 +349,31 @@ func (f file) links() (sounds.Links, error) {
 }
 
 func (f file) status() (Status, error) {
-	st := f.Status
-	text := strings.TrimSpace(st.Text)
-	activity, ok := activities[st.Activity]
+	return ParseStatus(f.Status.Text, f.Status.Activity, f.Status.Online)
+}
+
+// ParseStatus reads a [status] table; an empty activity or online state is the default one.
+func ParseStatus(text, activity, online string) (Status, error) {
+	text = strings.TrimSpace(text)
+	act, ok := activities[cmp.Or(activity, defaultActivity)]
 	if !ok {
-		return Status{}, fmt.Errorf("status.activity %q: want custom, playing, listening, watching or competing", st.Activity)
+		return Status{}, fmt.Errorf("status.activity %q: want custom, playing, listening, watching or competing", activity)
 	}
-	online, ok := onlines[st.Online]
+	on, ok := onlines[cmp.Or(online, defaultOnline)]
 	if !ok {
-		return Status{}, fmt.Errorf("status.online %q: want online, idle or dnd", st.Online)
+		return Status{}, fmt.Errorf("status.online %q: want online, idle or dnd", online)
 	}
 	if n := utf8.RuneCountInString(text); n > MaxStatus {
 		return Status{}, fmt.Errorf("status.text is %d characters, over %d", n, MaxStatus)
 	}
-	return Status{Text: text, Activity: activity, Online: online}, nil
+	return Status{Text: text, Activity: act, Online: on}, nil
 }
 
-// parseColor reads "#RRGGBB". Empty is the brand hue, not black: an unset accent should look like
-// every other coucou embed, not like a mistake.
-func parseColor(s string) (int, error) {
+// ParseColor reads "#RRGGBB". Empty is 0, no accent of its own: Discord draws 0 as no color too,
+// so #000000 is the same as leaving it out.
+func ParseColor(s string) (int, error) {
 	if s == "" {
-		return DefaultColor, nil
+		return 0, nil
 	}
 	if len(s) != 7 || s[0] != '#' {
 		return 0, fmt.Errorf("color %q: want #RRGGBB", s)

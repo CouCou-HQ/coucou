@@ -17,6 +17,7 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/commands"
+	"github.com/be-sandaa/coucou/internal/profile"
 )
 
 const (
@@ -36,6 +37,8 @@ type config struct {
 	ProfilesDir    string // one directory per character
 	DefaultProfile string
 	Note           string
+	Color          int             // embed accent where a server's character has none
+	Status         *profile.Status // nil: the default character's, deprecated
 	SoundsPoll     time.Duration
 	HTTPAddr       string
 	OTLPEndpoint   string
@@ -55,7 +58,13 @@ type file struct {
 	Profiles       string   `toml:"profiles"`
 	DefaultProfile string   `toml:"default_profile"`
 	Note           string   `toml:"note"`
-	Sounds         struct {
+	Color          string   `toml:"color"`
+	Status         *struct {
+		Text     string `toml:"text"`
+		Activity string `toml:"activity"`
+		Online   string `toml:"online"`
+	} `toml:"status"`
+	Sounds struct {
 		Poll time.Duration `toml:"poll"`
 	} `toml:"sounds"`
 	Ops struct {
@@ -147,6 +156,10 @@ func expandEnv(v reflect.Value) error {
 				return err
 			}
 		}
+	case reflect.Pointer:
+		if !v.IsNil() {
+			return expandEnv(v.Elem())
+		}
 	case reflect.Slice:
 		for i := range v.Len() {
 			if err := expandEnv(v.Index(i)); err != nil {
@@ -194,6 +207,17 @@ func (f file) parse() (config, error) {
 		PProf:          f.Ops.PProf,
 	}
 	var err error
+	if c.Color, err = profile.ParseColor(f.Color); err != nil {
+		return config{}, err
+	}
+	c.Color = cmp.Or(c.Color, profile.DefaultColor)
+	if f.Status != nil {
+		st, err := profile.ParseStatus(f.Status.Text, f.Status.Activity, f.Status.Online)
+		if err != nil {
+			return config{}, err
+		}
+		c.Status = &st
+	}
 	if c.OwnerIDs, err = parseOwners(f.OwnerIDs); err != nil {
 		return config{}, err
 	}
