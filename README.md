@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="coucou! A speech bubble with two eyes peeking over its edge" width="640">
+  <img src="docs/assets/coucou/banner.webp" alt="CouCou, with long pastel rainbow hair, winking and holding up a gilded hand mirror in a Paris dressing room full of gowns at sunset" width="720">
 </p>
 
 <p align="center"><b>It waits in the wings. Then, from nowhere: <i>coucou!</i></b></p>
@@ -23,10 +23,11 @@ before anyone can react. Then everybody blames each other.
 🔊 General ·  👤 alex   👤 sam   👤 robin
 
    🎲  the 5-minute roll comes up
-   🦢  Honk joined
+   🪞  CouCou looks into her mirror… et hop !
+   🍺  Lorelei joined
    ⋯   (a long, suspicious silence)
-   💨  ▶ Wet Fart 3
-   🦢  Honk left
+   🍺  ▶ Prost!
+   🍺  Lorelei left
 
    💬  sam: alex
    💬  alex: that was NOT me
@@ -46,9 +47,31 @@ before anyone can react. Then everybody blames each other.
 | 📊 **Stats** | Charts, heatmaps and leaderboards of who suffers most. |
 | 🙈 **Escape hatches** | `/optout` for a person, `/quiet` for a server, both on a schedule if you like. |
 
+## 🪞 Meet CouCou
+
+CouCou is the bot run from here, and she has no voice of her own. Until she takes on a shape she can
+only smile, wink and wave; so she looks into her gilded hand mirror, it shows her someone else, and
+she drops into your voice channel as them.
+
+<p align="center">💌 🌺 💋 🎮 🤠 🖤 🍺 📚 🕶️ 👑 ☀️ 💼 💜 🍷</p>
+
+Each server picks who she becomes with `/character`: a florist who asks who you were talking to, a
+tsundere who insults your aim, a beer-garden waitress with two Maß in each hand, a privacy engineer
+who warns you about your password… → [all of them](docs/wiki/characters/README.md). Want more than one
+in the same server? Each also runs as a bot of its own, and a couple, like Gus 💨, only ever run as
+themselves → [standalone bots](docs/wiki/standalone/README.md).
+
+**[Add CouCou to your server](https://discord.com/oauth2/authorize?client_id=1557651122460557384&scope=bot+applications.commands&permissions=3146752)**, or any character on her own from [her page](docs/wiki/characters/README.md).
+
+A few things she will not tell you:
+
+- Her eyes are gold and violet. She claims they were both gold once, and won't say what happened.
+- She has been asked "wait, who are you?" more times than anyone alive. She has never answered.
+- Her mirror has a crack in one corner. She says it's from the last time someone tried to look in it.
+
 ## 🎭 Bring your own bot
 
-coucou isn't a character. Give it one and you have a new bot: one binary, your character, your
+The project, coucou, isn't a character; CouCou is just the one run from here. Give it one and you have a new bot: one binary, your character, your
 Discord app, your sounds.
 
 1. **Write the character.** A `profile.toml`: a name, an emoji, a status, lore for `/about`, and how
@@ -68,6 +91,8 @@ follows Discord's [Terms of Service](https://discord.com/terms) and
 
 | Bot | What it does | Maintainer | |
 |---|---|---|---|
+| 💨 [Gus](docs/wiki/standalone/Gus.md) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=1286266858642870333&scope=bot+applications.commands&permissions=3146752) |
+| 😳 [Moan](docs/wiki/standalone/Moan.md) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | [Invite](https://discord.com/oauth2/authorize?client_id=941362698472546404&scope=bot+applications.commands&permissions=3146752) |
 | *yours here* | | | |
 
 ## 🚀 Quick start
@@ -91,6 +116,7 @@ walks through both in three steps.
 | 📦 | [Installation](docs/wiki/guide/Installation.md) | binary, systemd, container, Compose, Helm |
 | ▶️ | [Running the bot](docs/wiki/guide/Running-the-bot.md) | the Discord app, sounds, first start, "is it working?" |
 | ⚙️ | [Configuration](docs/wiki/reference/Configuration.md) | every key in `config.toml` |
+| 🪞 | [Characters](docs/wiki/characters/README.md) | who CouCou can become, and the standalone bots |
 | 🎭 | [Profile](docs/wiki/reference/Profile.md) | the character, its status, defaults, chains and links |
 | 🔊 | [Sounds](docs/wiki/reference/Sounds.md) | encoding, naming, tags, sound emojis |
 | 💬 | [Commands](docs/wiki/reference/Commands.md) | every slash command and who may run it |

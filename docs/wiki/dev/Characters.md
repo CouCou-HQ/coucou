@@ -11,10 +11,28 @@ The same binary runs coucou with every character and each character as its own b
 The bots the maintainer of this repository runs. Data requests for these go through the
 [Remove my data](https://github.com/be-sandaa/coucou/issues/new?template=remove_my_data.yml) issue;
 any other bot built on coucou is run by someone else, and only they can reach its data.
+Who they are: CouCou and the [characters](../characters/README.md) she becomes, and the
+[standalone bots](../standalone/README.md).
 
-| Bot | ID |
+| Bot | Application ID |
 |---|---|
-| *none listed yet* | |
+| Aimi | `1556017620321439744` |
+| Caricia | `1555145751670161458` |
+| Colette | `1555471582368108596` |
+| CouCou | `1557651122460557384` |
+| Gus | `1286266858642870333` |
+| Kaede | `1555574920900120767` |
+| Lacey | `1556024956297421002` |
+| Lenore | `1555149085244260382` |
+| Lorelei | `1557713384575602758` |
+| Moan | `941362698472546404` |
+| Penny | `1555574159516504165` |
+| Proxy | `1556009369697779843` |
+| Reika | `1556016304455024730` |
+| Rory | `1555573816451792956` |
+| Sloane | `1555574243436269728` |
+| Susurra | `1555097872549023744` |
+| Vivienne | `1555573886995800215` |
 
 ## What Discord allows
 
