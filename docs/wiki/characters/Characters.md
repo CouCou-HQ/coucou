@@ -1,8 +1,8 @@
 # Characters
 
-![CouCou's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/coucou/banner.webp)
+![CouCou's banner](https://cdn.discordapp.com/banners/1557651122460557384/b0ed51f983bbdcf8ccc4554637000b1c.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/coucou/profile.webp" alt="CouCou" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1557651122460557384/c635a7edfa9523a72197be54730228fd.png?size=256" alt="CouCou" width="128" align="right">
 
 **CouCou** is the bot run from here: a shapeshifter with no voice of her own. In each server she
 becomes one of these characters, with their name, face and sounds, and the server picks who with

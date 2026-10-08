@@ -1,8 +1,8 @@
 # 📚 Penny
 
-![Penny's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/penny/banner.webp)
+![Penny's banner](https://cdn.discordapp.com/banners/1555574159516504165/04558b0aa06c6b6616ae5060a57f7747.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/penny/profile.webp" alt="Penny" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555574159516504165/d41f0e32525c1ca4143bbf5210cb19cc.png?size=256" alt="Penny" width="128" align="right">
 
 > Oh gosh, sorry! A shy librarian slips into your voice channel, apologises, and reads you her spicy novel by accident.
 

@@ -1,8 +1,8 @@
 # 🍷 Vivienne
 
-![Vivienne's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/vivienne/banner.webp)
+![Vivienne's banner](https://cdn.discordapp.com/banners/1555573886995800215/6123afbc50765ed61296a4831ae82f34.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/vivienne/profile.webp" alt="Vivienne" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555573886995800215/751934518386cd7a03bb234874557f03.png?size=256" alt="Vivienne" width="128" align="right">
 
 > Ahem. A strict stepmom strides into your voice channel, lays down the rules, and leaves you hoping for detention.
 

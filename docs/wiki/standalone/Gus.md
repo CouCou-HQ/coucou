@@ -1,5 +1,9 @@
 # 💨 Gus
 
+![Gus's banner](https://cdn.discordapp.com/banners/1286266858642870333/4c9125e79c2109f1c230faa107205985.png?size=1024)
+
+<img src="https://cdn.discordapp.com/avatars/1286266858642870333/c540a7a11ee20198fec96271ade0eeef.png?size=256" alt="Gus" width="128" align="right">
+
 > Gus wanders into your voice channel, farts, burps, crunches chips into the mic, and leaves you all blaming each other.
 
 Gus is the weird uncle, in his 50s, give or take a decade. Gus as in *gas*. He treats every room like his living room, and every living room like his couch: he farts, he burps, he eats chips straight into the microphone, and he has never once said sorry and meant it. He isn't malicious. He just has absolutely no idea anyone else is there, and wouldn't change a thing if he did. "Better out than in."

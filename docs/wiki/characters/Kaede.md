@@ -1,8 +1,8 @@
 # 🎮 Kaede
 
-![Kaede's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/kaede/banner.webp)
+![Kaede's banner](https://cdn.discordapp.com/banners/1555574920900120767/2c4aaa1dd4ecab052086b0f4910e7c73.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/kaede/profile.webp" alt="Kaede" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555574920900120767/9cc57791d5bb3a47eed7eda2e1e16782.png?size=256" alt="Kaede" width="128" align="right">
 
 > Hmph. A tsundere gamer storms into your voice channel, insults your aim, and definitely didn't come to see you.
 
