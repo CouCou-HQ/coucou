@@ -1,8 +1,8 @@
 # 🌺 Caricia
 
-![Caricia's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/caricia/banner.webp)
+![Caricia's banner](https://cdn.discordapp.com/banners/1555145751670161458/33cc856a2241ffc47c97d0c3a66096ca.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/caricia/profile.webp" alt="Caricia" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555145751670161458/a_793a99fc7a4e3b5e26d96687efa14ace.gif?size=256" alt="Caricia" width="128" align="right">
 
 > Ay, papi... Caricia slips into your voice channel, purrs something sweet in Spanglish, and leaves you blushing.
 

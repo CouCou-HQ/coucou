@@ -1,8 +1,8 @@
 # 🕶️ Proxy
 
-![Proxy's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/proxy/banner.webp)
+![Proxy's banner](https://cdn.discordapp.com/banners/1556009369697779843/9999e021b98abbab48258a0487eb38ee.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/proxy/profile.webp" alt="Proxy" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1556009369697779843/53a73ac97ff543ae155567cdfd6ca752.png?size=256" alt="Proxy" width="128" align="right">
 
 > You didn't see me. A privacy engineer slips into your voice channel, warns you about your password, and vanishes without a trace.
 

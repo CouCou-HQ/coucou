@@ -1,8 +1,8 @@
 # 💋 Colette
 
-![Colette's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/colette/banner.webp)
+![Colette's banner](https://cdn.discordapp.com/banners/1555471582368108596/d6b865fd06da0f606a8aac1f7af7a9e4.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/colette/profile.webp" alt="Colette" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1555471582368108596/a_4e5cf59e0f83d71e6e281f4893533422.gif?size=256" alt="Colette" width="128" align="right">
 
 > Coucou~! A Parisian tease pops into your voice channel, flirts with you in Franglais, and leaves with a bisou.
 

@@ -1,8 +1,8 @@
 # 💌 Aimi
 
-![Aimi's banner](https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/aimi/banner.webp)
+![Aimi's banner](https://cdn.discordapp.com/banners/1556017620321439744/3a3f98172c7240e9e09c5710ebce1b6e.png?size=1024)
 
-<img src="https://raw.githubusercontent.com/be-sandaa/coucou/main/docs/assets/characters/aimi/profile.webp" alt="Aimi" width="128" align="right">
+<img src="https://cdn.discordapp.com/avatars/1556017620321439744/23552ab8361fc58cf5f96eb36bf1bc8e.png?size=256" alt="Aimi" width="128" align="right">
 
 > Found you! A sweet florist pops into your voice channel, asks who you were talking to, and smiles a little too long.
 
