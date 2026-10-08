@@ -68,15 +68,17 @@ is the default character's too. Everything else a reply shows comes from the ser
 
 - `guild_settings.character` holds the profile `id`, even on a one-character bot, so a bot that
   gains characters later already knows what every server is.
-- `guild_settings.pushed` holds a hash of the nickname and avatar last pushed to that server. Any
-  push compares against it, so an unchanged character is never pushed again.
+- `guild_settings.pushed_avatar` holds a hash of the avatar last uploaded to that server, so an
+  unchanged avatar is never uploaded again. The nickname needs no record: the cache has it.
 - Switching has a per-server cooldown of 1 hour, well clear of 2 avatar changes per 10 minutes.
 - `AVATAR_RATE_LIMIT` is not an error to log and drop: disgo does not retry a `400`, so the push
   schedules its own retry for that server 10 minutes later.
 - Both limits are per server, so filling in existing servers is paced only by Discord's global
   request limit: a steady one server per second in the background.
-- When filling in servers the bot is already in, a server whose admins set a nickname
-  (`SelfMember` has one) gets the avatar only. Nothing chosen by a server is overwritten.
+- The nickname is only changed when the bot's current one is empty or some character's. Anything
+  else was set by the server's admins and is left alone; the avatar still follows the character.
+- Every server is queued at startup, after the guild reconcile, and on joining one. One server per
+  second, nickname and avatar as two requests.
 
 ## Commands
 
@@ -123,7 +125,7 @@ The character is still saved and pushed on join. Only the settings wait for the 
   refuses to run.
 - Going from one character to two or more, or back, calls `Deploy` again.
 - A removed character's servers fall back to the default.
-- A changed nickname or avatar is pushed only to servers whose `pushed` hash differs, through the
+- A changed nickname or avatar is pushed only to servers whose `pushed_avatar` hash differs, through the
   same one-server-per-second pace.
 
 ## Stats
@@ -140,7 +142,7 @@ Each step ships on its own:
 
 1. `profiles`, `default`, the `character` columns in settings and stats, `application_id` and the
    merged friends list, `note`
-2. Pushing nickname and avatar: the `AVATAR_RATE_LIMIT` retry, the `pushed` hash, filling in existing servers
+2. Pushing nickname and avatar: the `AVATAR_RATE_LIMIT` retry, the `pushed_avatar` hash, filling in existing servers
 3. `/character`: preview, switch, the promotion line
 4. The introduction on join, with suggestions and the Apply button
 5. Reloading characters

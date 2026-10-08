@@ -120,6 +120,7 @@ const (
 	nsfwDefault = "restricted"
 	nsfwOn      = "on"
 	lisa        = "lisa"
+	avatarHash  = "ab12"
 )
 
 func TestSettingsRoundTrip(t *testing.T) {
@@ -127,13 +128,13 @@ func TestSettingsRoundTrip(t *testing.T) {
 		g := guildID(t)
 
 		if err := s.UpsertSettings(context.Background(), store.Settings{
-			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn, Character: lisa,
+			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn, Character: lisa, PushedAvatar: avatarHash,
 		}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
 		got := find(t, s, g)
-		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) || got.Character != lisa {
+		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) || got.Character != lisa || got.PushedAvatar != avatarHash {
 			t.Errorf("got %+v", got)
 		}
 	})

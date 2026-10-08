@@ -5,6 +5,8 @@ package profile
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -63,6 +65,10 @@ type Profile struct {
 	Links    sounds.Links
 	Status   Status
 	App      snowflake.ID // the character's own bot, zero when it has none
+	// Avatar is avatar.* beside profile.toml, nil when there is none. AvatarHash names its content,
+	// so a server can be told apart from one that already has it without uploading it again.
+	Avatar     *discord.Icon
+	AvatarHash string
 }
 
 // Name is what the character is called where no server is asking: its nickname, else its id.
@@ -130,7 +136,40 @@ var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 // Load reads dir/profile.toml. It is read once, at startup: a changed profile needs a restart, and
 // only the sounds beside it reload live.
-func Load(dir string) (Profile, error) { return load(filepath.Join(dir, "profile.toml"), dir) }
+func Load(dir string) (Profile, error) {
+	p, err := load(filepath.Join(dir, "profile.toml"), dir)
+	if err != nil {
+		return Profile{}, err
+	}
+	if p.Avatar, p.AvatarHash, err = avatar(dir); err != nil {
+		return Profile{}, err
+	}
+	return p, nil
+}
+
+// avatar reads the one avatar.* in dir. Discord checks the size; the type is checked here, so a
+// wrong file stops startup instead of failing every server's upload.
+func avatar(dir string) (*discord.Icon, string, error) {
+	paths, err := filepath.Glob(filepath.Join(dir, "avatar.*"))
+	switch {
+	case err != nil:
+		return nil, "", err
+	case len(paths) == 0:
+		return nil, "", nil
+	case len(paths) > 1:
+		return nil, "", fmt.Errorf("%s: want one avatar.*, found %d", dir, len(paths))
+	}
+	data, err := os.ReadFile(paths[0])
+	if err != nil {
+		return nil, "", err
+	}
+	icon, err := discord.ParseIconRaw(data)
+	if err != nil {
+		return nil, "", fmt.Errorf("%s: %w", paths[0], err)
+	}
+	sum := sha256.Sum256(data)
+	return icon, hex.EncodeToString(sum[:8]), nil
+}
 
 // LoadAll reads every character in dir: one subdirectory each, holding its profile.toml. Ids must
 // be unique, since a server's saved character is its id. Sorted by id, so the order is stable.

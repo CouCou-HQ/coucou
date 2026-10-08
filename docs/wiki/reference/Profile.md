@@ -10,6 +10,7 @@ pushed to Discord — the bot's username, avatar and banner stay whatever the de
 |---|---|---|
 | `id` | — (required) | lowercase letters, digits and dashes |
 | `nickname` | `""` | what replies call the bot. Wins over its nickname in a server, which wins over its Discord name |
+| `avatar.*` | none | not a key: an image file beside `profile.toml` (PNG, JPEG, GIF or WebP). The bot uses it as its avatar in every server playing this character |
 | `application_id` | `""` | the character's own bot, if it runs as one too. Adds it to the friends `/help` advertises |
 | `emoji` | `""` | in front of the `/help` and `/about` titles |
 | `color` | `#E4572E` | embed accent for reports and confirmations, `#RRGGBB` |

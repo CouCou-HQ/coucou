@@ -5,7 +5,7 @@
 // delivery causes — and no ack can honestly cover the 90 seconds one can take. The loop and /play
 // call bot.NewPlayer directly; what reaches this package is PlayFinished, the fact that it ended.
 //
-//	discord.guild_create ─► guild sync (db) ─► stats writer
+//	discord.guild_create ─► guild sync (db) ─► stats writer ─► persona queue
 //	discord.guild_delete ─► guild sync (db) ─► stats writer
 //	PlayFinished   ─► stats writer
 //	CommandInvoked ─► stats writer
@@ -132,6 +132,15 @@ func GuildJoinedSync(db store.Store, set *settings.Store, d store.Defaults) bus.
 		// boot. A guild coming back keeps the zone it had.
 		_, err := set.FillZones(ctx, map[snowflake.ID]discord.Locale{g.ID: discord.Locale(g.PreferredLocale)})
 		return err
+	}
+}
+
+// GuildJoinedPersona queues a joined guild to take on its character's nickname and avatar. It only
+// queues: the persona's pace gives GuildJoinedSync time to seed the settings row it reads.
+func GuildJoinedPersona(push func(...snowflake.ID)) bus.Handler[discord.GatewayGuild] {
+	return func(_ context.Context, g *discord.GatewayGuild) error {
+		push(g.ID)
+		return nil
 	}
 }
 

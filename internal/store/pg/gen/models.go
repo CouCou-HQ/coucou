@@ -57,16 +57,17 @@ type GuildsQuiet struct {
 }
 
 type GuildsSetting struct {
-	GuildID    int64
-	JoinChance int16
-	Tz         *string
-	Suspense   int16
-	UpdatedAt  time.Time
-	UpdatedBy  *int64
-	Fakeout    int16
-	Encore     int16
-	Nsfw       string
-	Character  *string
+	GuildID      int64
+	JoinChance   int16
+	Tz           *string
+	Suspense     int16
+	UpdatedAt    time.Time
+	UpdatedBy    *int64
+	Fakeout      int16
+	Encore       int16
+	Nsfw         string
+	Character    *string
+	PushedAvatar *string
 }
 
 type StatsListen struct {

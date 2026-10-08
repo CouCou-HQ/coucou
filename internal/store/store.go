@@ -30,7 +30,9 @@ type Settings struct {
 	Encore    int
 	NSFW      string
 	Character string // a profile id; empty is the default character, stored as null
-	UpdatedBy snowflake.ID
+	// PushedAvatar is the hash of the avatar last uploaded to the guild; empty is none.
+	PushedAvatar string
+	UpdatedBy    snowflake.ID
 }
 
 // Defaults is what a guild's settings row starts as, from the bot's profile. Seeding never touches a

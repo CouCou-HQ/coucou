@@ -54,16 +54,17 @@ type GuildsQuiet struct {
 }
 
 type GuildsSetting struct {
-	GuildID    int64   `json:"guild_id"`
-	JoinChance int64   `json:"join_chance"`
-	Tz         *string `json:"tz"`
-	Suspense   int64   `json:"suspense"`
-	UpdatedAt  string  `json:"updated_at"`
-	UpdatedBy  *int64  `json:"updated_by"`
-	Fakeout    int64   `json:"fakeout"`
-	Encore     int64   `json:"encore"`
-	Nsfw       string  `json:"nsfw"`
-	Character  *string `json:"character"`
+	GuildID      int64   `json:"guild_id"`
+	JoinChance   int64   `json:"join_chance"`
+	Tz           *string `json:"tz"`
+	Suspense     int64   `json:"suspense"`
+	UpdatedAt    string  `json:"updated_at"`
+	UpdatedBy    *int64  `json:"updated_by"`
+	Fakeout      int64   `json:"fakeout"`
+	Encore       int64   `json:"encore"`
+	Nsfw         string  `json:"nsfw"`
+	Character    *string `json:"character"`
+	PushedAvatar *string `json:"pushed_avatar"`
 }
 
 type StatsPlay struct {

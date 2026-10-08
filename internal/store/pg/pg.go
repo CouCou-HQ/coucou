@@ -153,14 +153,14 @@ func (s *Store) ListSettings(ctx context.Context) ([]store.Settings, error) {
 	}
 	out := make([]store.Settings, len(rows))
 	for i, r := range rows {
-		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore), NSFW: r.Nsfw, Character: deref(r.Character)}
+		out[i] = store.Settings{Guild: sid(r.GuildID), Chance: int(r.JoinChance), TZ: r.Tz, Suspense: int(r.Suspense), FakeOut: int(r.Fakeout), Encore: int(r.Encore), NSFW: r.Nsfw, Character: deref(r.Character), PushedAvatar: deref(r.PushedAvatar)}
 	}
 	return out, nil
 }
 
 func (s *Store) UpsertSettings(ctx context.Context, st store.Settings) error {
 	return s.q.UpsertSettings(ctx, gen.UpsertSettingsParams{
-		GuildID: i64(st.Guild), JoinChance: small(st.Chance), Tz: st.TZ, Suspense: small(st.Suspense), Fakeout: small(st.FakeOut), Encore: small(st.Encore), Nsfw: st.NSFW, Character: strp(st.Character),
+		GuildID: i64(st.Guild), JoinChance: small(st.Chance), Tz: st.TZ, Suspense: small(st.Suspense), Fakeout: small(st.FakeOut), Encore: small(st.Encore), Nsfw: st.NSFW, Character: strp(st.Character), PushedAvatar: strp(st.PushedAvatar),
 		UpdatedBy: i64(st.UpdatedBy),
 	})
 }

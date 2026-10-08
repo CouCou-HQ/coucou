@@ -169,6 +169,8 @@ func serve(cfg config, chars *characters.Set, build Build) error {
 			return err
 		}
 		printBanner(os.Stdout, build, p.client, chars.Len())
+		// After the reconcile, so every present guild has its settings row to read the character from.
+		p.persona.PushAll()
 		return nil
 	}, func(ctx context.Context) error {
 		// Plays first: Close would otherwise yank their voice conns mid-frame, under their own close.
@@ -185,6 +187,7 @@ func serve(cfg config, chars *characters.Set, build Build) error {
 	r.Add(p.commands.RunEmojis, nil)
 	r.Add(p.rollup.Run, nil)
 	r.Add(p.loop.Run, nil)
+	r.Add(p.persona.Run, nil)
 
 	slog.Info("running")
 	return r.Run()
@@ -208,6 +211,7 @@ type parts struct {
 	rollup   *rollup.Refresher
 	settings *settings.Store
 	commands *commands.Commands
+	persona  *bot.Persona
 }
 
 // mem is the tables the bot answers from memory.
@@ -253,10 +257,7 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 	if err != nil {
 		return nil, err
 	}
-	if all := chars.All(); len(all) == 1 && all[0].App != 0 && all[0].App != client.ApplicationID {
-		slog.Warn("profile: application_id is another bot's; was this profile copied from another deployment?",
-			slog.String("profile", all[0].ID), slog.String("application_id", all[0].App.String()))
-	}
+	warnForeignApp(chars, client.ApplicationID)
 	// The player is built before the two things that use it — the loop and /play — because it is
 	// the shared cap on simultaneous voice connections, not a per-caller one.
 	player := bot.NewPlayer(client, chars, set, quiet, opt, eb)
@@ -310,6 +311,8 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 
 	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, chars.Default().Defaults))
 	bus.OnTopic(eb, gw, "guild-sync-leave", bot.TopicGuildDelete, handlers.GuildLeftSync(db))
+	persona := bot.NewPersona(client, chars, set)
+	bus.OnTopic(eb, gw, "persona-join", bot.TopicGuildCreate, handlers.GuildJoinedPersona(persona.Push))
 
 	bus.On(eb, "log-sounds-added", handlers.SoundAdded(log))
 	bus.On(eb, "log-sounds-removed", handlers.SoundRemoved(log))
@@ -334,7 +337,17 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 		rollup:   rollup.New(db),
 		settings: set,
 		commands: cmds,
+		persona:  persona,
 	}, nil
+}
+
+// warnForeignApp catches a single character whose application_id is some other bot's, which is a
+// profile copied from another deployment rather than anything this bot can act on.
+func warnForeignApp(chars *characters.Set, self snowflake.ID) {
+	if all := chars.All(); len(all) == 1 && all[0].App != 0 && all[0].App != self {
+		slog.Warn("profile: application_id is another bot's; was this profile copied from another deployment?",
+			slog.String("profile", all[0].ID), slog.String("application_id", all[0].App.String()))
+	}
 }
 
 // soundPublisher turns registry changes into bus events. Nothing may publish before the router has

@@ -210,3 +210,39 @@ func TestLoadAllRefuses(t *testing.T) {
 		}
 	})
 }
+
+// A PNG's first bytes are all http.DetectContentType needs to call it one.
+const avatarPNG = "avatar.png"
+
+var png = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+
+func TestAvatar(t *testing.T) {
+	tests := []struct {
+		name    string
+		files   map[string][]byte
+		want    bool
+		wantErr bool
+	}{
+		{"none", nil, false, false},
+		{"a png", map[string][]byte{avatarPNG: png}, true, false},
+		{"two of them", map[string][]byte{avatarPNG: png, "avatar.gif": png}, false, true},
+		{"not an image", map[string][]byte{avatarPNG: []byte("not an image")}, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := write(t, `id = "gus"`)
+			for name, data := range tt.files {
+				if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p, err := Load(dir)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Load: %v, want an error: %v", err, tt.wantErr)
+			}
+			if got := p.Avatar != nil && len(p.AvatarHash) == 16; got != tt.want {
+				t.Errorf("avatar %+v, hash %q; want one: %v", p.Avatar, p.AvatarHash, tt.want)
+			}
+		})
+	}
+}

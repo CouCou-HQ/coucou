@@ -2,17 +2,17 @@
 -- single-row statements; sqlite executes ~100k simple inserts/s in a tx, which is plenty.
 
 -- name: ListSettings :many
-select guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, character from guilds_settings;
+select guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, character, pushed_avatar from guilds_settings;
 
 -- name: UpsertSettings :exec
 -- updated_by is who asked for the change, null when the bot acted on its own. Postgres nulls the
 -- zero in SQL; sqlc's sqlite grammar rejects sqlc.arg() inside nullif(), so actor does it in Go.
 -- Nothing reads the column here yet, but dropping it on the floor would make the two backends
 -- disagree about what the store was told.
-insert into guilds_settings (guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, character, updated_by)
-values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+insert into guilds_settings (guild_id, join_chance, tz, suspense, fakeout, encore, nsfw, character, pushed_avatar, updated_by)
+values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 on conflict (guild_id) do update set
-  join_chance = excluded.join_chance, tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, nsfw = excluded.nsfw, character = excluded.character, updated_by = excluded.updated_by,
+  join_chance = excluded.join_chance, tz = excluded.tz, suspense = excluded.suspense, fakeout = excluded.fakeout, encore = excluded.encore, nsfw = excluded.nsfw, character = excluded.character, pushed_avatar = excluded.pushed_avatar, updated_by = excluded.updated_by,
   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now');
 
 -- name: InsertPlay :one
