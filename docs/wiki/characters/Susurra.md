@@ -18,4 +18,4 @@ Susurra is in her late 20s, and she has never been flustered in her life: she's 
 |---|---|---|
 | `susurra` | 💜 whispering goodnight to someone | `#9B7BD4` |
 
-**[Add Susurra to your server](https://discord.com/oauth2/authorize?client_id=1555097872549023744&scope=bot+applications.commands&permissions=3146752)** as a bot of her own.
+**[Add Susurra to your server](https://discord.com/oauth2/authorize?client_id=1555097872549023744&scope=bot+applications.commands&permissions=3165184)** as a bot of her own.

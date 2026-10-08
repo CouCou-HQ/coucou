@@ -1021,8 +1021,12 @@ func friendsGrid(siblings []Sibling, self snowflake.ID, name string) []discord.E
 	return []discord.Embed{grid}
 }
 
-// inviteURL is the OAuth2 link that adds the bot to a server, asking for voice.Needed and nothing
-// else. Both scopes are required and neither is optional: bot adds the user, applications.commands
+// invitePermissions is what the invite asks for: voice.Needed to play, and welcomeNeeds so the bot
+// can introduce itself in the server it just joined.
+const invitePermissions = voice.Needed | welcomeNeeds
+
+// inviteURL is the OAuth2 link that adds the bot to a server, asking for invitePermissions and
+// nothing else. Both scopes are required and neither is optional: bot adds the user, applications.commands
 // is what makes the slash commands appear — added without it the bot joins and answers nothing.
 //
 // The permission bits go over as an integer. discord.QueryValues renders every value through
@@ -1031,7 +1035,7 @@ func friendsGrid(siblings []Sibling, self snowflake.ID, name string) []discord.E
 func inviteURL(app snowflake.ID) string {
 	return discord.AuthorizeURL(discord.QueryValues{
 		"client_id":   app,
-		"permissions": int64(voice.Needed),
+		"permissions": int64(invitePermissions),
 		"scope":       "bot applications.commands",
 	})
 }
@@ -1041,8 +1045,9 @@ func inviteURL(app snowflake.ID) string {
 const inviteWhy = "**What it asks for**\n" +
 	"• **View Channel** — to see that a voice channel exists at all.\n" +
 	"• **Connect** — to join it.\n" +
-	"• **Speak** — to make the noise. That is the entire point.\n\n" +
-	"Nothing else: it cannot read your messages, and it never joins a channel that denies it any of the three."
+	"• **Speak** — to make the noise. That is the entire point.\n" +
+	"• **Send Messages** and **Embed Links** — to say hello once, when it joins, with settings it suggests.\n\n" +
+	"Nothing else: it cannot read your messages, and it never joins a voice channel that denies it View Channel, Connect or Speak."
 
 func (c *Commands) cmdInvite(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)

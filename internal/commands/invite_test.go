@@ -26,14 +26,22 @@ func inviteQuery(t *testing.T) url.Values {
 }
 
 // Permissions has a String method, so the constant rendered through fmt.Sprint asks Discord to
-// authorize "View Channel, Connect, Speak" and is rejected. This is the test for that one mistake.
+// authorize "View Channel, Connect, Speak, ..." and is rejected. This is the test for that one mistake.
 func TestInviteAsksForTheBitsNotTheNames(t *testing.T) {
 	got := inviteQuery(t).Get("permissions")
 	if _, err := strconv.ParseInt(got, 10, 64); err != nil {
 		t.Fatalf("permissions=%q is not an integer", got)
 	}
-	if want := strconv.FormatInt(int64(voice.Needed), 10); got != want {
-		t.Errorf("permissions=%s, want %s — the link must ask for exactly what Usable checks", got, want)
+	if want := strconv.FormatInt(int64(invitePermissions), 10); got != want {
+		t.Errorf("permissions=%s, want %s — the link must ask for exactly what playing and the welcome need", got, want)
+	}
+}
+
+// The invite, pinned like voice.Needed below: the docs and every invite link in them hard-code 3165184.
+func TestInviteIsVoiceAndTheWelcome(t *testing.T) {
+	want := voice.Needed | discord.PermissionSendMessages | discord.PermissionEmbedLinks
+	if invitePermissions != want || int64(want) != 3165184 {
+		t.Errorf("invitePermissions = %d (%s), want %d", invitePermissions, invitePermissions, int64(want))
 	}
 }
 
