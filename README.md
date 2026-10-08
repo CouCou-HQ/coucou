@@ -89,6 +89,8 @@ follows Discord's [Terms of Service](https://discord.com/terms) and
 
 | Bot | What it does | Maintainer | |
 |---|---|---|---|
+| 💨 [Gus](docs/wiki/standalone/Gus.md) | Wanders in, farts, burps, crunches chips into the mic, and leaves you all blaming each other. | [@be-sandaa](https://github.com/be-sandaa) | |
+| 😳 [Moan](docs/wiki/standalone/Moan.md) | Lets out one very unfortunate moan, and vanishes before anyone can explain it. | [@be-sandaa](https://github.com/be-sandaa) | |
 | *yours here* | | | |
 
 ## 🚀 Quick start
