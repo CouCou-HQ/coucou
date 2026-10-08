@@ -12,6 +12,10 @@ sounds, and coucou is what runs it.
 - **[Running the bot](Running-the-bot)**: create the Discord app, add sounds, start it, and check it
   works.
 
+## Characters
+
+- **[Characters](characters/README.md)**: the characters run from here, each in short.
+
 ## Reference
 
 - **[Configuration](Configuration)**: every key in `config.toml`.
