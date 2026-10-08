@@ -77,13 +77,18 @@ type PlayRequest struct {
 	Suspense time.Duration
 	FakeOut  bool
 	Encore   bool
+	// Character plays as this profile id instead of the guild's own.
+	Character string
+	// Preview plays these sounds of Character back to back instead of Sound, and is never recorded:
+	// trying a character out is not the character visiting.
+	Preview []string
 }
 
 // play is one join→play→leave, reporting the outcome on the bus whatever happened — except when
 // the guild was already busy, where nothing happened and there is nothing to report. The error is
 // the visit's own, for deciding what follows it; the outcome has already been published. A chain's
 // clips all play inside the one visit, which is reported under sound, its opener.
-func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, sound string, clips []voice.Clip) error {
+func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, character, sound string, clips []voice.Clip) error {
 	humans := voice.Humans(c, e.Guild, e.Channel)
 	started := time.Now()
 
@@ -97,6 +102,7 @@ func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, sound 
 	out := bus.PlayFinished{
 		Guild: e.Guild, Channel: e.Channel, Sound: sound, Trigger: e.Trigger, User: e.User,
 		Listeners: humans, OK: err == nil && !e.FakeOut, StartedAt: started, Duration: time.Since(started),
+		Character: character,
 	}
 	if err == nil && e.FakeOut {
 		out.Reason = outcomeFakeOut
@@ -117,7 +123,9 @@ func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, sound 
 		slog.Warn("play failed", slog.Any("guild", e.Guild), slog.Any("channel", e.Channel),
 			slog.String("sound", sound), slog.String("stage", stage), slog.Any("err", err))
 	}
-	b.Publish(ctx, out)
+	if len(e.Preview) == 0 {
+		b.Publish(ctx, out)
+	}
 	return err
 }
 

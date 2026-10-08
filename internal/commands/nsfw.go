@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/disgoorg/disgo/bot"
@@ -97,7 +98,7 @@ func (c *Commands) setNSFW(ctx context.Context, guild, by snowflake.ID, mode set
 	return nil
 }
 
-// OnComponent answers the buttons this package sends; /nsfw on's confirmation is the only one.
+// OnComponent answers the buttons this package sends: /nsfw on's confirmation and the welcome's Apply.
 func (c *Commands) OnComponent() bot.EventListener {
 	return bot.NewListenerFunc(func(e *events.ComponentInteractionCreate) { go c.onComponent(e) })
 }
@@ -105,11 +106,13 @@ func (c *Commands) OnComponent() bot.EventListener {
 func (c *Commands) onComponent(e *events.ComponentInteractionCreate) {
 	defer logPanic("component")
 	var err error
-	switch e.Data.CustomID() {
-	case nsfwConfirm:
+	switch id := e.Data.CustomID(); {
+	case id == nsfwConfirm:
 		err = c.confirmNSFW(e)
-	case nsfwCancel:
+	case id == nsfwCancel:
 		err = e.UpdateMessage(discord.NewMessageUpdate().WithEmbeds(none("Left as it was", "")).ClearComponents())
+	case strings.HasPrefix(id, welcomeApply):
+		err = c.applyWelcome(e)
 	default:
 		return
 	}

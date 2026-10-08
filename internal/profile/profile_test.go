@@ -48,6 +48,9 @@ func TestEveryKeyIsRead(t *testing.T) {
 	dir := write(t, `
 id       = "lenore"
 nickname = " Lenore "
+application_id = "912694340814516254"
+preview  = ["hiss", "creak"]
+keywords = [" Goth ", "", "poetry"]
 emoji    = "🖤"
 color    = "#4E5058"
 tagline  = "Mean, nicely."
@@ -92,8 +95,11 @@ online   = "dnd"
 			// Left out, a chain's chance is 100, not 0: listing one means wanting it to play.
 			{Chance: 100, Steps: []sounds.Step{{Sound: "drum"}, {Sound: "clap"}}},
 		},
-		Links:  sounds.Links{"snare": {"boo": 70, "sad-trombone": 30}},
-		Status: Status{Text: "🖤 lurking", Activity: discord.ActivityTypeListening, Online: discord.OnlineStatusDND},
+		Links:    sounds.Links{"snare": {"boo": 70, "sad-trombone": 30}},
+		Status:   Status{Text: "🖤 lurking", Activity: discord.ActivityTypeListening, Online: discord.OnlineStatusDND},
+		App:      912694340814516254,
+		Preview:  []string{"hiss", "creak"},
+		Keywords: []string{"goth", "poetry"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got  %+v\nwant %+v", got, want)
@@ -135,6 +141,8 @@ func TestInvalidProfiles(t *testing.T) {
 		{"unknown activity", "id = \"x\"\n[status]\nactivity = \"streaming\""},
 		{"unknown online state", "id = \"x\"\n[status]\nonline = \"invisible\""},
 		{"status text over 128 characters", "id = \"x\"\n[status]\ntext = \"" + strings.Repeat("🖤", MaxStatus+1) + "\""},
+		{"four preview sounds", "id = \"x\"\npreview = [\"a\", \"b\", \"c\", \"d\"]"},
+		{"application id not a number", "id = \"x\"\napplication_id = \"lenore\""},
 		{"not toml", "id ="},
 	}
 	for _, tc := range tests {
@@ -149,5 +157,97 @@ func TestInvalidProfiles(t *testing.T) {
 func TestMissingProfileIsAnError(t *testing.T) {
 	if _, err := Load(t.TempDir()); err == nil {
 		t.Fatal("expected an error for a directory with no profile.toml")
+	}
+}
+
+// character puts a profile.toml with body under root/sub.
+func character(t *testing.T, root, sub, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, sub), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, sub, "profile.toml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Every subdirectory with a profile.toml is a character, sorted by id rather than by folder; a
+// folder without one is skipped, so a stray directory is not an error.
+func TestLoadAll(t *testing.T) {
+	root := t.TempDir()
+	character(t, root, "a", `id = "zelda"`)
+	character(t, root, "b", `id = "bart"`)
+	if err := os.MkdirAll(filepath.Join(root, "empty"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadAll(root)
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != "bart" || got[1].ID != "zelda" {
+		t.Fatalf("got %+v, want bart then zelda", got)
+	}
+	if got[0].Dir != filepath.Join(root, "b") {
+		t.Errorf("Dir = %q, want its own folder", got[0].Dir)
+	}
+}
+
+func TestLoadAllRefuses(t *testing.T) {
+	t.Run("no characters", func(t *testing.T) {
+		if _, err := LoadAll(t.TempDir()); err == nil {
+			t.Error("expected an error")
+		}
+	})
+	t.Run("one id twice", func(t *testing.T) {
+		root := t.TempDir()
+		character(t, root, "a", `id = "bart"`)
+		character(t, root, "b", `id = "bart"`)
+		if _, err := LoadAll(root); err == nil {
+			t.Error("expected an error")
+		}
+	})
+	t.Run("one broken character", func(t *testing.T) {
+		root := t.TempDir()
+		character(t, root, "a", `id = "bart"`)
+		character(t, root, "b", `id = "Bad"`)
+		if _, err := LoadAll(root); err == nil {
+			t.Error("expected an error")
+		}
+	})
+}
+
+// A PNG's first bytes are all http.DetectContentType needs to call it one.
+const avatarPNG = "avatar.png"
+
+var png = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+
+func TestAvatar(t *testing.T) {
+	tests := []struct {
+		name    string
+		files   map[string][]byte
+		want    bool
+		wantErr bool
+	}{
+		{"none", nil, false, false},
+		{"a png", map[string][]byte{avatarPNG: png}, true, false},
+		{"two of them", map[string][]byte{avatarPNG: png, "avatar.gif": png}, false, true},
+		{"not an image", map[string][]byte{avatarPNG: []byte("not an image")}, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := write(t, `id = "gus"`)
+			for name, data := range tt.files {
+				if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p, err := Load(dir)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Load: %v, want an error: %v", err, tt.wantErr)
+			}
+			if got := p.Avatar != nil && len(p.AvatarHash) == 16; got != tt.want {
+				t.Errorf("avatar %+v, hash %q; want one: %v", p.Avatar, p.AvatarHash, tt.want)
+			}
+		})
 	}
 }

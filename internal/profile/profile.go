@@ -4,10 +4,16 @@
 package profile
 
 import (
+	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +21,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/store"
@@ -29,6 +36,7 @@ const (
 	MaxEncore   = 50
 	MaxAfter    = 20  // seconds of silence before a chain's step
 	MaxStatus   = 128 // characters of status text, Discord's custom status limit
+	MaxPreview  = 3   // sounds /character preview plays
 )
 
 // defaultChance is the join chance a guild starts with when the profile does not say, as a
@@ -57,7 +65,17 @@ type Profile struct {
 	Chains   []sounds.Chain
 	Links    sounds.Links
 	Status   Status
+	App      snowflake.ID // the character's own bot, zero when it has none
+	Preview  []string     // what /character preview plays first; random sounds fill the rest
+	Keywords []string     // lowercased; matched against a server the bot joins to suggest this character
+	// Avatar is avatar.* beside profile.toml, nil when there is none. AvatarHash names its content,
+	// so a server can be told apart from one that already has it without uploading it again.
+	Avatar     *discord.Icon
+	AvatarHash string
 }
+
+// Name is what the character is called where no server is asking: its nickname, else its id.
+func (p Profile) Name() string { return cmp.Or(p.Nickname, p.ID) }
 
 // Status is what the bot shows under its name in the member list. No Text: only the online state.
 type Status struct {
@@ -87,6 +105,9 @@ func (p Profile) SoundsDir() string { return filepath.Join(p.Dir, "sounds") }
 type file struct {
 	ID       string   `toml:"id"`
 	Nickname string   `toml:"nickname"`
+	App      string   `toml:"application_id"`
+	Preview  []string `toml:"preview"`
+	Keywords []string `toml:"keywords"`
 	Emoji    string   `toml:"emoji"`
 	Color    string   `toml:"color"`
 	Tagline  string   `toml:"tagline"`
@@ -120,7 +141,74 @@ var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 // Load reads dir/profile.toml. It is read once, at startup: a changed profile needs a restart, and
 // only the sounds beside it reload live.
-func Load(dir string) (Profile, error) { return load(filepath.Join(dir, "profile.toml"), dir) }
+func Load(dir string) (Profile, error) {
+	p, err := load(filepath.Join(dir, "profile.toml"), dir)
+	if err != nil {
+		return Profile{}, err
+	}
+	if p.Avatar, p.AvatarHash, err = avatar(dir); err != nil {
+		return Profile{}, err
+	}
+	return p, nil
+}
+
+// avatar reads the one avatar.* in dir. Discord checks the size; the type is checked here, so a
+// wrong file stops startup instead of failing every server's upload.
+func avatar(dir string) (*discord.Icon, string, error) {
+	paths, err := filepath.Glob(filepath.Join(dir, "avatar.*"))
+	switch {
+	case err != nil:
+		return nil, "", err
+	case len(paths) == 0:
+		return nil, "", nil
+	case len(paths) > 1:
+		return nil, "", fmt.Errorf("%s: want one avatar.*, found %d", dir, len(paths))
+	}
+	data, err := os.ReadFile(paths[0])
+	if err != nil {
+		return nil, "", err
+	}
+	icon, err := discord.ParseIconRaw(data)
+	if err != nil {
+		return nil, "", fmt.Errorf("%s: %w", paths[0], err)
+	}
+	sum := sha256.Sum256(data)
+	return icon, hex.EncodeToString(sum[:8]), nil
+}
+
+// LoadAll reads every character in dir: one subdirectory each, holding its profile.toml. Ids must
+// be unique, since a server's saved character is its id. Sorted by id, so the order is stable.
+func LoadAll(dir string) ([]Profile, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []Profile
+	seen := map[string]string{}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		sub := filepath.Join(dir, e.Name())
+		if _, err := os.Stat(filepath.Join(sub, "profile.toml")); errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		p, err := Load(sub)
+		if err != nil {
+			return nil, err
+		}
+		if other, ok := seen[p.ID]; ok {
+			return nil, fmt.Errorf("id %q is used by both %s and %s", p.ID, other, sub)
+		}
+		seen[p.ID] = sub
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%s: no character found, want <id>/profile.toml in it", dir)
+	}
+	slices.SortFunc(out, func(a, b Profile) int { return cmp.Compare(a.ID, b.ID) })
+	return out, nil
+}
 
 func load(path, dir string) (Profile, error) {
 	var f file
@@ -173,12 +261,21 @@ func (f file) parse(dir string) (Profile, error) {
 	if err != nil {
 		return Profile{}, err
 	}
+	if len(f.Preview) > MaxPreview {
+		return Profile{}, fmt.Errorf("preview has %d sounds, want at most %d", len(f.Preview), MaxPreview)
+	}
+	var app snowflake.ID
+	if f.App != "" {
+		if app, err = snowflake.Parse(f.App); err != nil {
+			return Profile{}, fmt.Errorf("application_id %q: %w", f.App, err)
+		}
+	}
 	return Profile{
 		Dir: dir, ID: f.ID, Nickname: strings.TrimSpace(f.Nickname), Emoji: f.Emoji, Color: color,
 		Tagline: f.Tagline, Lore: strings.TrimSpace(f.Lore), Traits: f.Traits,
 		Defaults: store.Defaults{Chance: d.Chance, Suspense: d.Suspense, FakeOut: d.FakeOut, Encore: d.Encore},
 		Chains:   chains, Links: links,
-		Status: status,
+		Status: status, App: app, Preview: f.Preview, Keywords: lower(f.Keywords),
 	}, nil
 }
 
@@ -273,6 +370,17 @@ func parseColor(s string) (int, error) {
 		return 0, fmt.Errorf("color %q: want #RRGGBB", s)
 	}
 	return int(n), nil
+}
+
+// lower trims and lowercases words, dropping any left empty.
+func lower(words []string) []string {
+	var out []string
+	for _, w := range words {
+		if w = strings.ToLower(strings.TrimSpace(w)); w != "" {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 func inRange(key string, n, maxN int) error {

@@ -18,7 +18,7 @@ const embedDescriptionLimit = 4096
 
 func helpEmbeds(friends []discord.Embed) []discord.Embed {
 	return fitHelp([]discord.Embed{
-		info("The Bot", commandList()),
+		info("The Bot", commandList(definitions)),
 		info("Keeping the bot out", helpLimits),
 		info("Sounds", helpSounds+"\n\n"+adultHelp(settings.NSFWRestricted, false)+"\n"+helpNSFW),
 	}, friends)
@@ -27,7 +27,7 @@ func helpEmbeds(friends []discord.Embed) []discord.Embed {
 // The point of generating the list is that a command added to definitions shows up in /help
 // without anyone remembering to add it. This is the test that keeps that true.
 func TestCommandListCoversEveryDefinition(t *testing.T) {
-	list := commandList()
+	list := commandList(definitions)
 	for _, d := range definitions {
 		c, ok := d.(discord.SlashCommandCreate)
 		if !ok {
@@ -45,7 +45,7 @@ func TestCommandListCoversEveryDefinition(t *testing.T) {
 // The permission tag is read off the definition rather than written out, so it cannot drift from
 // what Discord actually enforces.
 func TestCommandListTagsTheGatedCommands(t *testing.T) {
-	for _, line := range strings.Split(strings.TrimSpace(commandList()), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(commandList(definitions)), "\n") {
 		name, _, _ := strings.Cut(strings.TrimPrefix(line, "`/"), "`")
 
 		var gated bool
@@ -126,18 +126,25 @@ func TestEveryDefinitionHasAHandler(t *testing.T) {
 // /about is the character sheet: each part shows only when the profile has it, and a profile with
 // none of them still answers rather than sending an empty embed Discord would reject.
 func TestAboutBody(t *testing.T) {
-	full := aboutBody(profile.Profile{Tagline: "Mean, nicely.", Lore: "Came anyway.", Traits: []string{"sits in silence", "leaves"}})
+	full := aboutBody(profile.Profile{Tagline: "Mean, nicely.", Lore: "Came anyway.", Traits: []string{"sits in silence", "leaves"}}, "")
 	if want := "*Mean, nicely.*\n\nCame anyway.\n\n**Traits**\n• sits in silence\n• leaves"; full != want {
 		t.Errorf("aboutBody = %q, want %q", full, want)
 	}
 	const onlyLore = "Only lore."
-	if got := aboutBody(profile.Profile{Lore: onlyLore}); got != onlyLore {
+	if got := aboutBody(profile.Profile{Lore: onlyLore}, ""); got != onlyLore {
 		t.Errorf("aboutBody(lore only) = %q", got)
 	}
-	if got := aboutBody(profile.Profile{}); got == "" {
+	if got := aboutBody(profile.Profile{}, ""); got == "" {
 		t.Error("aboutBody(empty) is empty, which Discord rejects")
 	}
-	if got := aboutBody(profile.Profile{Lore: strings.Repeat("x", 5000)}); utf8.RuneCountInString(got) > embedDescriptionLimit {
+	if got := aboutBody(profile.Profile{Lore: strings.Repeat("x", 5000)}, "note"); utf8.RuneCountInString(got) > embedDescriptionLimit {
 		t.Errorf("aboutBody of long lore is %d runes, over Discord's 4096", utf8.RuneCountInString(got))
+	}
+	// The operator's note goes under the sheet, and under the placeholder when there is no story.
+	if got := aboutBody(profile.Profile{Lore: onlyLore}, "Run by us."); got != onlyLore+"\n\nRun by us." {
+		t.Errorf("aboutBody(lore, note) = %q", got)
+	}
+	if got := aboutBody(profile.Profile{}, "Run by us."); !strings.HasSuffix(got, "\n\nRun by us.") || strings.HasPrefix(got, "Run by us.") {
+		t.Errorf("aboutBody(empty, note) = %q, want the placeholder then the note", got)
 	}
 }

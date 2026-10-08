@@ -6,14 +6,19 @@ import (
 
 	"github.com/disgoorg/disgo/discord"
 
-	"github.com/be-sandaa/coucou/internal/sounds"
+	"github.com/be-sandaa/coucou/internal/characters"
+	"github.com/be-sandaa/coucou/internal/profile"
 )
 
 const spin = "spin"
 
 // A sound shows the app emoji named exactly like it; one without keeps today's text, speaker and all.
 func TestSoundEmojis(t *testing.T) {
-	c := &Commands{sounds: sounds.New(t.TempDir())}
+	chars, err := characters.New([]profile.Profile{{ID: "x", Dir: t.TempDir()}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &Commands{chars: chars}
 	c.emojis.set([]discord.Emoji{{ID: 1, Name: boom}, {ID: 2, Name: spin, Animated: true}})
 
 	tests := []struct {

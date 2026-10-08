@@ -5,7 +5,7 @@
 // delivery causes — and no ack can honestly cover the 90 seconds one can take. The loop and /play
 // call bot.NewPlayer directly; what reaches this package is PlayFinished, the fact that it ended.
 //
-//	discord.guild_create ─► guild sync (db) ─► stats writer
+//	discord.guild_create ─► guild sync (db) ─► stats writer ─► persona queue ─► welcome (commands.Welcome)
 //	discord.guild_delete ─► guild sync (db) ─► stats writer
 //	PlayFinished   ─► stats writer
 //	CommandInvoked ─► stats writer
@@ -45,6 +45,7 @@ func PlayFinished(log *events.Log) bus.Handler[bus.PlayFinished] {
 		log.RecordPlay(events.Play{
 			At: e.StartedAt, Guild: e.Guild, Channel: e.Channel, Sound: e.Sound, Trigger: e.Trigger,
 			User: e.User, ListenerIDs: e.Listeners, FledIDs: e.Fled, OK: e.OK, Reason: e.Reason, Duration: e.Duration,
+			Character: e.Character,
 		})
 		return nil
 	}
@@ -53,6 +54,9 @@ func PlayFinished(log *events.Log) bus.Handler[bus.PlayFinished] {
 // keyName is a stored column name, shared by the three records that carry one. The data keys are
 // schema — renaming this is a migration, not a wording change.
 const keyName = "name"
+
+// keyCharacter is whose sound it was, on a sound record.
+const keyCharacter = "character"
 
 // The guild_leave record and its one column, shared by the live handler and the boot-reconcile one
 // so the two cannot drift into writing different rows for the same thing.
@@ -131,6 +135,15 @@ func GuildJoinedSync(db store.Store, set *settings.Store, d store.Defaults) bus.
 	}
 }
 
+// GuildJoinedPersona queues a joined guild to take on its character's nickname and avatar. It only
+// queues: the persona's pace gives GuildJoinedSync time to seed the settings row it reads.
+func GuildJoinedPersona(push func(...snowflake.ID)) bus.Handler[discord.GatewayGuild] {
+	return func(_ context.Context, g *discord.GatewayGuild) error {
+		push(g.ID)
+		return nil
+	}
+}
+
 // GuildLeftSync has no reconciled branch any more: a boot reconcile writes its own rows and
 // publishes bus.GuildLeft, which this does not consume. What reaches here left while we watched.
 func GuildLeftSync(db store.Store) bus.Handler[discord.Guild] {
@@ -144,14 +157,14 @@ func GuildLeftSync(db store.Store) bus.Handler[discord.Guild] {
 
 func SoundAdded(log *events.Log) bus.Handler[bus.SoundAdded] {
 	return func(ctx context.Context, e *bus.SoundAdded) error {
-		log.Audit(ctx, events.Misc{Kind: "sound_added", Data: map[string]any{keyName: e.Name}})
+		log.Audit(ctx, events.Misc{Kind: "sound_added", Data: map[string]any{keyName: e.Name, keyCharacter: e.Character}})
 		return nil
 	}
 }
 
 func SoundRemoved(log *events.Log) bus.Handler[bus.SoundRemoved] {
 	return func(ctx context.Context, e *bus.SoundRemoved) error {
-		log.Audit(ctx, events.Misc{Kind: "sound_removed", Data: map[string]any{keyName: e.Name}})
+		log.Audit(ctx, events.Misc{Kind: "sound_removed", Data: map[string]any{keyName: e.Name, keyCharacter: e.Character}})
 		return nil
 	}
 }

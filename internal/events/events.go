@@ -226,3 +226,7 @@ func (l *Log) UserHourly(ctx context.Context, g *snowflake.ID, u snowflake.ID, s
 func (l *Log) TopGuilds(ctx context.Context, days int) ([]store.Row, error) {
 	return l.db.TopGuilds(ctx, days)
 }
+
+func (l *Log) CharacterPlays(ctx context.Context, guild *snowflake.ID) ([]store.Row, error) {
+	return l.db.CharacterPlays(ctx, guild)
+}

@@ -119,6 +119,8 @@ func find(t *testing.T, s store.Store, g snowflake.ID) store.Settings {
 const (
 	nsfwDefault = "restricted"
 	nsfwOn      = "on"
+	lisa        = "lisa"
+	avatarHash  = "ab12"
 )
 
 func TestSettingsRoundTrip(t *testing.T) {
@@ -126,13 +128,13 @@ func TestSettingsRoundTrip(t *testing.T) {
 		g := guildID(t)
 
 		if err := s.UpsertSettings(context.Background(), store.Settings{
-			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn,
+			Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, FakeOut: 30, Encore: 20, NSFW: nsfwOn, Character: lisa, PushedAvatar: avatarHash,
 		}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
 		got := find(t, s, g)
-		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) {
+		if got.Chance != 42 || got.Suspense != 7 || got.FakeOut != 30 || got.Encore != 20 || got.NSFW != nsfwOn || !is(got.TZ, tzBrussels) || got.Character != lisa || got.PushedAvatar != avatarHash {
 			t.Errorf("got %+v", got)
 		}
 	})
@@ -144,7 +146,7 @@ func TestUpsertSettingsClearsTheZone(t *testing.T) {
 	run(t, "clear-zone", func(t *testing.T, s store.Store) {
 		ctx := context.Background()
 		g := guildID(t)
-		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, NSFW: nsfwDefault}); err != nil {
+		if err := s.UpsertSettings(ctx, store.Settings{Guild: g, Chance: 42, TZ: new(tzBrussels), Suspense: 7, NSFW: nsfwDefault, Character: lisa}); err != nil {
 			t.Fatalf("upsert: %v", err)
 		}
 
@@ -152,7 +154,7 @@ func TestUpsertSettingsClearsTheZone(t *testing.T) {
 			t.Fatalf("upsert nil zone: %v", err)
 		}
 		got := find(t, s, g)
-		if got.Chance != 5 || got.TZ != nil {
+		if got.Chance != 5 || got.TZ != nil || got.Character != "" {
 			t.Errorf("upsert did not overwrite: %+v", got)
 		}
 	})
@@ -269,7 +271,7 @@ func TestEncorePlayIsRecorded(t *testing.T) {
 	run(t, "encore", func(t *testing.T, s store.Store) {
 		g, listener := guildID(t), userID(t)
 		if err := s.WritePlays(context.Background(), []store.Play{{At: time.Now().UTC(), Guild: g, Channel: g + 1,
-			Sound: "a", Trigger: trigEncore, ListenerIDs: []snowflake.ID{listener}, OK: true, Duration: time.Second}}); err != nil {
+			Sound: "a", Trigger: trigEncore, ListenerIDs: []snowflake.ID{listener}, OK: true, Duration: time.Second, Character: lisa}}); err != nil {
 			t.Fatalf("WritePlays: %v", err)
 		}
 		st, err := s.GuildStats(context.Background(), g)
@@ -1243,4 +1245,36 @@ func samePlayHour(x, y store.PlayHour) bool {
 
 func sameUserHour(x, y store.UserHour) bool {
 	return x.Hour.Equal(y.Hour) && x.Heard == y.Heard && x.Fled == y.Fled && x.Triggered == y.Triggered
+}
+
+// Plays are counted by who played them, ok ones only; a play from before characters comes back
+// under "", and another guild's plays only in the every-guild count.
+func TestCharacterPlays(t *testing.T) {
+	run(t, "character-plays", func(t *testing.T, s store.Store) {
+		ctx := context.Background()
+		g, other := guildID(t), guildID(t)
+		at := time.Now().UTC()
+		play := func(guild snowflake.ID, character string, ok bool) store.Play {
+			return store.Play{At: at, Guild: guild, Channel: guild + 1, Sound: "a", Trigger: trigLoop, OK: ok, Character: character}
+		}
+		if err := s.WritePlays(ctx, []store.Play{
+			play(g, lisa, true), play(g, lisa, true), play(g, "", true), play(g, lisa, false), play(other, "bart", true),
+		}); err != nil {
+			t.Fatalf("WritePlays: %v", err)
+		}
+		got, err := s.CharacterPlays(ctx, &g)
+		if err != nil {
+			t.Fatalf("CharacterPlays: %v", err)
+		}
+		if want := []store.Row{{Key: lisa, N: 2}, {Key: "", N: 1}}; !slices.Equal(got, want) {
+			t.Errorf("guild: got %+v, want %+v", got, want)
+		}
+		all, err := s.CharacterPlays(ctx, nil)
+		if err != nil {
+			t.Fatalf("CharacterPlays(all): %v", err)
+		}
+		if !slices.Contains(all, store.Row{Key: "bart", N: 1}) {
+			t.Errorf("every guild: got %+v, want bart's play in it", all)
+		}
+	})
 }

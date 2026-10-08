@@ -29,7 +29,10 @@ type Settings struct {
 	FakeOut   int
 	Encore    int
 	NSFW      string
-	UpdatedBy snowflake.ID
+	Character string // a profile id; empty is the default character, stored as null
+	// PushedAvatar is the hash of the avatar last uploaded to the guild; empty is none.
+	PushedAvatar string
+	UpdatedBy    snowflake.ID
 }
 
 // Defaults is what a guild's settings row starts as, from the bot's profile. Seeding never touches a
@@ -53,6 +56,7 @@ type Play struct {
 	OK          bool
 	Reason      string
 	Duration    time.Duration
+	Character   string // empty for a play recorded before characters existed
 }
 
 // Misc is one row of the append-only events table. Guild is nil for a global event — a sound
@@ -208,6 +212,8 @@ type Store interface {
 	GlobalStats(ctx context.Context) (GlobalStats, error)
 	Leaderboard(ctx context.Context, guild snowflake.ID, board string, days int) ([]Row, error)
 	TopGuilds(ctx context.Context, days int) ([]Row, error)
+	// CharacterPlays is ok plays by character id, all time; "" is plays from before characters.
+	CharacterPlays(ctx context.Context, guild *snowflake.ID) ([]Row, error)
 
 	// ranks (plays at or after since; the totals above stay all-time)
 	UserRank(ctx context.Context, guild, user snowflake.ID, since time.Time) (UserRank, error)

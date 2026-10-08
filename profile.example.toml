@@ -1,9 +1,12 @@
-# A character for a bot running on coucou. Copy to profile/profile.toml in a checkout, or to
-# /var/lib/coucou/profile/profile.toml when installed; its sounds go in sounds/ beside it.
-# Read once at startup: a change needs a restart. Only sounds/ reloads live.
+# A character for a bot running on coucou. Copy to profiles/<id>/profile.toml in a checkout, or to
+# /var/lib/coucou/profiles/<id>/profile.toml when installed; its sounds go in sounds/ beside it.
+# Reloaded within about 40 s of an edit; color and status need a restart. sounds/ reloads on its own.
 
 id       = "lenore"             # required: lowercase letters, digits and dashes
 nickname = "Lenore"             # optional: what replies call the bot, over its server nickname and Discord name
+# application_id = ""           # optional: the character's own bot, so other bots can advertise it
+# preview = ["knock", "drum"]   # optional: up to 3 sounds /character preview plays; random ones fill the rest
+# keywords = ["goth", "poetry"] # optional: words in a server's name, description or channels that suggest this character
 emoji    = "🖤"                  # optional: in front of the /help and /about titles
 color    = "#4E5058"            # optional: embed accent, #RRGGBB; default #E4572E
 tagline  = "Says something mean she definitely means nicely."

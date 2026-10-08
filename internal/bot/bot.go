@@ -7,8 +7,10 @@
 package bot
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"slices"
 	"time"
@@ -26,12 +28,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/be-sandaa/coucou/internal/bus"
+	"github.com/be-sandaa/coucou/internal/characters"
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/metrics"
 	"github.com/be-sandaa/coucou/internal/profile"
 	"github.com/be-sandaa/coucou/internal/settings"
 	"github.com/be-sandaa/coucou/internal/silence"
-	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/tracing"
 	"github.com/be-sandaa/coucou/internal/voice"
 )
@@ -164,7 +166,7 @@ func Ready(c *bot.Client) bool {
 // with Bus.Close's drain are exactly what a play needs, and none of that was ever about delivery.
 // b is also where PlayFinished goes, which is the only part of a play that is still an event. set and
 // quiet and opt are what an encore checks again before it comes back.
-func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, quiet, opt *silence.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
+func NewPlayer(c *bot.Client, chars *characters.Set, set *settings.Store, quiet, opt *silence.Store, b *bus.Bus) func(context.Context, *PlayRequest) error {
 	const concurrency = 8
 
 	var player func(context.Context, *PlayRequest) error
@@ -189,7 +191,14 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, quiet, 
 		metrics.VoiceActive.Inc()
 		defer metrics.VoiceActive.Dec()
 
-		nsfw := set.Get(e.Guild).NSFW.Allows(voice.AgeRestricted(c, e.Guild, e.Channel))
+		st := set.Get(e.Guild)
+		ch := chars.Get(cmp.Or(e.Character, st.Character))
+		reg := ch.Sounds
+		if len(e.Preview) > 0 {
+			previewPlay(ctx, c, b, e, ch)
+			return
+		}
+		nsfw := st.NSFW.Allows(voice.AgeRestricted(c, e.Guild, e.Channel))
 		sound := e.Sound
 		if sound == "" {
 			var ok bool
@@ -210,7 +219,7 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, quiet, 
 		}
 		ctx, cancel := context.WithTimeout(ctx, timeout(clips))
 		defer cancel()
-		if err := play(ctx, c, b, e, sound, clips); !encoreDue(e, err) {
+		if err := play(ctx, c, b, e, ch.ID, sound, clips); !encoreDue(e, err) {
 			return
 		}
 		if next, ok := reg.Encore(last, nsfw); ok {
@@ -227,6 +236,29 @@ func NewPlayer(c *bot.Client, reg *sounds.Registry, set *settings.Store, quiet, 
 		return pool(ctx, &visit{req: e, again: again})
 	}
 	return player
+}
+
+// previewGap is the pause between preview sounds, so three of them read as three.
+const previewGap = time.Second
+
+// previewPlay is a preview's visit: its sounds in order, a sound gone since it was asked for left
+// out. It never chains, never encores, and play leaves it out of the stats.
+func previewPlay(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, ch *characters.Character) {
+	var clips []voice.Clip
+	for _, name := range e.Preview {
+		if file, ok := ch.Sounds.Path(name); ok {
+			clips = append(clips, voice.Clip{File: file, Gap: previewGap})
+		}
+	}
+	if len(clips) == 0 {
+		return
+	}
+	clips[0].Gap = 0
+	ctx, cancel := context.WithTimeout(ctx, timeout(clips))
+	defer cancel()
+	if err := play(ctx, c, b, e, ch.ID, e.Preview[0], clips); err != nil {
+		slog.Debug("preview: did not play", slog.Any("guild", e.Guild), slog.Any("err", err)) // play warned already
+	}
 }
 
 // timeout bounds a visit: ninety seconds for one clip, and each clip after it adds its gap and a

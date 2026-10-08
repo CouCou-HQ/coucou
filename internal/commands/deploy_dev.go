@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -18,7 +19,7 @@ const envDevGuild = "DISCORD_DEV_GUILD"
 // Deploy registers the commands to the one guild in DISCORD_DEV_GUILD, where they appear
 // immediately. It refuses without one — stopping the start — rather than falling back to the global
 // set, which is the whole point of the split.
-func Deploy(c *bot.Client) error {
+func Deploy(c *bot.Client, definitions []discord.ApplicationCommandCreate) error {
 	guild := os.Getenv(envDevGuild)
 	if guild == "" {
 		return fmt.Errorf("a development build needs %s; it will not deploy globally", envDevGuild)

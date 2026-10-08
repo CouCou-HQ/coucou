@@ -3,6 +3,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -19,6 +20,7 @@ import (
 	"github.com/be-sandaa/coucou/internal/bus"
 	"github.com/be-sandaa/coucou/internal/bus/handlers"
 	"github.com/be-sandaa/coucou/internal/chaos"
+	"github.com/be-sandaa/coucou/internal/characters"
 	"github.com/be-sandaa/coucou/internal/commands"
 	ev "github.com/be-sandaa/coucou/internal/events"
 	"github.com/be-sandaa/coucou/internal/logging"
@@ -29,7 +31,6 @@ import (
 	"github.com/be-sandaa/coucou/internal/rollup"
 	"github.com/be-sandaa/coucou/internal/settings"
 	"github.com/be-sandaa/coucou/internal/silence"
-	"github.com/be-sandaa/coucou/internal/sounds"
 	"github.com/be-sandaa/coucou/internal/store"
 	"github.com/be-sandaa/coucou/internal/tracing"
 	"github.com/be-sandaa/coucou/internal/voice"
@@ -64,20 +65,53 @@ func Run(args []string, build Build) error {
 	// set: audit lines are ordinary Info records, so nothing downstream needs its own handler.
 	slog.SetDefault(slog.New(logging.New(os.Stdout, cfg.LogLevel)))
 
-	// The character is read before anything opens: a bot with a broken profile is misconfigured,
+	// The characters are read before anything opens: a bot with a broken profile is misconfigured,
 	// not degraded, and should say so before it touches the database or Discord.
-	prof, err := profile.Load(cfg.ProfileDir)
+	chars, err := loadCharacters(cfg)
 	if err != nil {
 		return fmt.Errorf("%w: profile: %w", ErrUsage, err)
 	}
 
-	return serve(cfg, prof, build)
+	return serve(cfg, chars, build)
+}
+
+// loadCharacters reads the characters the bot starts with.
+func loadCharacters(cfg config) (*characters.Set, error) {
+	ps, err := loadProfiles(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return characters.New(ps, cfg.DefaultProfile)
+}
+
+// loadProfiles reads profiles/, or the one deprecated profile directory.
+func loadProfiles(cfg config) ([]profile.Profile, error) {
+	if cfg.ProfilesDir != "" {
+		return profile.LoadAll(cfg.ProfilesDir)
+	}
+	p, err := profile.Load(cfg.ProfileDir)
+	if err != nil {
+		return nil, err
+	}
+	return []profile.Profile{p}, nil
+}
+
+// friends is the siblings from config plus every character with a bot of its own, once per app.
+// The config's entry wins a tie: it is the name the operator chose to advertise.
+func friends(siblings []commands.Sibling, chars []*characters.Character) []commands.Sibling {
+	out := slices.Clone(siblings)
+	for _, c := range chars {
+		if c.App != 0 && !slices.ContainsFunc(out, func(s commands.Sibling) bool { return s.App == c.App }) {
+			out = append(out, commands.Sibling{Name: c.Name(), App: c.App})
+		}
+	}
+	return out
 }
 
 // serve is the long-running path: open the database, build everything on top of it, and block
 // until a signal or the first failure. The two modes that exit early — migrating and registering
 // slash commands — return from inside it, because each needs part of what it builds.
-func serve(cfg config, prof profile.Profile, build Build) error {
+func serve(cfg config, chars *characters.Set, build Build) error {
 	r := run.New()
 	defer r.Stop()
 
@@ -92,14 +126,14 @@ func serve(cfg config, prof profile.Profile, build Build) error {
 		return fmt.Errorf("db: refusing to start: %w", err)
 	}
 
-	p, err := assemble(r, cfg, prof, db)
+	p, err := assemble(r, cfg, chars, db)
 	if err != nil {
 		return err
 	}
 	// Commands are registered on the way up rather than by a separate one-off run, so a build can
 	// never be serving a command set it does not have the handlers for. It is a REST call; the
 	// gateway is not open yet.
-	if err := commands.Deploy(p.client); err != nil {
+	if err := commands.Deploy(p.client, p.commands.Definitions()); err != nil {
 		return err
 	}
 
@@ -135,10 +169,12 @@ func serve(cfg config, prof profile.Profile, build Build) error {
 		if err := p.client.OpenShardManager(ctx); err != nil {
 			return err
 		}
-		if err := bot.SyncGuilds(ctx, p.client, p.ready, p.bus, db, p.settings, prof.Defaults); err != nil {
+		if err := bot.SyncGuilds(ctx, p.client, p.ready, p.bus, db, p.settings, chars.Default().Defaults); err != nil {
 			return err
 		}
-		printBanner(os.Stdout, build, p.client, p.sounds)
+		printBanner(os.Stdout, build, p.client, chars.Len())
+		// After the reconcile, so every present guild has its settings row to read the character from.
+		p.persona.PushAll()
 		return nil
 	}, func(ctx context.Context) error {
 		// Plays first: Close would otherwise yank their voice conns mid-frame, under their own close.
@@ -155,6 +191,8 @@ func serve(cfg config, prof profile.Profile, build Build) error {
 	r.Add(p.commands.RunEmojis, nil)
 	r.Add(p.rollup.Run, nil)
 	r.Add(p.loop.Run, nil)
+	r.Add(p.persona.Run, nil)
+	r.Add(watchCharacters(cfg, chars, p), nil)
 
 	slog.Info("running")
 	return r.Run()
@@ -177,8 +215,8 @@ type parts struct {
 	ranks    *ranks.Cuts
 	rollup   *rollup.Refresher
 	settings *settings.Store
-	sounds   *sounds.Registry
 	commands *commands.Commands
+	persona  *bot.Persona
 }
 
 // mem is the tables the bot answers from memory.
@@ -201,33 +239,33 @@ func mirrors(ctx context.Context, db store.Store) (mem, error) {
 	return m, nil
 }
 
-func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (*parts, error) {
+func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) (*parts, error) {
 	m, err := mirrors(r, db)
 	if err != nil {
 		return nil, err
 	}
 	set, opt, quiet, cha := m.settings, m.optouts, m.quiet, m.chaos
 
-	reg := sounds.New(prof.SoundsDir())
-	reg.Arrange(prof.Chains, prof.Links)
 	log := ev.New(db)
 	eb, err := bus.New()
 	if err != nil {
 		return nil, fmt.Errorf("bus: %w", err)
 	}
-	// Set before Start so the registry never reads this field concurrently with a write.
-	reg.OnChange = soundPublisher(r, eb)
-	if err := reg.Start(r, cfg.SoundsPoll); err != nil {
+	if err := chars.Start(r, cfg.SoundsPoll, func(character string) func(string, bool) {
+		return soundPublisher(r, eb, character)
+	}); err != nil {
 		return nil, fmt.Errorf("sounds: start: %w", err)
 	}
 
-	client, err := bot.New(cfg.Token, cfg.ShardCount, prof.Status)
+	// Status is the whole account's, so with several characters it is the default's.
+	client, err := bot.New(cfg.Token, cfg.ShardCount, chars.Default().Status)
 	if err != nil {
 		return nil, err
 	}
+	warnForeignApp(chars, client.ApplicationID)
 	// The player is built before the two things that use it — the loop and /play — because it is
 	// the shared cap on simultaneous voice connections, not a per-caller one.
-	player := bot.NewPlayer(client, reg, set, quiet, opt, eb)
+	player := bot.NewPlayer(client, chars, set, quiet, opt, eb)
 	// /play hands off rather than calling straight through: a full pool makes the caller wait, and
 	// the caller here is a gateway handler.
 	//
@@ -235,18 +273,20 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	// keeping it is what the bus used to buy by propagating trace context through message metadata.
 	// The cancellation has to go — the interaction's context dies when the handler returns, and a
 	// play outlives it by ninety seconds or more.
-	play := func(ctx context.Context, guild, channel snowflake.ID, sound string, user snowflake.ID) {
+	play := func(ctx context.Context, a commands.PlayArgs) {
 		ctx = context.WithoutCancel(ctx)
 		go func() {
 			if err := player(ctx, &bot.PlayRequest{
-				Guild: guild, Channel: channel, Sound: sound, Trigger: string(ev.TriggerCommand), User: &user,
+				Guild: a.Guild, Channel: a.Channel, Sound: a.Sound, Trigger: string(ev.TriggerCommand), User: &a.User,
+				Character: a.Character, Preview: a.Preview,
 			}); err != nil {
 				slog.Debug("play: refused", slog.Any("err", err))
 			}
 		}()
 	}
 	rk := ranks.New(db)
-	cmds := commands.New(client, set, opt, quiet, cha, reg, log, rk, eb, play, prof, cfg.OwnerIDs, cfg.Siblings)
+	persona := bot.NewPersona(client, chars, set)
+	cmds := commands.New(client, set, opt, quiet, cha, chars, log, rk, eb, play, cfg.OwnerIDs, friends(cfg.Siblings, chars.All()), cfg.Note, persona.Push)
 	ready := bot.NewReadyTracker()
 	pulse := bot.NewPulse()
 
@@ -276,15 +316,17 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 	bus.OnTopic(eb, gw, "stats-guilds-leave", bot.TopicGuildDelete, handlers.GuildLeftStats(log))
 	bus.On(eb, "stats-guilds-reconciled", handlers.GuildReconciledStats(log))
 
-	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, prof.Defaults))
+	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, chars.Default().Defaults))
 	bus.OnTopic(eb, gw, "guild-sync-leave", bot.TopicGuildDelete, handlers.GuildLeftSync(db))
+	bus.OnTopic(eb, gw, "persona-join", bot.TopicGuildCreate, handlers.GuildJoinedPersona(persona.Push))
+	bus.OnTopic(eb, gw, "welcome-join", bot.TopicGuildCreate, cmds.Welcome)
 
 	bus.On(eb, "log-sounds-added", handlers.SoundAdded(log))
 	bus.On(eb, "log-sounds-removed", handlers.SoundRemoved(log))
 	bus.On(eb, "log-settings", handlers.SettingsChanged(log))
 
 	metrics.ObserveGuilds(func() int { return len(set.Configured()) })
-	metrics.ObserveSounds(reg.Len)
+	metrics.ObserveSounds(chars.Len)
 	metrics.ObserveBuffered(log.Buffered)
 	metrics.ObserveGatewayLatency(bot.GatewayLatency(client))
 
@@ -294,33 +336,58 @@ func assemble(r *run.Runner, cfg config, prof profile.Profile, db store.Store) (
 		pulse:    pulse,
 		bus:      eb,
 		events:   log,
-		loop:     bot.NewLoop(client, set, reg, player, opt, quiet, cha),
+		loop:     bot.NewLoop(client, set, chars, player, opt, quiet, cha),
 		optouts:  opt,
 		quiet:    quiet,
 		chaos:    cha,
 		ranks:    rk,
 		rollup:   rollup.New(db),
 		settings: set,
-		sounds:   reg,
 		commands: cmds,
+		persona:  persona,
 	}, nil
+}
+
+// watchCharacters reloads the characters when their profiles change. A reload can add or remove
+// /character and change any server's nickname or avatar. The embed accent and the status are read
+// once, so those two still wait for a restart.
+func watchCharacters(cfg config, chars *characters.Set, p *parts) func(context.Context) error {
+	return func(ctx context.Context) error {
+		return chars.Watch(ctx, cmp.Or(cfg.ProfilesDir, cfg.ProfileDir), func() ([]profile.Profile, error) {
+			return loadProfiles(cfg)
+		}, func() {
+			if err := commands.Deploy(p.client, p.commands.Definitions()); err != nil {
+				slog.Error("characters: redeploy commands", slog.Any("err", err))
+			}
+			p.persona.PushAll()
+		})
+	}
+}
+
+// warnForeignApp catches a single character whose application_id is some other bot's, which is a
+// profile copied from another deployment rather than anything this bot can act on.
+func warnForeignApp(chars *characters.Set, self snowflake.ID) {
+	if all := chars.All(); len(all) == 1 && all[0].App != 0 && all[0].App != self {
+		slog.Warn("profile: application_id is another bot's; was this profile copied from another deployment?",
+			slog.String("profile", all[0].ID), slog.String("application_id", all[0].App.String()))
+	}
 }
 
 // soundPublisher turns registry changes into bus events. Nothing may publish before the router has
 // attached its subscribers, so until then a change is only logged — the registry itself is already
 // up to date, and these events have no consumer but the log.
-func soundPublisher(ctx context.Context, eb *bus.Bus) func(name string, added bool) {
+func soundPublisher(ctx context.Context, eb *bus.Bus, character string) func(name string, added bool) {
 	return func(name string, added bool) {
 		select {
 		case <-eb.Running():
 		default:
-			slog.Info("sound changed before the bus was up", slog.String("name", name), slog.Bool("added", added))
+			slog.Info("sound changed before the bus was up", slog.String("character", character), slog.String("name", name), slog.Bool("added", added))
 			return
 		}
 		if added {
-			eb.Publish(ctx, bus.SoundAdded{Name: name})
+			eb.Publish(ctx, bus.SoundAdded{Name: name, Character: character})
 		} else {
-			eb.Publish(ctx, bus.SoundRemoved{Name: name})
+			eb.Publish(ctx, bus.SoundRemoved{Name: name, Character: character})
 		}
 	}
 }
