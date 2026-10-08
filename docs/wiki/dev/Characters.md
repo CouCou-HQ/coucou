@@ -6,6 +6,16 @@ One bot loads every character in `profiles/`. With one character it behaves as a
 with two or more, each server picks one and the bot changes its server nickname and avatar to match.
 The same binary runs coucou with every character and each character as its own bot.
 
+## Bots run from here
+
+The bots the maintainer of this repository runs. Data requests for these go through the
+[Remove my data](https://github.com/be-sandaa/coucou/issues/new?template=remove_my_data.yml) issue;
+any other bot built on coucou is run by someone else, and only they can reach its data.
+
+| Bot | ID |
+|---|---|
+| *none listed yet* | |
+
 ## What Discord allows
 
 Checked against the API docs and disgo v0.19.6, not memory.
