@@ -212,6 +212,8 @@ type Store interface {
 	GlobalStats(ctx context.Context) (GlobalStats, error)
 	Leaderboard(ctx context.Context, guild snowflake.ID, board string, days int) ([]Row, error)
 	TopGuilds(ctx context.Context, days int) ([]Row, error)
+	// CharacterPlays is ok plays by character id, all time; "" is plays from before characters.
+	CharacterPlays(ctx context.Context, guild *snowflake.ID) ([]Row, error)
 
 	// ranks (plays at or after since; the totals above stay all-time)
 	UserRank(ctx context.Context, guild, user snowflake.ID, since time.Time) (UserRank, error)

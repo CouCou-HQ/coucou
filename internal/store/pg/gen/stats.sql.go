@@ -202,6 +202,40 @@ func (q *Queries) BoardTriggered(ctx context.Context, arg BoardTriggeredParams) 
 	return items, nil
 }
 
+const characterPlays = `-- name: CharacterPlays :many
+select coalesce(character, '') as key, count(*)::int as n
+from stats.plays
+where ok and ($1::bigint = 0 or guild_id = $1::bigint)
+group by coalesce(character, '') order by n desc
+`
+
+type CharacterPlaysRow struct {
+	Key string
+	N   int32
+}
+
+// ok plays by who played them, in one guild or, for guild 0, every guild. ” is a play from before
+// characters, which the caller counts as its default.
+func (q *Queries) CharacterPlays(ctx context.Context, guildID int64) ([]CharacterPlaysRow, error) {
+	rows, err := q.db.Query(ctx, characterPlays, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CharacterPlaysRow{}
+	for rows.Next() {
+		var i CharacterPlaysRow
+		if err := rows.Scan(&i.Key, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const cutsFled = `-- name: CutsFled :many
 with recursive k as (select 1 as k union all select k.k + 1 from k where k.k < 100),
 pop as (

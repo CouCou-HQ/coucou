@@ -1246,3 +1246,35 @@ func samePlayHour(x, y store.PlayHour) bool {
 func sameUserHour(x, y store.UserHour) bool {
 	return x.Hour.Equal(y.Hour) && x.Heard == y.Heard && x.Fled == y.Fled && x.Triggered == y.Triggered
 }
+
+// Plays are counted by who played them, ok ones only; a play from before characters comes back
+// under "", and another guild's plays only in the every-guild count.
+func TestCharacterPlays(t *testing.T) {
+	run(t, "character-plays", func(t *testing.T, s store.Store) {
+		ctx := context.Background()
+		g, other := guildID(t), guildID(t)
+		at := time.Now().UTC()
+		play := func(guild snowflake.ID, character string, ok bool) store.Play {
+			return store.Play{At: at, Guild: guild, Channel: guild + 1, Sound: "a", Trigger: trigLoop, OK: ok, Character: character}
+		}
+		if err := s.WritePlays(ctx, []store.Play{
+			play(g, lisa, true), play(g, lisa, true), play(g, "", true), play(g, lisa, false), play(other, "bart", true),
+		}); err != nil {
+			t.Fatalf("WritePlays: %v", err)
+		}
+		got, err := s.CharacterPlays(ctx, &g)
+		if err != nil {
+			t.Fatalf("CharacterPlays: %v", err)
+		}
+		if want := []store.Row{{Key: lisa, N: 2}, {Key: "", N: 1}}; !slices.Equal(got, want) {
+			t.Errorf("guild: got %+v, want %+v", got, want)
+		}
+		all, err := s.CharacterPlays(ctx, nil)
+		if err != nil {
+			t.Fatalf("CharacterPlays(all): %v", err)
+		}
+		if !slices.Contains(all, store.Row{Key: "bart", N: 1}) {
+			t.Errorf("every guild: got %+v, want bart's play in it", all)
+		}
+	})
+}

@@ -18,7 +18,7 @@ const embedDescriptionLimit = 4096
 
 func helpEmbeds(friends []discord.Embed) []discord.Embed {
 	return fitHelp([]discord.Embed{
-		info("The Bot", commandList()),
+		info("The Bot", commandList(definitions)),
 		info("Keeping the bot out", helpLimits),
 		info("Sounds", helpSounds+"\n\n"+adultHelp(settings.NSFWRestricted, false)+"\n"+helpNSFW),
 	}, friends)
@@ -27,7 +27,7 @@ func helpEmbeds(friends []discord.Embed) []discord.Embed {
 // The point of generating the list is that a command added to definitions shows up in /help
 // without anyone remembering to add it. This is the test that keeps that true.
 func TestCommandListCoversEveryDefinition(t *testing.T) {
-	list := commandList()
+	list := commandList(definitions)
 	for _, d := range definitions {
 		c, ok := d.(discord.SlashCommandCreate)
 		if !ok {
@@ -45,7 +45,7 @@ func TestCommandListCoversEveryDefinition(t *testing.T) {
 // The permission tag is read off the definition rather than written out, so it cannot drift from
 // what Discord actually enforces.
 func TestCommandListTagsTheGatedCommands(t *testing.T) {
-	for _, line := range strings.Split(strings.TrimSpace(commandList()), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(commandList(definitions)), "\n") {
 		name, _, _ := strings.Cut(strings.TrimPrefix(line, "`/"), "`")
 
 		var gated bool

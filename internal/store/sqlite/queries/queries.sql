@@ -158,6 +158,12 @@ select cast(guild_id as text) as "key", count(*) as n
 from stats_plays where ok and (?1 = '' or at > ?1)
 group by guild_id order by n desc limit 10;
 
+-- name: CharacterPlays :many
+-- See the postgres stats.sql.
+select coalesce(character, '') as "key", count(*) as n
+from stats_plays where ok and (guild_id = sqlc.arg(guild_id) or sqlc.arg(guild_id) = 0)
+group by coalesce(character, '') order by n desc;
+
 -- Ranks: see the postgres stats.sql. since and until are timestamps formatted in Go, like the
 -- boards' since.
 

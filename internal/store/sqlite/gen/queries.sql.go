@@ -208,6 +208,41 @@ func (q *Queries) BoardTriggered(ctx context.Context, arg BoardTriggeredParams) 
 	return items, nil
 }
 
+const characterPlays = `-- name: CharacterPlays :many
+select coalesce(character, '') as "key", count(*) as n
+from stats_plays where ok and (guild_id = ?1 or ?1 = 0)
+group by coalesce(character, '') order by n desc
+`
+
+type CharacterPlaysRow struct {
+	Key string `json:"key"`
+	N   int64  `json:"n"`
+}
+
+// See the postgres stats.sql.
+func (q *Queries) CharacterPlays(ctx context.Context, guildID int64) ([]CharacterPlaysRow, error) {
+	rows, err := q.db.QueryContext(ctx, characterPlays, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CharacterPlaysRow{}
+	for rows.Next() {
+		var i CharacterPlaysRow
+		if err := rows.Scan(&i.Key, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const closeOptOut = `-- name: CloseOptOut :exec
 update users_optouts set disabled_at = ?2
 where user_id = ?1 and (disabled_at is null or disabled_at > ?2)

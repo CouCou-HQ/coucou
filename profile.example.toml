@@ -5,6 +5,7 @@
 id       = "lenore"             # required: lowercase letters, digits and dashes
 nickname = "Lenore"             # optional: what replies call the bot, over its server nickname and Discord name
 # application_id = ""           # optional: the character's own bot, so other bots can advertise it
+# preview = ["knock", "drum"]   # optional: up to 3 sounds /character preview plays; random ones fill the rest
 emoji    = "🖤"                  # optional: in front of the /help and /about titles
 color    = "#4E5058"            # optional: embed accent, #RRGGBB; default #E4572E
 tagline  = "Says something mean she definitely means nicely."

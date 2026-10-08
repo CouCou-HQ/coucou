@@ -448,6 +448,14 @@ func (s *Store) TopGuilds(ctx context.Context, days int) ([]store.Row, error) {
 	return rows(s.q.TopGuilds(ctx, since(days)))
 }
 
+func (s *Store) CharacterPlays(ctx context.Context, guild *snowflake.ID) ([]store.Row, error) {
+	var g int64 // 0 is every guild
+	if guild != nil {
+		g = i64(*guild)
+	}
+	return rows(s.q.CharacterPlays(ctx, g))
+}
+
 func (s *Store) UserRank(ctx context.Context, guild, user snowflake.ID, since time.Time) (store.UserRank, error) {
 	r, err := s.q.UserRank(ctx, gen.UserRankParams{GuildID: i64(guild), UserID: i64(user), Since: fmtT(since)})
 	switch {

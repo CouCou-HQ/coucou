@@ -12,7 +12,7 @@ import (
 func TestDevBuildRefusesToDeployWithoutAGuild(t *testing.T) {
 	t.Setenv(envDevGuild, "")
 
-	err := Deploy(nil) // returns before it touches the bot
+	err := Deploy(nil, definitions) // returns before it touches the bot
 	if err == nil {
 		t.Fatal("deployed with no guild on a development build")
 	}

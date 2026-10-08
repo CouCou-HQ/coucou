@@ -36,6 +36,7 @@ const (
 	MaxEncore   = 50
 	MaxAfter    = 20  // seconds of silence before a chain's step
 	MaxStatus   = 128 // characters of status text, Discord's custom status limit
+	MaxPreview  = 3   // sounds /character preview plays
 )
 
 // defaultChance is the join chance a guild starts with when the profile does not say, as a
@@ -65,6 +66,7 @@ type Profile struct {
 	Links    sounds.Links
 	Status   Status
 	App      snowflake.ID // the character's own bot, zero when it has none
+	Preview  []string     // what /character preview plays first; random sounds fill the rest
 	// Avatar is avatar.* beside profile.toml, nil when there is none. AvatarHash names its content,
 	// so a server can be told apart from one that already has it without uploading it again.
 	Avatar     *discord.Icon
@@ -103,6 +105,7 @@ type file struct {
 	ID       string   `toml:"id"`
 	Nickname string   `toml:"nickname"`
 	App      string   `toml:"application_id"`
+	Preview  []string `toml:"preview"`
 	Emoji    string   `toml:"emoji"`
 	Color    string   `toml:"color"`
 	Tagline  string   `toml:"tagline"`
@@ -256,6 +259,9 @@ func (f file) parse(dir string) (Profile, error) {
 	if err != nil {
 		return Profile{}, err
 	}
+	if len(f.Preview) > MaxPreview {
+		return Profile{}, fmt.Errorf("preview has %d sounds, want at most %d", len(f.Preview), MaxPreview)
+	}
 	var app snowflake.ID
 	if f.App != "" {
 		if app, err = snowflake.Parse(f.App); err != nil {
@@ -267,7 +273,7 @@ func (f file) parse(dir string) (Profile, error) {
 		Tagline: f.Tagline, Lore: strings.TrimSpace(f.Lore), Traits: f.Traits,
 		Defaults: store.Defaults{Chance: d.Chance, Suspense: d.Suspense, FakeOut: d.FakeOut, Encore: d.Encore},
 		Chains:   chains, Links: links,
-		Status: status, App: app,
+		Status: status, App: app, Preview: f.Preview,
 	}, nil
 }
 

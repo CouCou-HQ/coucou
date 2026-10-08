@@ -7,8 +7,10 @@
 package bot
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"slices"
 	"time"
@@ -190,8 +192,12 @@ func NewPlayer(c *bot.Client, chars *characters.Set, set *settings.Store, quiet,
 		defer metrics.VoiceActive.Dec()
 
 		st := set.Get(e.Guild)
-		ch := chars.Get(st.Character)
+		ch := chars.Get(cmp.Or(e.Character, st.Character))
 		reg := ch.Sounds
+		if len(e.Preview) > 0 {
+			previewPlay(ctx, c, b, e, ch)
+			return
+		}
 		nsfw := st.NSFW.Allows(voice.AgeRestricted(c, e.Guild, e.Channel))
 		sound := e.Sound
 		if sound == "" {
@@ -230,6 +236,29 @@ func NewPlayer(c *bot.Client, chars *characters.Set, set *settings.Store, quiet,
 		return pool(ctx, &visit{req: e, again: again})
 	}
 	return player
+}
+
+// previewGap is the pause between preview sounds, so three of them read as three.
+const previewGap = time.Second
+
+// previewPlay is a preview's visit: its sounds in order, a sound gone since it was asked for left
+// out. It never chains, never encores, and play leaves it out of the stats.
+func previewPlay(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, ch *characters.Character) {
+	var clips []voice.Clip
+	for _, name := range e.Preview {
+		if file, ok := ch.Sounds.Path(name); ok {
+			clips = append(clips, voice.Clip{File: file, Gap: previewGap})
+		}
+	}
+	if len(clips) == 0 {
+		return
+	}
+	clips[0].Gap = 0
+	ctx, cancel := context.WithTimeout(ctx, timeout(clips))
+	defer cancel()
+	if err := play(ctx, c, b, e, ch.ID, e.Preview[0], clips); err != nil {
+		slog.Debug("preview: did not play", slog.Any("guild", e.Guild), slog.Any("err", err)) // play warned already
+	}
 }
 
 // timeout bounds a visit: ninety seconds for one clip, and each clip after it adds its gap and a

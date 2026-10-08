@@ -51,7 +51,16 @@ import (
 // Play is how /play reaches a voice channel. A func rather than the player itself, so this package
 // keeps knowing nothing about how a play is bounded or traced — and so the hand-off that stops a
 // gateway handler waiting on a full pool lives at the composition root, where it is visible.
-type Play func(ctx context.Context, guild, channel snowflake.ID, sound string, user snowflake.ID)
+type Play func(ctx context.Context, a PlayArgs)
+
+// PlayArgs is one play asked for by a command. Character and Preview are /character preview's: a
+// character other than the guild's, and the sounds to play as it.
+type PlayArgs struct {
+	Guild, Channel, User snowflake.ID
+	Sound                string
+	Character            string
+	Preview              []string
+}
 
 // Commands is the dispatcher. Build one and register its listeners on the client.
 type Commands struct {
@@ -68,9 +77,12 @@ type Commands struct {
 	owners   []snowflake.ID
 	siblings []Sibling
 	note     string
+	// push queues a guild to take on its character's nickname and avatar.
+	push func(...snowflake.ID)
 	// Zero value works, so New never has to mention it and a test can build a Commands literal.
 	autocomplete debouncer
 	plays        cooldown
+	switches     guildCooldown
 	emojis       emojis
 }
 
@@ -99,9 +111,10 @@ func New(
 	owners []snowflake.ID,
 	siblings []Sibling,
 	note string,
+	push func(...snowflake.ID),
 ) *Commands {
 	colBrand = chars.Default().Color
-	return &Commands{client: client, settings: set, optouts: opt, quiet: quiet, chaos: ch, chars: chars, events: log, ranks: rk, bus: b, play: play, owners: owners, siblings: siblings, note: note}
+	return &Commands{client: client, settings: set, optouts: opt, quiet: quiet, chaos: ch, chars: chars, events: log, ranks: rk, bus: b, play: play, owners: owners, siblings: siblings, note: note, push: push}
 }
 
 // character is who the bot is in guild.
@@ -140,6 +153,9 @@ func (c *Commands) OnAutocomplete() bot.EventListener {
 }
 
 var manageGuild = discord.PermissionManageGuild
+
+// descWhich describes an option that picks one of a list.
+const descWhich = "Which one"
 
 // Command names, shared by the definitions and the dispatcher.
 const (
@@ -274,7 +290,7 @@ var definitions = []discord.ApplicationCommandCreate{
 	discord.SlashCommandCreate{
 		Name: cmdNamePlay, Description: "Play a sound in your voice channel",
 		Options: []discord.ApplicationCommandOption{
-			discord.ApplicationCommandOptionString{Name: "sound", Description: "Which one", Autocomplete: true},
+			discord.ApplicationCommandOptionString{Name: "sound", Description: descWhich, Autocomplete: true},
 		},
 	},
 	discord.SlashCommandCreate{
@@ -483,6 +499,7 @@ func (c *Commands) handlers() map[string]cmdFunc {
 		cmdNameHelp:        c.cmdHelp,
 		cmdNameAbout:       c.cmdAbout,
 		cmdNameInvite:      c.cmdInvite,
+		cmdNameCharacter:   c.cmdCharacter,
 	}
 }
 
@@ -796,7 +813,7 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 	if err := e.CreateMessage(say(info("Playing", body))); err != nil {
 		return err
 	}
-	c.play(ctx, guild, channel, sound, e.User().ID)
+	c.play(ctx, PlayArgs{Guild: guild, Channel: channel, User: e.User().ID, Sound: sound})
 	return nil
 }
 
@@ -807,9 +824,9 @@ func (c *Commands) cmdPlay(ctx context.Context, e *events.ApplicationCommandInte
 //
 // Owner-only entries are annotated in their own option descriptions rather than hidden, which
 // keeps this free of any branch on who is asking.
-func commandList() string {
+func commandList(defs []discord.ApplicationCommandCreate) string {
 	var sb strings.Builder
-	for _, d := range definitions {
+	for _, d := range defs {
 		c, ok := d.(discord.SlashCommandCreate)
 		if !ok {
 			continue // nothing but slash commands is registered; a context-menu entry has no description
@@ -845,7 +862,7 @@ const helpSounds = "`/sounds` lists everything `/play` will take from you, a pag
 // find: the commands under the bot's own name and avatar, the switches, the sounds, then its friends.
 func (c *Commands) cmdHelp(_ context.Context, e *events.ApplicationCommandInteractionCreate, guild snowflake.ID, _ discord.SlashCommandInteractionData) error {
 	name, avatar := c.self(guild)
-	commands := info(withEmoji(c.character(guild).Emoji, name), commandList())
+	commands := info(withEmoji(c.character(guild).Emoji, name), commandList(c.Definitions()))
 	if avatar != "" {
 		commands = commands.WithThumbnail(avatar)
 	}
@@ -1358,18 +1375,20 @@ func (c *Commands) statsBot(ctx context.Context, e *events.ApplicationCommandInt
 	w := lastDays(time.Now(), time.UTC, trendDays)
 	var s store.GlobalStats
 	var hours []store.PlayHour
+	var who []store.Row
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() (err error) { s, err = c.events.GlobalStats(gctx); return err })
 	g.Go(func() (err error) { hours, err = c.events.PlaysHourly(gctx, nil, w.start); return err })
+	g.Go(func() (err error) { who, err = c.events.CharacterPlays(gctx, nil); return err })
 	if err := g.Wait(); err != nil {
 		return c.failed(e, "Couldn't count", err)
 	}
 	// No empty variant: somebody running this on a dead bot wants to see the zeros.
-	return c.edit(e, fit(info("Bot stats", playsReport(w, hours, "UTC")).
+	return c.edit(e, fit(withByCharacter(info("Bot stats", playsReport(w, hours, "UTC")).
 		WithTimestamp(time.Now()).
 		AddField("Plays (24h)", strconv.Itoa(s.Plays24h), true).
 		AddField("Servers (24h)", strconv.Itoa(s.Guilds24h), true).
-		AddField("Top sound (7 days)", c.orNone(s.TopSound), false))...)
+		AddField("Top sound (7 days)", c.orNone(s.TopSound), false), c.byCharacter(who)))...)
 }
 
 func hourAt(h store.PlayHour) time.Time { return h.Hour }
@@ -1618,12 +1637,14 @@ func (c *Commands) statsGuild(ctx context.Context, e *events.ApplicationCommandI
 	w := lastDays(time.Now(), loc, trendDays)
 	var recent store.GuildRecent
 	var hours []store.PlayHour
+	var who []store.Row
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() (err error) {
 		recent, err = c.events.GuildRecent(gctx, guild, time.Now().Add(-ranks.Window))
 		return err
 	})
 	g.Go(func() (err error) { hours, err = c.events.PlaysHourly(gctx, &guild, w.start); return err })
+	g.Go(func() (err error) { who, err = c.events.CharacterPlays(gctx, &guild); return err })
 	if err := g.Wait(); err != nil {
 		return c.failed(e, "Couldn't count", err)
 	}
@@ -1645,14 +1666,15 @@ func (c *Commands) statsGuild(ctx context.Context, e *events.ApplicationCommandI
 	if i := busiest(plays); i >= 0 {
 		day = fmt.Sprintf("%s · %s", w.label(i), plural(plays[i], "play", "plays"))
 	}
-	return c.edit(e, fit(ranked(info("Guild stats", rt+playsReport(w, hours, zone)).
+	em := info("Guild stats", rt+playsReport(w, hours, zone)).
 		WithTimestamp(time.Now()).
 		AddField("All time", plural(s.PlaysAll, "play", "plays"), true).
 		AddField("Avg listeners", avg, true).
 		AddField("Fail rate (7d)", pct(s.FailRate7d), true).
 		AddField("Top sound", c.orNone(s.TopSound), true).
 		AddField("Peak hour", hour, true).
-		AddField("Busiest day", day, true), rt))...)
+		AddField("Busiest day", day, true)
+	return c.edit(e, fit(ranked(withByCharacter(em, c.byCharacter(who)), rt))...)
 }
 
 // zone is the location a server's reports are drawn in, and its name for the caption. An unknown

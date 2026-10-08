@@ -124,6 +124,14 @@ where ok
   and (sqlc.arg(days)::int = 0 or at > now() - make_interval(days => sqlc.arg(days)::int))
 group by guild_id order by n desc limit 10;
 
+-- name: CharacterPlays :many
+-- ok plays by who played them, in one guild or, for guild 0, every guild. '' is a play from before
+-- characters, which the caller counts as its default.
+select coalesce(character, '') as key, count(*)::int as n
+from stats.plays
+where ok and (sqlc.arg(guild_id)::bigint = 0 or guild_id = sqlc.arg(guild_id)::bigint)
+group by coalesce(character, '') order by n desc;
+
 -- Ranks. A person's population is everyone caught at least once in the window; a guild's is every
 -- guild with a play in it. Both are counted on ok plays, like heard.
 

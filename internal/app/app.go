@@ -129,7 +129,7 @@ func serve(cfg config, chars *characters.Set, build Build) error {
 	// Commands are registered on the way up rather than by a separate one-off run, so a build can
 	// never be serving a command set it does not have the handlers for. It is a REST call; the
 	// gateway is not open yet.
-	if err := commands.Deploy(p.client); err != nil {
+	if err := commands.Deploy(p.client, p.commands.Definitions()); err != nil {
 		return err
 	}
 
@@ -268,18 +268,20 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 	// keeping it is what the bus used to buy by propagating trace context through message metadata.
 	// The cancellation has to go — the interaction's context dies when the handler returns, and a
 	// play outlives it by ninety seconds or more.
-	play := func(ctx context.Context, guild, channel snowflake.ID, sound string, user snowflake.ID) {
+	play := func(ctx context.Context, a commands.PlayArgs) {
 		ctx = context.WithoutCancel(ctx)
 		go func() {
 			if err := player(ctx, &bot.PlayRequest{
-				Guild: guild, Channel: channel, Sound: sound, Trigger: string(ev.TriggerCommand), User: &user,
+				Guild: a.Guild, Channel: a.Channel, Sound: a.Sound, Trigger: string(ev.TriggerCommand), User: &a.User,
+				Character: a.Character, Preview: a.Preview,
 			}); err != nil {
 				slog.Debug("play: refused", slog.Any("err", err))
 			}
 		}()
 	}
 	rk := ranks.New(db)
-	cmds := commands.New(client, set, opt, quiet, cha, chars, log, rk, eb, play, cfg.OwnerIDs, friends(cfg.Siblings, chars.All()), cfg.Note)
+	persona := bot.NewPersona(client, chars, set)
+	cmds := commands.New(client, set, opt, quiet, cha, chars, log, rk, eb, play, cfg.OwnerIDs, friends(cfg.Siblings, chars.All()), cfg.Note, persona.Push)
 	ready := bot.NewReadyTracker()
 	pulse := bot.NewPulse()
 
@@ -311,7 +313,6 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 
 	bus.OnTopic(eb, gw, "guild-sync-join", bot.TopicGuildCreate, handlers.GuildJoinedSync(db, set, chars.Default().Defaults))
 	bus.OnTopic(eb, gw, "guild-sync-leave", bot.TopicGuildDelete, handlers.GuildLeftSync(db))
-	persona := bot.NewPersona(client, chars, set)
 	bus.OnTopic(eb, gw, "persona-join", bot.TopicGuildCreate, handlers.GuildJoinedPersona(persona.Push))
 
 	bus.On(eb, "log-sounds-added", handlers.SoundAdded(log))

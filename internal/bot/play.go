@@ -77,6 +77,11 @@ type PlayRequest struct {
 	Suspense time.Duration
 	FakeOut  bool
 	Encore   bool
+	// Character plays as this profile id instead of the guild's own.
+	Character string
+	// Preview plays these sounds of Character back to back instead of Sound, and is never recorded:
+	// trying a character out is not the character visiting.
+	Preview []string
 }
 
 // play is one join→play→leave, reporting the outcome on the bus whatever happened — except when
@@ -118,7 +123,9 @@ func play(ctx context.Context, c *bot.Client, b *bus.Bus, e *PlayRequest, charac
 		slog.Warn("play failed", slog.Any("guild", e.Guild), slog.Any("channel", e.Channel),
 			slog.String("sound", sound), slog.String("stage", stage), slog.Any("err", err))
 	}
-	b.Publish(ctx, out)
+	if len(e.Preview) == 0 {
+		b.Publish(ctx, out)
+	}
 	return err
 }
 
