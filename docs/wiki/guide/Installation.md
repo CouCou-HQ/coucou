@@ -21,7 +21,7 @@ Every `v*` tag publishes static binaries for linux and macOS, amd64 and arm64. S
 for `linux_arm64`, `darwin_amd64` or `darwin_arm64` as needed:
 
 ```sh
-tag=v0.4.3
+tag=v0.5.0
 base=https://github.com/be-sandaa/coucou/releases/download/$tag
 curl -fsSLO "$base/coucou_${tag}_linux_amd64.tar.gz"
 curl -fsSLO "$base/coucou_${tag}_SHA256SUMS"
@@ -80,16 +80,16 @@ that, but files added later keep the owner you give them, so make them world-rea
 ## Container image
 
 The same tag publishes a multi-arch image for `linux/amd64` and `linux/arm64`. Image tags drop the
-leading `v`, so the git tag `v0.4.3` is the image tag `0.4.3`:
+leading `v`, so the git tag `v0.5.0` is the image tag `0.5.0`:
 
 ```sh
-docker pull ghcr.io/be-sandaa/coucou:0.4.3
+docker pull ghcr.io/be-sandaa/coucou:0.5.0
 docker run --rm \
   -e DATABASE_URL=sqlite:///var/lib/coucou/coucou.db \
   -e DISCORD_BOT_TOKEN=... \
   -v coucou-data:/var/lib/coucou \
   -v "$PWD/profile:/var/lib/coucou/profile:ro" \
-  ghcr.io/be-sandaa/coucou:0.4.3
+  ghcr.io/be-sandaa/coucou:0.5.0
 ```
 
 The image carries a minimal config at the default path, `/etc/coucou/config.toml` (from
@@ -114,7 +114,7 @@ docker compose up -d --build
 ```
 
 `--build` compiles the image from your checkout. To run a published one instead, set
-`COUCOU_IMAGE=ghcr.io/be-sandaa/coucou:0.4.3` in `.env` and drop the flag.
+`COUCOU_IMAGE=ghcr.io/be-sandaa/coucou:0.5.0` in `.env` and drop the flag.
 
 ## Helm chart
 
@@ -126,7 +126,7 @@ kubectl create secret generic coucou-creds \
   --from-literal=token='<bot token>' \
   --from-literal=url='postgres://coucou:<password>@<host>:5432/coucou'
 
-helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.4.3 \
+helm install coucou oci://ghcr.io/be-sandaa/charts/coucou --version 0.5.0 \
   --set discord.existingSecret=coucou-creds \
   --set database.existingSecret=coucou-creds \
   --set sounds.existingClaim=coucou-sounds
