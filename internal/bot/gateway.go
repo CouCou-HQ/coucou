@@ -164,7 +164,7 @@ func (g *Gateway) Listeners() []bot.EventListener {
 		g.push(context.Background(), topic, message.NewMessage(watermill.NewUUID(), raw))
 	}
 	return []bot.EventListener{
-		bot.NewListenerFunc(func(e *events.GuildJoin) {
+		bot.NewListenerFunc(func(e *guildJoined) {
 			publish(TopicGuildCreate, e.Guild)
 		}),
 		bot.NewListenerFunc(func(e *events.GuildLeave) {

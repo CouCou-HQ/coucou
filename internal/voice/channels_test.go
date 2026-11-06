@@ -49,7 +49,7 @@ func newClient(t *testing.T, afk *snowflake.ID) *bot.Client {
 	// SelfMember resolves through the self-user cache rather than the client's ApplicationID, so
 	// without this Usable finds no bot member and refuses every channel.
 	c.SetSelfUser(discord.OAuth2User{User: discord.User{ID: selfID, Bot: true}})
-	c.AddGuild(discord.Guild{ID: guildID, AfkChannelID: afk})
+	c.AddGuild(discord.CacheGuild{Guild: discord.Guild{ID: guildID, AfkChannelID: afk}})
 	// The @everyone role shares the guild's id. Granting on it keeps the test free of per-channel
 	// permission overwrites.
 	c.AddRole(discord.Role{ID: guildID, GuildID: guildID, Permissions: Needed})
@@ -257,7 +257,7 @@ func TestAgeRestricted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newClient(t, nil)
-			c.Caches.AddGuild(discord.Guild{ID: guildID, NSFWLevel: tt.level})
+			c.Caches.AddGuild(discord.CacheGuild{Guild: discord.Guild{ID: guildID, NSFWLevel: tt.level}})
 			var ch discord.GuildVoiceChannel
 			raw := fmt.Sprintf(`{"id":"%s","guild_id":"%s","type":%d,"name":"ch","nsfw":%v}`,
 				openID, guildID, discord.ChannelTypeGuildVoice, tt.nsfw)

@@ -299,7 +299,7 @@ func assemble(r *run.Runner, cfg config, chars *characters.Set, db store.Store) 
 	// everything else. Interactions are the exception and stay synchronous — three seconds is not
 	// enough for a delivery that retries.
 	gw := bot.NewGateway()
-	client.AddEventListeners(slices.Concat(gw.Listeners(), bot.VoiceMembers(), cmds.Listeners(),
+	client.AddEventListeners(slices.Concat(gw.Listeners(), cmds.Listeners(),
 		[]dbot.EventListener{ready.OnReady(), pulse.OnHeartbeatAck()})...)
 
 	// And everything going the other way. The two blocks together are every edge of the system:

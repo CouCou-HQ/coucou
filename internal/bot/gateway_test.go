@@ -8,7 +8,6 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/disgoorg/disgo/discord"
-	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -186,10 +185,10 @@ func TestGatewayFrameKeepsDiscordsInterfaceFields(t *testing.T) {
 	}
 
 	// Through the real listener, so this covers the marshal the gateway actually does rather than
-	// the test's own copy of it. A nil GenericGuild is fine: the listener reads only e.Guild.
+	// the test's own copy of it. A nil GenericEvent is fine: the listener reads only e.Guild.
 	go func() {
 		for _, l := range g.Listeners() {
-			l.OnEvent(&events.GuildJoin{Guild: guild})
+			l.OnEvent(&guildJoined{Guild: guild})
 		}
 	}()
 
