@@ -47,7 +47,7 @@ func testCommands(t *testing.T, channel snowflake.ID, typ discord.ChannelType) *
 	t.Helper()
 	c := cache.New(cache.WithCaches(cache.FlagsAll))
 	c.SetSelfUser(discord.OAuth2User{User: discord.User{ID: testSelf, Bot: true}})
-	c.AddGuild(discord.Guild{ID: testGuild})
+	c.AddGuild(discord.CacheGuild{Guild: discord.Guild{ID: testGuild}})
 	// The @everyone role shares the guild's id, which keeps the test free of channel overwrites.
 	c.AddRole(discord.Role{ID: testGuild, GuildID: testGuild, Permissions: testPerms})
 	c.AddMember(discord.Member{GuildID: testGuild, User: discord.User{ID: testSelf, Bot: true}, RoleIDs: []snowflake.ID{testGuild}})

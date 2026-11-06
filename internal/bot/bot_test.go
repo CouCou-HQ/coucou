@@ -25,7 +25,7 @@ func TestRecacheMembersKeepsBotsAlreadyInVoice(t *testing.T) {
 	)
 	ch := channel
 	g := discord.GatewayGuild{
-		RestGuild:   discord.RestGuild{Guild: discord.Guild{ID: guild}},
+		CacheGuild:  discord.CacheGuild{Guild: discord.Guild{ID: guild}},
 		Members:     []discord.Member{{User: discord.User{ID: idler, Bot: true}}},
 		VoiceStates: []discord.VoiceState{{GuildID: guild, ChannelID: &ch, UserID: idler}},
 	}

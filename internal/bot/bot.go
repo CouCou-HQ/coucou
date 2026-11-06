@@ -17,6 +17,7 @@ import (
 
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/bot/handlers"
 	"github.com/disgoorg/disgo/cache"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -76,6 +77,7 @@ func New(token string, shardCount int, status profile.Status) (*bot.Client, erro
 		// This makes disgo call GetGatewayBot while constructing, so New now does network I/O:
 		// a bad token fails here rather than at open.
 		bot.WithShardManagerConfigOpts(shards...),
+		bot.WithEventManagerConfigOpts(bot.WithGatewayHandlers(gatewayHandlers())),
 		// The whole memory story: guilds, roles, voice states — and only the channels/members we read.
 		bot.WithCacheConfigOpts(
 			cache.WithCaches(cache.FlagGuilds|cache.FlagRoles|cache.FlagChannels|cache.FlagVoiceStates|cache.FlagMembers),
@@ -116,16 +118,32 @@ func presence(s profile.Status) []gateway.PresenceOpt {
 	return opts
 }
 
-// VoiceMembers re-caches the members a GUILD_CREATE carried. disgo adds them before its voice
-// states, so the in-voice policy drops them all, and voice.Humans then counts idle bots as people.
-func VoiceMembers() []bot.EventListener {
-	return []bot.EventListener{
-		bot.NewListenerFunc(func(e *events.GuildReady) { recacheMembers(e.Client().Caches, e.Guild) }),
-		bot.NewListenerFunc(func(e *events.GuildAvailable) { recacheMembers(e.Client().Caches, e.Guild) }),
-		bot.NewListenerFunc(func(e *events.GuildJoin) { recacheMembers(e.Client().Caches, e.Guild) }),
-	}
+// guildJoined is disgo's GuildJoin with the full GUILD_CREATE: since disgo 0.20 GuildJoin carries
+// only a CacheGuild, and the welcome suggestion reads the channel names the payload brought.
+type guildJoined struct {
+	*events.GenericEvent
+	Guild discord.GatewayGuild
 }
 
+// gatewayHandlers wraps disgo's GUILD_CREATE handler, the only place left that sees the whole
+// payload. A raw-event listener could too, but would decode every boot burst a second time.
+func gatewayHandlers() map[gateway.EventType]bot.GatewayEventHandler {
+	h := handlers.GetGatewayHandlers()
+	def := h[gateway.EventTypeGuildCreate]
+	h[gateway.EventTypeGuildCreate] = bot.NewGatewayEventHandler(gateway.EventTypeGuildCreate,
+		func(c *bot.Client, seq, shard int, e gateway.EventGuildCreate) {
+			joined := !c.Caches.IsGuildUnready(e.ID) && !c.Caches.IsGuildUnavailable(e.ID)
+			def.HandleGatewayEvent(c, seq, shard, e)
+			recacheMembers(c.Caches, e.GatewayGuild)
+			if joined {
+				c.EventManager.DispatchEvent(&guildJoined{GenericEvent: events.NewGenericEvent(c, seq, shard), Guild: e.GatewayGuild})
+			}
+		})
+	return h
+}
+
+// recacheMembers re-adds the members a GUILD_CREATE carried. disgo adds them before its voice
+// states, so the in-voice policy drops them all, and voice.Humans then counts idle bots as people.
 func recacheMembers(c cache.Caches, g discord.GatewayGuild) {
 	for _, m := range g.Members {
 		m.GuildID = g.ID
